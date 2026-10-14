@@ -1,0 +1,35 @@
+# Reprokit v0.1.0 Manifestサンプル
+# SHAは実在するVulhubコミット。起動成功・脆弱性再現は未検証。
+apiVersion: reprokit.dev/v1alpha1
+kind: Lab
+
+metadata:
+  id: vulhub/log4j-solr
+  name: Log4Shell on Apache Solr
+
+spec:
+  cves:
+    - CVE-2021-44228
+
+  source:
+    type: git
+    url: https://github.com/vulhub/vulhub.git
+    revision: 240f7aab24cfded9d5adbd0198143c3a28157101
+    subdirectory: log4j/CVE-2021-44228
+
+  runtime:
+    type: docker-compose
+    file: docker-compose.yml
+    platform: linux/amd64
+
+  target:
+    product: Apache Solr
+    version: "8.11.0"
+    vulnerableComponent:
+      name: Log4j
+      version: "2.14.1"
+
+  checks:
+    - type: tcp
+      service: solr
+      port: 8983

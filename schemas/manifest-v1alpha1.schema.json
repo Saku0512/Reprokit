@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/jphacks/sd_2601/main/schemas/manifest-v1alpha1.schema.json",
+  "title": "Reprokit Lab Manifest v1alpha1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "properties": {
+    "apiVersion": {
+      "const": "reprokit.dev/v1alpha1"
+    },
+    "kind": {
+      "const": "Lab"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?/[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+        },
+        "name": {
+          "$ref": "#/$defs/nonBlank"
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cves",
+        "source",
+        "runtime"
+      ],
+      "properties": {
+        "cves": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^CVE-[0-9]{4}-[0-9]{4,}$"
+          }
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "url",
+            "revision",
+            "subdirectory"
+          ],
+          "properties": {
+            "type": {
+              "const": "git"
+            },
+            "url": {
+              "type": "string",
+              "format": "uri",
+              "pattern": "^https://[^\\s/?#@]+(?:/[^\\s?#]*)?$"
+            },
+            "revision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "subdirectory": {
+              "$ref": "#/$defs/safeRelativePath"
+            }
+          }
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "file",
+            "platform"
+          ],
+          "properties": {
+            "type": {
+              "const": "docker-compose"
+            },
+            "file": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/safeRelativePath"
+                },
+                {
+                  "pattern": "\\.(?:ya?ml)$"
+                }
+              ]
+            },
+            "platform": {
+              "enum": [
+                "linux/amd64",
+                "linux/arm64"
+              ]
+            }
+          }
+        },
+        "target": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "product"
+          ],
+          "properties": {
+            "product": {
+              "$ref": "#/$defs/nonBlank"
+            },
+            "version": {
+              "$ref": "#/$defs/nonBlank"
+            },
+            "vulnerableComponent": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "version"
+              ],
+              "properties": {
+                "name": {
+                  "$ref": "#/$defs/nonBlank"
+                },
+                "version": {
+                  "$ref": "#/$defs/nonBlank"
+                }
+              }
+            }
+          }
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "service",
+              "port"
+            ],
+            "properties": {
+              "type": {
+                "const": "tcp"
+              },
+              "service": {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]*$",
+                "maxLength": 128
+              },
+              "port": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65535
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonBlank": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "\\S"
+    },
+    "safeRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$",
+      "description": "安全な相対パス。シンボリックリンクの実行時検査は別途必要。"
+    }
+  }
+}
