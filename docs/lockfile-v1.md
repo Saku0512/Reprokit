@@ -31,6 +31,9 @@ source:
   revision: 240f7aab24cfded9d5adbd0198143c3a28157101
   subdirectory: log4j/CVE-2021-44228
   composeSha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  files:
+    - path: docker-compose.yml
+      sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
 runtime:
   type: docker-compose
@@ -42,6 +45,11 @@ images:
     reference: vulhub/solr:8.11.0
     digest: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     platform: linux/amd64
+
+checker:
+  reference: alpine:3
+  digest: "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  platform: linux/amd64
 ```
 
 `images`は**Composeサービス名**をキーとする。各サービスのイメージを対応アーキテクチャ向けdigestへ固定し、`resolved.compose.yaml`には`image: ...@sha256:...`の形式で反映する。
