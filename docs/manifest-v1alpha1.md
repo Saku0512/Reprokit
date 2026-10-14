@@ -102,7 +102,7 @@ JSON Schemaはトップレベルだけでなくネストされたオブジェク
 
 - **Registry**はCVE IDから検証環境を引く索引。Manifest内の`spec.cves`から自動生成する構想。静的なGitHub管理から始める。
 - **Manifest**は環境の識別子・対応CVE・取得元・実行方式・対象と起動確認方法を宣言する正本。
-- **Lockfile**は取得したManifestのハッシュ、Gitコミット、ファイルハッシュ、イメージdigestとplatform、実効構成を固定する。**lockfileの厳密なスキーマは今後決める**。
+- **Lockfile**は取得したManifestのハッシュ、Gitコミット、ファイルハッシュ、イメージdigestとplatform、実効構成を固定する。**lockfileの厳密な形式は [Lockfile v1仕様](lockfile-v1.md) と [JSON Schema](../schemas/lock-v1.schema.json) で確定済み**。
 - **Runtime**はv0.1ではDocker Compose。`create`と`start`を分離する。
 
 登録状態も `Indexed`（索引あり）、`Resolved`（依存解決済み）、`Bootable`（起動と基本チェック成功）、`Verified`（CVE固有の再現テスト成功）を区別する。
@@ -110,6 +110,18 @@ JSON Schemaはトップレベルだけでなくネストされたオブジェク
 ## v0.1.0で対象外
 
 Dockerfileのビルド、Composeの`build`、任意のシェル／セットアップスクリプト、Docker Compose以外のRuntime、高度なHTTP/DNS等の検証、CVE再現テストの自動化、独自Registryサーバー。
+
+## 関連する採用仕様
+
+- [v0.1設計概要](architecture-v0.1.md)
+- [Registry v1](registry-v1.md)
+- [Lockfile v1](lockfile-v1.md)
+- [CLI v0.1](cli-v1.md)
+- [ローカル管理](local-storage-v1.md)
+- [Docker Runtime](runtime-v1.md)
+- [セキュリティ](security-v1.md)
+- [Provider](provider-v1.md)
+- [検証・状態管理](verification-v1.md)
 
 ## 旧README資料について
 

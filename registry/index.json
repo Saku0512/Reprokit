@@ -1,0 +1,13 @@
+{
+  "registryVersion": 1,
+  "cves": {
+    "CVE-2021-44228": [
+      "vulhub/log4j-solr"
+    ]
+  },
+  "labs": {
+    "vulhub/log4j-solr": {
+      "manifest": "manifests/vulhub/log4j-solr.yaml"
+    }
+  }
+}

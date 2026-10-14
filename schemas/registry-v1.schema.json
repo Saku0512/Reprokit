@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/jphacks/sd_2601/main/schemas/registry-v1.schema.json",
+  "title": "Reprokit Registry index v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "registryVersion",
+    "cves",
+    "labs"
+  ],
+  "properties": {
+    "registryVersion": {
+      "const": 1
+    },
+    "cves": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^CVE-[0-9]{4}-[0-9]{4,}$"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?/[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+        }
+      }
+    },
+    "labs": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?/[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "manifest"
+        ],
+        "properties": {
+          "manifest": {
+            "type": "string",
+            "maxLength": 1024,
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.?(/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+          }
+        }
+      }
+    }
+  }
+}
