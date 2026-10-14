@@ -1,5 +1,13 @@
 # Docker Compose Runtime v0.1.0
 
+## Vulhub連携時の適用方針（2026-10-15）
+
+教育MVPでは[Vulhub](https://github.com/vulhub/vulhub)の**レビュー済みDocker Compose環境を再利用**する。これは安全性検査を省略して任意の上流Composeを起動するという意味ではない。
+
+元環境が本書の許可リストに適合する場合に限りそのまま取り込み、非対応の設定（`build`、bind mount、`command`等）が必要な場合は**そのLabを教材候補から外すか、個別のレビュー済み互換アダプターを管理対象にして差分と参照を固定・検査**する。自動で制限を弱める機能は付けない。初期の教材は許可範囲内で動作する環境を選び、必要なGo Core機能のみ実装する。
+
+詳細：[Vulhub連携・教育MVP](vulhub-learning-mvp.md)。
+
 ## 基本方針
 
 - Runtimeは**Docker Composeのみ**。Dockerfile/Compose `build`はv0.1で非対応。

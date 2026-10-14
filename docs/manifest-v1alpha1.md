@@ -4,6 +4,10 @@
 >
 > [機械可読なJSON Schema（Draft 2020-12）](../schemas/manifest-v1alpha1.schema.json) / [Manifestサンプル](../examples/vulhub-log4j-solr.reprokit.yaml)
 
+## Vulhubを元にしたMVPとの関係（2026-10-15）
+
+初期教材のLab定義は**VulhubのGitコミットSHA + ディレクトリ + Composeを参照する方式**を優先し、元環境を新規作成しない。Manifest/JSON Schemaは技術的な参照仕様として維持するが、教育MVPの開発では少数のレビュー済みLabから始める。上流で未対応の構成があれば実行せず、教材対象から外すか、レビュー済み互換差分を固定して扱う（[MVP仕様](vulhub-learning-mvp.md)）。
+
 ## 教育目的への移行について
 
 このManifestは**教材が使う検証環境のみを定義**する技術仕様として維持する。教材本文や学習目標は別のLessonで定義する（[教材設計方針](learning-content.md)）。Manifestのスキーマは今回変更しない。
