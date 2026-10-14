@@ -6,16 +6,18 @@
 
 **プロダクトの主目的はCVEを体験しながら学ぶセキュリティ教育。** Registry・Manifest・Lockfile・Runtimeはそのためのローカル検証環境基盤として提供する。脆弱性スキャナーやExploit生成ツールではない。
 
-[プロダクトビジョン](product-vision.md)と[教材設計方針](learning-content.md)が教育上の要件を定める。学習用UIの方式は[比較資料](interface-study.md)で検討中。
+[プロダクトビジョン](product-vision.md)と[教材設計方針](learning-content.md)が教育上の要件を定める。**学習画面はローカルWeb UI、環境管理にはGo CoreとCLIを共通利用する構成を採用済み**（[UI設計](interface-study.md)）。
 
-**データの流れ：** `Registry → Manifest → Lockfile → Docker Compose`
+**データの流れ：** `Web UI / CLI → Go Core → Registry / Lesson / Manifest → Lockfile → Docker Compose`。
+
+Web UIはGo製のローカルHTTPサーバーから提供し、`reprokit ui`で起動する。Labの自動起動は行わない。既存の環境定義・再現性・安全性の仕様はWebとCLIで共通。
 
 | 項目 | v0.1.0 採用仕様 | 文書 |
 | --- | --- | --- |
 | Manifest | YAML / `reprokit.dev/v1alpha1` / Gitコミット固定 / Compose専用 | [Manifest](manifest-v1alpha1.md) |
 | Registry | GitHubの静的JSON索引、Manifestから生成、キャッシュ24h、Git SHAでスナップショット識別 | [Registry](registry-v1.md) |
 | Lockfile | `reprokit.lock`（YAML）、Manifest/ソース/Compose/イメージを固定、変更時は起動拒否 | [Lockfile](lockfile-v1.md) |
-| CLI | `search/create/info/start/stop/delete/list/registry update`、複数候補は対話選択 | [CLI](cli-v1.md) |
+| Web UI / CLI | 教材の主画面はローカルWeb。Go CoreをCLI/HTTP APIで共通利用。`reprokit ui`で起動 | [UI構成](interface-study.md) / [CLI](cli-v1.md) |
 | ローカル保存 | LinuxのXDG規約に従い設定・環境・キャッシュ・ログを分離 | [Storage](local-storage-v1.md) |
 | 実行 | Docker Compose projectごとに隔離、デタッチ、公開ポートは`127.0.0.1`に制限 | [Runtime](runtime-v1.md) |
 | 安全対策 | 未対応/危険な設定を拒否し、Dockerは完全な隔離境界とみなさない | [Security](security-v1.md) |
@@ -25,8 +27,9 @@
 ## リポジトリ上の予定構成
 
 ```text
-cmd/reprokit/          # Go CLI（今後実装）
-internal/{cli,registry,manifest,resolver,lockfile,runtime,security,storage}/
+cmd/reprokit/          # Go CLIとローカルWeb起動エントリ（今後実装）
+web/                  # 教材表示用フロントエンド（技術選定は未確定）
+internal/{cli,registry,lesson,manifest,resolver,lockfile,runtime,security,storage,server}/
 registry/index.json
 registry/manifests/vulhub/
 schemas/manifest-v1alpha1.schema.json
@@ -39,6 +42,7 @@ tests/                # 今後実装
 
 ## v0.1.0の完了条件（教育目的に伴い追加）
 
+- `reprokit ui`で初心者向けWeb教材画面を開ける。既存のCLI環境操作も独立して使える。
 - 初学者が選べる最低1本の学習教材があり、学習目標・手順・観察ポイント・原因と対策まで提示できる。
 - 取得・起動だけでは完成とせず、1本の教材を初学者が最後まで進められるかを検証する。
 - 環境構築を支える以下の技術要件も満たす。

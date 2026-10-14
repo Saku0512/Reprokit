@@ -47,6 +47,6 @@
 - Lesson本体のファイル形式（YAMLメタデータ+Markdown本文など）
 - 登録・レビュー・更新ルール、言語別教材の置き方
 - 学習進捗・到達度の保存仕様
-- CLI/Webの見せ方とLesson検索の提供手段
+- 採用済みのローカルWeb UIでLessonをどう検索・表示するかの詳細（CLI/Go Coreと同じデータを使用）
 
-これらは**採用済みと誤認しない**。
+Lesson Schemaや細かな実装仕様は**未決定**。ただし学習インターフェースについては**ローカルWeb UI + Go Core/CLIを採用済み**（[UI設計](interface-study.md)）。

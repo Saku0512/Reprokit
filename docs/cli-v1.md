@@ -1,4 +1,4 @@
-> **2026-10-14 プロダクト方針変更：ReprokitはCVEを使った初学者向けセキュリティ教育ツールへ全面移行した。** 本書のRegistry/Manifest/Lockfile/CLIの仕様は教材を動かす技術基盤の設計であり、製品の主目的を意味しない。現行方針は[プロダクトビジョン](product-vision.md)を参照。学習UIの方式は検討中。
+> **2026-10-14 プロダクト方針変更：ReprokitはCVEを使った初学者向けセキュリティ教育ツールへ全面移行した。** 本書のRegistry/Manifest/Lockfile/CLIの仕様は教材を動かす技術基盤の設計であり、製品の主目的を意味しない。現行方針は[プロダクトビジョン](product-vision.md)を参照。学習UIはローカルWebに決定済み。Go CoreをCLIとWebで共通利用する（[UI設計](interface-study.md)）。
 
 # CLI v0.1.0 仕様
 
@@ -8,6 +8,7 @@
 
 | コマンド | 主な用途 |
 | --- | --- |
+| `reprokit ui` | ローカルWeb学習画面を起動（Labの自動起動はしない） |
 | `reprokit search <CVE-ID>` | Registryから候補Labを探す |
 | `reprokit create <CVE-ID> [--lab <lab-id>] [--name <name>]` | ソース取得・解決・固定。**起動しない** |
 | `reprokit create <lab-id> [--name <name>]` | Lab IDの直接指定 |
@@ -67,3 +68,9 @@ reprokit create CVE-2021-44228 --lab vulhub/log4j-solr --offline
 ```
 
 `--offline`は**Registryの通信をしない**指定であり、キャッシュの使用コミットと期限を表示する。キャッシュがなければエラー。またGitソースやイメージが未取得なら`create`は追加の取得を必要とし、ネットワークが利用できない場合は失敗する。`registry update`には`--offline`を認めない。
+
+## ローカルWeb起動（採用済み）
+
+`reprokit ui` は `127.0.0.1` の空きポートでGo製ローカルHTTPサーバーを起動し、学習者向けWeb UIを提供する。ブラウザの自動起動が不可能な場合はアクセス先を表示する。Web UIからの状態変更はGo Coreの共通安全性検査を必ず通す。
+
+このコマンドは**画面を起動するだけ**で、脆弱性LabやDockerコンテナを自動起動しない。Web UIでの環境操作とCLIは同じInstance ID・Registry・Lockfile・Runtimeを共有する。技術詳細は[UI設計](interface-study.md)。
