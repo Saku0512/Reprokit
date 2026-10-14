@@ -60,3 +60,31 @@ images:
 
 Gitコミットやdigestの固定は、ホストカーネル、Dockerの挙動、時刻、外部通信、永続Volumeデータまで固定するものではない。再現性は「固定した入力群と実行条件を追跡できる」意味であり、CVEが必ず再現できるという保証ではない。
 
+## 参照ファイルとチェック用イメージの固定（追加確定）
+
+- `source.files`を**必須**とし、実際に実行に関わるローカル参照ファイルを`path`（`source.subdirectory`からの相対パス）と`sha256`で列挙する。パスの重複を拒否する。
+- v0.1のCompose許可リストでは`env_file`・bind mount・`build`などの外部ファイル入力は拒否する。従って最低でも`spec.runtime.file`に指定したComposeファイルが`source.files`に必要。
+- `source.composeSha256`は互換のため残し、`source.files`に含まれるComposeファイルのsha256と一致させる。
+- Manifestの`spec.checks`がある場合、CLIがTCPチェックに使うイメージを`checker`に固定する。参照名は`alpine:3`、digestは`create`時にプラットフォーム別に解決。`start`時はタグを追跡し直さない。
+- `spec.checks`がなければ`checker`は省略。存在条件はManifestと突き合わせて検証する。
+
+### 完全なLockfile形状の補足
+
+既存の例の`source`へ次を追加する（digestやハッシュは**説明用のダミー値**）：
+
+```yaml
+  files:
+    - path: docker-compose.yml
+      sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+```
+
+`spec.checks`がある場合はルートに次も追加する：
+
+```yaml
+checker:
+  reference: alpine:3
+  digest: "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  platform: linux/amd64
+```
+
+`source.files`や`checker`の形状は[Lockfile JSON Schema](../schemas/lock-v1.schema.json)に反映する。実行直前にバイト列のハッシュとdigestを再照合する。

@@ -55,3 +55,13 @@ reprokit delete another-lab --volumes
 
 `reprokit update`、任意スクリプト実行、起動時の無条件`--force`、外部公開を許可するフラグ、複数Registryの動的追加は対象外。
 
+## Registryオフライン操作（追加確定）
+
+`search`と`create`に`--offline`を追加。
+
+```bash
+reprokit search CVE-2021-44228 --offline
+reprokit create CVE-2021-44228 --lab vulhub/log4j-solr --offline
+```
+
+`--offline`は**Registryの通信をしない**指定であり、キャッシュの使用コミットと期限を表示する。キャッシュがなければエラー。またGitソースやイメージが未取得なら`create`は追加の取得を必要とし、ネットワークが利用できない場合は失敗する。`registry update`には`--offline`を認めない。

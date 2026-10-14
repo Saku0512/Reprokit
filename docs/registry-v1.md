@@ -64,3 +64,13 @@ registry/
 3. JSONをキー・配列ともに安定順序で書き出す。
 4. PRのCIでは生成結果とコミット済み`index.json`が一致するか検証する。
 
+## 公式Registryの取得プロトコル（追加確定）
+
+デフォルトの公開元は`jphacks/sd_2601`の`main`。取得時に`https://api.github.com/repos/jphacks/sd_2601/git/ref/heads/main`の`object.sha`を一度だけ解決し、以降は同じコミットに固定して次を取得する。
+
+1. `https://raw.githubusercontent.com/jphacks/sd_2601/<commit>/registry/index.json`
+2. `https://raw.githubusercontent.com/jphacks/sd_2601/<commit>/registry/<manifest-path>`
+
+JSON SchemaとManifestのCVE/Lab ID照合、パス・URL・応答サイズ・タイムアウトの検証後、SHAで指定したスナップショットを原子的にキャッシュする。`main`を取得途中で再解決しない。Git SHAはバージョン識別子であって署名ではない。
+
+キャッシュTTLは既定の**24時間**。`reprokit registry update`はオンラインで更新。更新失敗時に古いキャッシュを最新と偽らない。`search`/`create`の明示的`--offline`でのみ期限切れのキャッシュを利用可能とし、その時点とSHAを警告表示する。初回でキャッシュがなければエラーとする。

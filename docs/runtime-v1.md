@@ -54,3 +54,28 @@ IPv6・外部IPへの公開、ホストポート番号未指定の自動割当�
 - named volumeは利用可能だが、ホストのbind mount・ホストネットワーク・特権設定は拒否。
 - Composeの実効構成と、そこから作成する`resolved.compose.yaml`のハッシュをLockfileで照合する。
 
+## Docker Compose 許可リスト（追加確定）
+
+v0.1は元のCompose YAMLを**厳格な許可リスト**で検証し、正規化後の実効Composeも再検査する。許可されないキーは警告ではなく拒否する。
+
+| 位置 | 許可するキー | 許可する形式 |
+| --- | --- | --- |
+| 最上位 | `version`、`services`、`volumes`、`networks` | `version`は旧形式の互換入力のみ。`name`は拒否 |
+| サービス | `image` | 全サービス必須。digest固定できる参照のみ |
+| サービス | `ports` | TCP短縮形式`"HOST:CONTAINER"`または`"127.0.0.1:HOST:CONTAINER"`。各ポート1～65535、前者は後者に正規化 |
+| サービス | `environment` | 文字列→文字列の固定値マップ。null・配列・`$`による補間は不可 |
+| サービス | `depends_on` | サービス名の短形式配列。存在・循環を検査 |
+| サービス | `volumes` | 宣言済みnamed Volumeの`volume-name:/container/path[:ro|rw]`のみ |
+| サービス | `networks` | 宣言済みのproject内Bridge名の配列。1サービス最大1ネットワーク |
+| 最上位`volumes` | `name: {}` | 外部指定・driver_opts・明示名を禁止 |
+| 最上位`networks` | `name: {}` | project専用Bridgeのみ。`external`/`ipam`/driver_opts禁止 |
+
+`volumes`・`networks`の省略は可能。省略時はComposeがproject専用のdefault Bridgeを作る。`restart`は未指定か`"no"`だけを許し、実効Composeでは`restart: "no"`に固定。`expose`・`user`・`container_name`・`command`・`entrypoint`・`healthcheck`・`build`・`secrets`・`configs`・`include`・`extends`・`env_file`・`profiles`・`deploy`その他許可外の属性は拒否する。YAMLアンカー、マージ、エイリアスもv0.1では拒否する。
+
+明示的な`0.0.0.0`/外部IP/IPv6バインド、UDP、ポート範囲・省略・動的割当・長形式は非対応。ループバック公開は外向き通信を阻止しない。Docker Image本来のENTRYPOINTは第三者コードとして実行されるため、元Composeによる上書きを拒否しても安全性は保証できない。
+
+## 専用TCPチェック用コンテナ
+
+`checks`が指定されている場合、`create`で`alpine:3`のplatform別digestを解決しLockfileの`checker`へ記録。`start`時はdigest固定イメージで**短命な専用チェックコンテナ**を作り、対象サービスと同じproject Bridgeに接続して`nc -z -w 3 <service> <port>`相当を実行する。CLIが作った引数配列を使用し、シェル文字列の組み立てをしない。
+
+チェッカーは`--rm`、`--cap-drop=ALL`、`--read-only`、`no-new-privileges`、ホストポート・bind mountなし。必要なBridge以外へは接続しない。3秒/回、2秒間隔、起動から計60秒以内。`checks`未定義ならBootable判定しない。
