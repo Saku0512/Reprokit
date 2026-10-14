@@ -34,3 +34,10 @@
 
 `Verified`の自動判定、Exploit実行、任意スクリプトでのチェック、HTTP/DNS/プロセス別の高度なチェック、外部端末からの動作確認。
 
+## チェック用コンテナの実装方式（追加確定）
+
+- `spec.checks`を持つ環境では`create`時に`alpine:3`をplatform別digestへ解決し、`reprokit.lock`の`checker`に固定する。
+- `start`後、対象Composeサービスと**同じProject Bridge**へ短命なチェック用コンテナを参加させる。固定イメージ・固定引数の`nc -z -w 3 <service> <container-port>`相当を使い、シェル文字列補間はしない。
+- チェッカーはホスト公開ポート、Bind Mount、追加Capabilityを持たず、root filesystemはread-only、`no-new-privileges`。チェック後に必ず削除する。
+- 対象サービスが所属するネットワークを確認してから接続する。3秒/回、2秒間隔、全体60秒を上限とし、全checks成功のみBootable判定。
+- `checks`があるのにLockfileの`checker`が欠けている、またはdigest不一致なら判定せずエラー。`checks`未指定ならBootableと判定しない。

@@ -48,3 +48,10 @@
 
 ユーザー所有または明示的な許可のある検証環境に限定する。取得時に信頼性や脆弱性の再現可能性を保証する表示を行わない。
 
+## 具体的なCompose許可条件（追加確定）
+
+[Runtime v0.1の許可リスト](runtime-v1.md)に記載したキーだけを許容する。元Compose YAMLと解決済みComposeの両方を検査し、未知のオプション・変数展開・YAMLアンカー/マージ・ホスト参照を拒否する。対応するのはimage、固定TCP ports、固定値environment、短形式depends_on、project所有のnamed volumesとBridge networksに限る。
+
+検証チェッカーも第三者イメージであるため、`alpine:3`を`create`時にdigest固定し、`start`時はCLIが定義したコマンドを短命な最小権限コンテナで実行する。Manifest経由の任意スクリプトは受け付けない。
+
+Lockfileに全ての参照ファイルを`source.files`として列挙・ハッシュ固定し、起動前に照合する。既定の`127.0.0.1`公開は安全境界ではなく、Bridgeから外部への通信は可能。Docker Engine 28.0.0以上、Compose v2.36.1以上を前提として安全性を再検査する。

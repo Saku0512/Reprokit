@@ -53,3 +53,14 @@ tests/                # 今後実装
 - CLI動作やComposeに対する意味検証は、このドキュメント群の規則を参照する。
 - [概要資料](reprokit-overview.md)は元のREADMEの保存コピーであり、古いManifest例等は本仕様に優先しない。
 
+## 追加確定：実装前の7項目（2026-10-14）
+
+1. Composeの**許可リスト**を採用。image・固定TCP ports・固定値environment・短形式depends_on・named volumes・project専用Bridgeのみサポート。詳細は[Runtime](runtime-v1.md)。
+2. GitHub APIで公式RegistryのmainコミットSHAを一度だけ解決。index/Manifestを同じSHAから取得し、キャッシュ24時間。明示的`--offline`対応。[Registry](registry-v1.md)
+3. TCPチェックは短命な専用コンテナで内部Bridge経由に実行。`alpine:3`のdigestも固定。[Verification](verification-v1.md)
+4. Lockfileに参照ファイル`source.files`のSHA-256、チェック用イメージ`checker`を追加。[Lockfile](lockfile-v1.md)
+5. Volumeは既定保持し、削除後の所有関係を`volumes.json`に保存。[Local Storage](local-storage-v1.md)
+6. `create`はステージングと原子的rename。`start`失敗は対象Projectだけロールバック。[Local Storage](local-storage-v1.md)
+7. Go 1.27.2、Linux、Docker Engine 28以上、Compose v2.36.1以上、GitHub Actionsのテスト方針を採用。[開発・CI](development-testing-v1.md)
+
+これらは**仕様の採用**であり実装完了ではない。
