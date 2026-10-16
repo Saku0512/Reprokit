@@ -4,7 +4,7 @@
 
 ## 2026-10-15：教育MVPの開発優先順位を変更
 
-**現行のMVPは[Vulhubの既存Labを使ったWeb学習体験](vulhub-learning-mvp.md)を優先。** 以前の環境管理中心のロードマップを製品の最優先課題とはしない。Vulhubの既存Compose環境・再現手順を元に、日本語解説、手動PoC、結果の理解、原因と修正方法、片付けまでの一連の学習導線を完成させる。
+**現行のMVPは[Vulhubを標準カタログとするWeb学習体験](vulhub-learning-mvp.md)を優先。** 初期教材は[CVE-2021-41773とCVE-2026-54088](initial-lessons.md)。前者はVulhub由来Lab、後者はReprokit管理のVulhub互換Labとして、同じGo Coreと安全性規則で扱う。以前の環境管理中心のロードマップを製品の最優先課題とはしない。
 
 下記のManifest/Registry/Lockfile/Runtime仕様は**将来的に拡張可能な安全な基盤設計**として維持。高度な共通Registryや汎用環境管理の完全実装を、最初の教材Web MVPの必須条件とはしない。一方、起動前の安全性検査、取得元の固定、明示起動は維持する。
 
@@ -14,7 +14,7 @@
 
 [プロダクトビジョン](product-vision.md)と[教材設計方針](learning-content.md)が教育上の要件を定める。**学習画面はローカルWeb UI、環境管理にはGo CoreとCLIを共通利用する構成を採用済み**（[UI設計](interface-study.md)）。
 
-**データの流れ：** `学習者 → Web教材/CLI → Go Core → Lesson + Vulhub Lab参照 → Manifest/Lock → Docker Compose`。
+**データの流れ：** `学習者 → Web教材/CLI → Go Core → Lesson + Lab Resolver（Vulhub / Vulhub互換） → Manifest/Lock → Docker Compose`。
 
 Web UIはGo製のローカルHTTPサーバーから提供し、`reprokit ui`で起動する。Labの自動起動は行わない。既存の環境定義・再現性・安全性の仕様はWebとCLIで共通。
 
@@ -27,7 +27,7 @@ Web UIはGo製のローカルHTTPサーバーから提供し、`reprokit ui`で�
 | ローカル保存 | LinuxのXDG規約に従い設定・環境・キャッシュ・ログを分離 | [Storage](local-storage-v1.md) |
 | 実行 | Docker Compose projectごとに隔離、デタッチ、公開ポートは`127.0.0.1`に制限 | [Runtime](runtime-v1.md) |
 | 安全対策 | 未対応/危険な設定を拒否し、Dockerは完全な隔離境界とみなさない | [Security](security-v1.md) |
-| Provider | v0.1は共通Git取得処理。専用Provider拡張はv0.2以降 | [Provider](provider-v1.md) |
+| Provider | v0.1は共通Git取得処理でVulhub由来LabとVulhub互換Labを解決。専用プロトコルはv0.2以降 | [Provider](provider-v1.md) |
 | 検証 | ライフサイクルと検証レベルを分離。起動/TCPの基本チェックまで | [Verification](verification-v1.md) |
 
 ## リポジトリ上の予定構成
@@ -35,6 +35,8 @@ Web UIはGo製のローカルHTTPサーバーから提供し、`reprokit ui`で�
 ```text
 cmd/reprokit/          # Go CLIとローカルWeb起動エントリ（今後実装）
 web/                  # 教材表示用フロントエンド（技術選定は未確定）
+lessons/              # CVEごとの教材メタデータと本文（今後実装）
+labs/                 # Reprokit管理のVulhub互換Labと互換アダプター（今後実装）
 internal/{cli,registry,lesson,manifest,resolver,lockfile,runtime,security,storage,server}/
 registry/index.json
 registry/manifests/vulhub/
@@ -48,8 +50,8 @@ tests/                # 今後実装
 
 ## 教育MVPの完了条件（最新）
 
-1. Webで**少なくとも1つ**の初心者向けCVE教材を選び、日本語で前提・脆弱性の概要・学習目標を読める。
-2. 対応するVulhubの固定済みLabを安全性確認後に取得し、学習者が**明示起動**できる。
+1. Webで**CVE-2021-41773とCVE-2026-54088**を選び、日本語で前提・脆弱性の概要・学習目標を読める。
+2. Vulhub由来LabとVulhub互換Labを共通の取得・安全性確認フローで扱い、学習者が**明示起動**できる。
 3. Webのステップ解説とPoC操作例を見ながら、学習者自身がローカルLabで検証し、観察結果を理解できる。
 4. 原因と修正・緩和方法、片付けまで説明し、停止・削除できる。
 5. 初学者が上記の一連の体験を完走できるかユーザーテストする。
@@ -57,8 +59,8 @@ tests/                # 今後実装
 ## 従来の技術基盤の完了条件（後続の拡張ロードマップ）
 
 - `reprokit ui`で初心者向けWeb教材画面を開ける。既存のCLI環境操作も独立して使える。
-- 初学者が選べる最低1本の学習教材があり、学習目標・手順・観察ポイント・原因と対策まで提示できる。
-- 取得・起動だけでは完成とせず、1本の教材を初学者が最後まで進められるかを検証する。
+- 初学者が選べる初期2教材があり、学習目標・処理経路・手順・観察ポイント・原因と対策まで提示できる。
+- 取得・起動だけでは完成とせず、両教材を初学者が最後まで進められるかを検証する。
 - 環境構築を支える以下の技術要件も満たす。
 
 - CVE IDで検索し、複数候補があれば環境を選択できる。
