@@ -6,7 +6,9 @@
 
 元環境が本書の許可リストに適合する場合に限りそのまま取り込み、非対応の設定（`build`、bind mount、`command`等）が必要な場合は**個別のレビュー済み互換アダプターを管理対象にして、上流コミット・元ファイル・差分を固定・検査**する。自動で制限を弱める機能は付けない。
 
-初期教材のCVE-2021-41773はfork内の元Composeが`build: .`を使用するため、固定Dockerfileから事前ビルドしたレビュー済みイメージをdigest固定し、許可リスト内のComposeへ変換する。CVE-2026-54088はforkの`filebrowser/CVE-2026-54088`へ追加し、脆弱版2.63.5と修正版2.63.6の比較に必要な事前ビルド済みイメージを使用する。
+初期教材のCVE-2021-41773はfork内の元Composeが`build: .`を使用するため、固定Dockerfileからfork CIで事前ビルドしたレビュー済みイメージを`ghcr.io/saku0512/*`へ公開し、digest固定して許可リスト内のComposeから使う。CVE-2026-54088はforkの`filebrowser/CVE-2026-54088`へ追加済み。元Composeの`profiles`は許可リスト外のため直接実行せず、脆弱版2.63.5と修正版2.63.6を異なるloopbackポートで起動する`reprokit.compose.yml`を使用する。
+
+Docker Hubの`vulhub/*`はupstream管理の名前空間であり、独自Lab用イメージの公開先として仮定しない。詳細は[Lab昇格設計](lab-catalog-runtime-v0.1.md)。
 
 詳細：[Vulhub連携・教育MVP](vulhub-learning-mvp.md)。
 
