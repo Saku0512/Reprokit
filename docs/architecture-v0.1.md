@@ -27,7 +27,7 @@ Web UIはGo製のローカルHTTPサーバーから提供し、`reprokit ui`で�
 | ローカル保存 | LinuxのXDG規約に従い設定・環境・キャッシュ・ログを分離 | [Storage](local-storage-v1.md) |
 | 実行 | Docker Compose projectごとに隔離、デタッチ、公開ポートは`127.0.0.1`に制限 | [Runtime](runtime-v1.md) |
 | 安全対策 | 未対応/危険な設定を拒否し、Dockerは完全な隔離境界とみなさない | [Security](security-v1.md) |
-| Provider | v0.1は`Saku0512/vulhub`の固定スナップショットを共通Git取得処理で解決。専用プロトコルはv0.2以降 | [Provider](provider-v1.md) |
+| Provider | v0.1は`Saku0512/vulhub`の固定スナップショットを共通Git取得処理で解決。独自イメージはGHCRへ昇格 | [Provider](provider-v1.md) / [Lab昇格](lab-catalog-runtime-v0.1.md) |
 | 検証 | ライフサイクルと検証レベルを分離。起動/TCPの基本チェックまで | [Verification](verification-v1.md) |
 
 ## リポジトリ上の予定構成
@@ -89,3 +89,7 @@ tests/                # 今後実装
 7. Go 1.27.2、Linux、Docker Engine 28以上、Compose v2.36.1以上、GitHub Actionsのテスト方針を採用。[開発・CI](development-testing-v1.md)
 
 これらは**仕様の採用**であり実装完了ではない。
+
+## 2026-10-17：fork追加Labを前提とする実装境界
+
+CVE-2026-54088の脆弱版・修正版環境はforkへ追加済み。Reprokitは元ComposeやDockerfileを利用者端末で直接実行せず、fork CIで`ghcr.io/saku0512/*`へ昇格したイメージと、許可リストに適合する`reprokit.compose.yml`だけを使う。Registry Manifestがfork SHAを固定し、クライアントはforkの`master`を動的に追跡しない。詳細は[Lab昇格設計](lab-catalog-runtime-v0.1.md)。
