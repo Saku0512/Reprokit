@@ -1,16 +1,16 @@
 # 初期教材とLab提供方針
 
-> **決定：2026-10-16。** 教育MVPの初期教材をCVE-2021-41773とCVE-2026-54088の2本に固定する。Labの標準提供元はVulhubとし、未収録CVEはReprokit管理のVulhub互換Labで補完する。
+> **決定：2026-10-16。** 教育MVPの初期教材をCVE-2021-41773とCVE-2026-54088の2本に固定する。Labは[`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)を単一のカタログとして参照し、upstreamから継承した環境とforkへ追加した独自環境を同じ方法で扱う。
 
 ## 用語と実行方式
 
-- **Vulhub由来Lab**：`vulhub/vulhub`の固定Gitコミットと環境ディレクトリを参照するLab。
-- **Vulhub互換Lab**：Vulhubと同様に、CVE単位のディレクトリ、Docker Compose、環境説明を持つReprokit管理のLab。
-- **互換アダプター**：上流ComposeがReprokitの許可リストに適合しない場合、出典と差分を記録したうえで、安全な事前ビルド済みイメージと制限済みComposeへ変換する定義。
+- **upstream由来Lab**：forkが`vulhub/vulhub`から継承した環境ディレクトリ。
+- **fork追加Lab**：Vulhubに未収録のCVEについて、同じCVE単位レイアウトで`Saku0512/vulhub`へ追加する環境。
+- **互換アダプター**：ComposeがReprokitの許可リストに適合しない場合、出典と差分を記録したうえで、安全な事前ビルド済みイメージと制限済みComposeへ変換する定義。
 
-Vulhubは検証環境のリポジトリであり、実行用CLIではない。ReprokitのGo CoreがRegistry/ManifestからGitソースを解決し、固定コミットのファイルを取得し、安全性検査後にDocker Composeを実行する。
+Vulhubは検証環境のリポジトリであり、実行用CLIではない。ReprokitのGo CoreがRegistry/Manifestから`Saku0512/vulhub`の`master`を一度コミットSHAへ解決し、同じSHAから対象ディレクトリを取得して、安全性検査後にDocker Composeを実行する。
 
-Vulhub由来LabとVulhub互換Labは、取得元が異なるだけで、Manifest、Lockfile、Runtime、安全性検査、明示起動、停止・削除の規則を共有する。独自Labを無条件に信頼する例外経路は作らない。
+upstream由来Labとfork追加Labは同じforkのスナップショット内にあり、Manifest、Lockfile、Runtime、安全性検査、明示起動、停止・削除の規則を共有する。所有するforkだからといって独自Labを無条件に信頼する例外経路は作らない。
 
 ## 教材1：CVE-2021-41773
 
@@ -19,7 +19,7 @@ Vulhub由来LabとVulhub互換Labは、取得元が異なるだけで、Manifest
 | 製品 | Apache HTTP Server 2.4.49 |
 | 分類 | パストラバーサル / 情報漏えい。条件によりRCE |
 | 難易度 | 入門 |
-| 提供元 | Vulhub `httpd/CVE-2021-41773` |
+| 提供元 | `Saku0512/vulhub`の`httpd/CVE-2021-41773`（upstream由来） |
 | 初期演習 | コンテナ内に置いた無害なマーカーファイルの読み取り |
 | 発展 | CGI有効時に影響が拡大する理由の説明。RCE操作は初期必須にしない |
 
@@ -33,7 +33,7 @@ Vulhub由来LabとVulhub互換Labは、取得元が異なるだけで、Manifest
 6. コンテナ内の検証用ファイルがHTTPレスポンスへ返る。
 7. 修正版の正規化と拒否動作を比較する。
 
-Vulhubの元Composeは`build: .`を使用するため、v0.1のRuntimeでは直接実行しない。固定した上流Dockerfileからレビュー済みイメージを事前ビルドし、digest固定した互換アダプターを使用する。教材画面には上流コミット、元ディレクトリ、アダプターの差分を表示する。
+fork内の元Composeはupstreamと同じく`build: .`を使用するため、v0.1のRuntimeでは直接実行しない。固定したDockerfileからレビュー済みイメージを事前ビルドし、digest固定した互換アダプターを使用する。教材画面にはforkコミット、upstream由来であること、元ディレクトリ、アダプターの差分を表示する。
 
 ## 教材2：CVE-2026-54088
 
@@ -42,7 +42,7 @@ Vulhubの元Composeは`build: .`を使用するため、v0.1のRuntimeでは直�
 | 製品 | File Browser 2.63.5 |
 | 分類 | Hook Authenticationの未認証OSコマンドインジェクション |
 | 難易度 | 初級〜中級 |
-| 提供元 | Reprokit管理のVulhub互換Lab |
+| 提供元 | `Saku0512/vulhub`へ追加する`filebrowser/CVE-2026-54088` |
 | 比較対象 | 脆弱版2.63.5 / 修正版2.63.6 |
 | 初期演習 | 隔離コンテナ内の検証用マーカーで、入力が危険な実行経路へ到達したことだけを確認 |
 
@@ -56,7 +56,7 @@ Vulhubの元Composeは`build: .`を使用するため、v0.1のRuntimeでは直�
 6. 実行権限がFile Browserプロセスの権限になることを確認する。
 7. 修正版ではコマンド引数への展開が削除され、資格情報が環境変数だけで渡されることを比較する。
 
-このLabは上流File Browserの脆弱版ソース・公式アドバイザリ・修正差分を出典として記録する。Vulhub互換レイアウトで管理し、将来Vulhubへ提案可能な形を保つが、Vulhubへの収録をMVPの前提にしない。
+このLabは`Saku0512/vulhub`の`filebrowser/CVE-2026-54088`へ追加し、上流File Browserの脆弱版ソース・公式アドバイザリ・修正差分を出典として記録する。将来`vulhub/vulhub`へ提案可能な形を保つが、upstreamへの収録をMVPの前提にしない。
 
 ## Web UIの共通構成
 
@@ -77,12 +77,13 @@ Vulhubの元Composeは`build: .`を使用するため、v0.1のRuntimeでは直�
 
 - 2教材がWeb UIから選択できる。
 - 両教材で説明、環境取得、明示起動、安全な観察、原因、修正比較、停止・削除まで完走できる。
-- Vulhub由来LabとVulhub互換Labを同じGo Coreの処理で扱える。
+- 1つのforkスナップショットからupstream由来Labとfork追加Labを同じGo Coreの処理で扱える。
 - 取得元のGit SHA、ディレクトリ、Manifest、Compose、イメージdigestをLockfileへ記録できる。
 - 初学者テストで、利用者が処理経路と対策を自分の言葉で説明できる。
 
 ## 参照元
 
-- [Vulhub: CVE-2021-41773](https://github.com/vulhub/vulhub/tree/master/httpd/CVE-2021-41773)
+- [Reprokit用Vulhub fork](https://github.com/Saku0512/vulhub)
+- [upstream Vulhub: CVE-2021-41773](https://github.com/vulhub/vulhub/tree/master/httpd/CVE-2021-41773)
 - [Apache HTTP Server security information](https://httpd.apache.org/security/vulnerabilities_24.html)
 - [File Browser advisory GHSA-m93h-4hw7-5qcm](https://github.com/filebrowser/filebrowser/security/advisories/GHSA-m93h-4hw7-5qcm)

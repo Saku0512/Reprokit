@@ -15,17 +15,17 @@ Reprokitは、脆弱性の説明を読むだけでなく、管理されたロー
 
 | 教材 | 主題 | Labの提供元 |
 | --- | --- | --- |
-| CVE-2021-41773 | Apache HTTP Serverのパス正規化不備によるパストラバーサル | Vulhubの固定コミットを参照し、Reprokit互換アダプターで実行 |
-| CVE-2026-54088 | File Browser Hook Authenticationの未認証OSコマンドインジェクション | Reprokit管理のVulhub互換Lab |
+| CVE-2021-41773 | Apache HTTP Serverのパス正規化不備によるパストラバーサル | `Saku0512/vulhub`がupstreamから継承するLab |
+| CVE-2026-54088 | File Browser Hook Authenticationの未認証OSコマンドインジェクション | `Saku0512/vulhub`へ追加する独自Lab |
 
 教材は「入力 → 変換 → 信頼境界 → 危険な処理 → 影響 → 修正」の順に表示し、脆弱版と修正版の違いまで説明します。詳細は[初期教材方針](docs/initial-lessons.md)を参照してください。
 
 ## Labの扱い
 
-- Vulhubを標準のLabカタログとして内部利用します。
-- ReprokitはVulhubのCLIを起動するのではなく、固定したGitコミットと環境ディレクトリを取得し、検査後にDocker Composeで実行します。
-- Vulhubに未収録のCVEは、同様のディレクトリ構造とDocker Composeを持つ**Vulhub互換Lab**としてReprokit側で管理します。
-- 独自LabもManifest、Lockfile、安全性検査、明示起動の規則をVulhub由来Labと共有します。
+- Reprokit用にforkした[`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)を、単一のLabカタログとして内部利用します。
+- forkの`master`は`vulhub/vulhub`を取り込みつつ、未収録CVEの独自Labを追加します。
+- ReprokitはVulhubのCLIを起動するのではなく、forkの`master`を一度コミットSHAへ解決し、同じSHAから対象ディレクトリを取得して検査後にDocker Composeで実行します。
+- upstream由来Labとfork追加Labは、Manifest、Lockfile、安全性検査、明示起動の規則を共有します。
 
 ## 学習の流れ
 
@@ -40,7 +40,7 @@ Reprokitは、脆弱性の説明を読むだけでなく、管理されたロー
 
 - Core / CLI / Local Web Server: Go
 - Runtime: Docker Compose
-- Lab catalog: Vulhub + Reprokit管理のVulhub互換Lab
+- Lab catalog: [`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)（`vulhub/vulhub`のfork）
 - Metadata: YAML / JSON Schema
 - Frontend: ローカルWeb UI（詳細技術は選定中）
 

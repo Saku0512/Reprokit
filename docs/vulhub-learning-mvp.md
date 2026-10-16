@@ -6,8 +6,8 @@
 
 ## 採用の要点
 
-- **Vulhub（https://github.com/vulhub/vulhub）を標準のLabカタログとして採用。** 固定GitコミットのDocker Compose環境・README・再現手順を参照する。別サービスの[VulnHub](https://www.vulnhub.com/)（VM配布）とは区別する。
-- Vulhubに未収録のCVEは、Vulhubと同様のCVE単位ディレクトリとDocker Composeを持つ**Vulhub互換Lab**としてReprokit側で管理する。独自環境の大量生産は行わず、初期教材に必要なレビュー済み環境だけを追加する。
+- **[`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)を標準のLabカタログとして採用。** `vulhub/vulhub`のforkとして既存環境を継承し、未収録CVEの独自Labも同じリポジトリへ追加する。別サービスの[VulnHub](https://www.vulnhub.com/)（VM配布）とは区別する。
+- 独自環境の大量生産は行わず、初期教材に必要なレビュー済み環境だけをforkへ追加する。アプリはforkの可変ブランチを直接実行せず、解決した固定コミットを参照する。
 - 初期教材は[CVE-2021-41773とCVE-2026-54088](initial-lessons.md)の2本とする。
 - **ローカルWeb UIは学習用、Go製共通Core/CLIは環境操作用**という既存決定を維持。クラウド上で共有された脆弱なLabを実行しない。
 - **教育コンテンツが製品の中核**。脆弱性の日本語解説・前提知識・演習・ヒント・期待結果・原因・修正方法が揃って初めて「教材」とみなす。
@@ -18,7 +18,7 @@
 
 1. **選ぶ**：Web UIで脆弱性の分類、難易度、CVE ID、学習目標から教材を選択。
 2. **知る**：「そもそも何が危険なのか」「必要なHTTPやソフトウェアの基礎」を日本語で理解。
-3. **準備**：Go Coreが教材と紐付いたVulhub由来LabまたはVulhub互換Labの固定済みコミット・ディレクトリを取得。環境構成と権限を提示。取得だけでは起動しない。
+3. **準備**：Go Coreが`Saku0512/vulhub`の固定コミットから教材に紐付く環境ディレクトリを取得。環境構成と権限を提示。取得だけでは起動しない。
 4. **開始**：学習者がリスクを確認し、明示的にLabを起動。localhost上の利用可能なアドレスと状態を表示。
 5. **試す**：WebにPoCの考え方、最小限の操作・例、期待するレスポンス、補足ヒントを段階的に表示。学習者がブラウザや自分のターミナルから**自分で操作**する。
 6. **理解する**：観察結果から原因の説明・修正方法・再発防止策まで学ぶ。成功したかどうかは学習上の振り返りであり、技術的なVerified状態とは区別。
@@ -31,7 +31,7 @@ Learner → Reprokit Web UI（教材・解説・PoC操作ガイド・ヒント�
                          │
             Local Go Server / Go Core
              ├─ Lesson Catalog（少数の厳選教材）
-             ├─ Lab Resolver（Vulhub / Vulhub互換Labを共通解決）
+             ├─ Lab Resolver（forkの固定スナップショットから環境を解決）
              ├─ Lab Metadata / Manifest（CVE・Git SHA・Compose）
              ├─ Lock / Security Checks
              └─ Docker Compose Lifecycle
@@ -44,10 +44,10 @@ CLIは同じGo Coreを直接利用。学習用Web UIでは、Dockerの生の設�
 
 ## Lab提供元の扱い
 
-- **Vulhub由来Lab**は`vulhub/vulhub`の固定Gitコミットと環境ディレクトリを参照する。
-- **Vulhub互換Lab**はReprokitが管理するGitリポジトリ内のCVE単位ディレクトリを参照する。
-- どちらもManifest上はHTTPS Git URL、固定`revision`、`subdirectory`で表現し、共通の取得処理を使う。専用のVulhub実行CLIや、独自Labだけを信頼するバイパスは作らない。
-- 独自Labは将来Vulhubへ提案可能な構造を保つが、Vulhubへの収録をMVPの前提にしない。
+- **upstream由来Lab**と**fork追加Lab**を`Saku0512/vulhub`の同じ固定Gitコミットから参照する。
+- Manifest上は共通のHTTPS Git URLと固定`revision`を使い、`subdirectory`だけをLabごとに変える。専用のVulhub実行CLIや、独自Labだけを信頼するバイパスは作らない。
+- forkの`master`はupstream更新を取り込むが、Registry更新時に一度だけSHAへ解決し、index/Manifest/Labの取得途中で再解決しない。
+- 独自Labは将来`vulhub/vulhub`へ提案可能な構造を保つが、upstreamへの収録をMVPの前提にしない。
 
 ## Vulhubの扱いと安全性
 
@@ -64,7 +64,7 @@ CLIは同じGo Coreを直接利用。学習用Web UIでは、Dockerの生の設�
 | --- | --- |
 | 教材一覧 | CVE・題名・ジャンル・難易度・学べること |
 | 教材詳細 | 初心者向けの解説・前提知識・出典・学習目標 |
-| 環境準備 | Lab提供元（Vulhub/互換Lab）・上流コミット・アダプター差分・起動リスク・取得/明示起動/停止 |
+| 環境準備 | forkコミット・upstream由来/独自追加の区別・アダプター差分・起動リスク・取得/明示起動/停止 |
 | 演習 | 段階的なPoCガイド、コマンドコピー、ヒント、期待結果と実際の観察 |
 | 振り返り | なぜ脆弱か、修正・緩和方法、片付け |
 
@@ -72,8 +72,8 @@ CLIは同じGo Coreを直接利用。学習用Web UIでは、Dockerの生の設�
 
 | 優先順位 | やること | 完了の判断 |
 | --- | --- | --- |
-| 1 | **CVE-2021-41773のWeb体験を縦に貫通** | Vulhub由来Labで、説明 → 取得・明示起動 → 安全な観察 → 修正解説 → 停止 |
-| 2 | **CVE-2026-54088を追加** | Vulhub互換Labを同じGo Coreで扱い、脆弱版/修正版比較まで完走可能 |
+| 1 | **CVE-2021-41773のWeb体験を縦に貫通** | forkがupstreamから継承するLabで、説明 → 取得・明示起動 → 安全な観察 → 修正解説 → 停止 |
+| 2 | **CVE-2026-54088をforkへ追加** | 同じforkスナップショットとGo Coreで扱い、脆弱版/修正版比較まで完走可能 |
 | 3 | 初学者の利用テスト | つまずき・理解度・安全な片付けを確認 |
 | 後回し | Registryの大規模整備、複数Provider、汎用PoC実行、自動Verified判定、ランキング | 教育MVPの必須条件に含めない |
 
