@@ -12,9 +12,9 @@ Reprokitは、セキュリティを学び始めた人が、公開されたCVEの
 
 ## 検証環境の採用方針（2026-10-16更新）
 
-**MVPは[Vulhub](https://github.com/vulhub/vulhub)を標準のLabカタログとして内部利用する。** ReprokitのGo Coreが固定Gitコミットと環境ディレクトリを取得し、安全性検査後にDocker Composeで実行する。Vulhubは実行用CLIではないため、ReprokitがVulhubのコマンドを呼ぶという意味ではない。
+**MVPは[`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)を単一のLabカタログとして内部利用する。** このリポジトリは`vulhub/vulhub`のforkであり、upstream環境を継承しながら未収録CVEの独自Labを追加する。ReprokitのGo Coreがforkの`master`を一度コミットSHAへ解決し、同じSHAから環境ディレクトリを取得して安全性検査後にDocker Composeで実行する。Vulhubは実行用CLIではないため、ReprokitがVulhubのコマンドを呼ぶという意味ではない。
 
-Vulhubに未収録のCVEは、CVE単位のディレクトリ、Docker Compose、環境説明を備えた**Vulhub互換Lab**としてReprokit側で管理する。Vulhub由来Labと独自Labは同じManifest、Lockfile、Runtime、安全性検査を通り、例外的な実行経路を作らない。
+upstream由来Labとfork追加Labは同じManifest、Lockfile、Runtime、安全性検査を通り、例外的な実行経路を作らない。forkはupstreamの更新を取り込むが、実行中に可変ブランチを再解決しない。
 
 初期教材は**CVE-2021-41773**と**CVE-2026-54088**の2本に固定する。PoCはローカルLabを対象に学習者自身が実行し、Webには入力から危険な処理までの経路、期待結果、ヒント、脆弱版と修正版の差を一段ずつ表示する。詳細：[初期教材方針](initial-lessons.md)、[Vulhub連携・教育MVP](vulhub-learning-mvp.md)。
 
@@ -34,7 +34,7 @@ Vulhubに未収録のCVEは、CVE単位のディレクトリ、Docker Compose、
 | 最優先 | なぜそのCVEが生じたか理解できる | 日本語中心の簡潔な解説と信頼できる参照元 |
 | 最優先 | 自分の操作で脆弱な動作を確認できる | 段階的な演習、ヒント、観察ポイント |
 | 最優先 | 防御・修正方法まで理解できる | 根本原因、対策、振り返り |
-| 基盤 | 同じ実験環境を扱える | **Vulhub + Reprokit管理のVulhub互換Lab**をRegistry → Manifest → Lockfile → Runtimeで共通管理 |
+| 基盤 | 同じ実験環境を扱える | **`Saku0512/vulhub`の単一スナップショット**をRegistry → Manifest → Lockfile → Runtimeで共通管理 |
 | 基盤 | 安全に終了できる | 起動前警告、ローカル隔離の限界、停止・削除 |
 | 後段階 | 進捗の保存・難易度別の学習経路 | 履歴、達成状況、学習パス |
 | 後段階 | 大量のCVEを網羅する | 教材の質を優先し、無差別な大量収録はしない |
@@ -83,7 +83,7 @@ Vulhubに未収録のCVEは、CVE単位のディレクトリ、Docker Compose、
 
 ## MVPの優先順位（2026-10-16更新）
 
-まず**CVE-2021-41773とCVE-2026-54088の2教材を、Web上で最後まで完走できる状態にする**。前者はVulhub由来Lab、後者はVulhub互換の独自Labとし、両方を同じGo Coreで扱えることを確認する。PoCを使った安全な観察と原因・対策・修正比較までを必須とし、Registryの高度化、Providerの一般化、大量のCVE登録は後回しとする。
+まず**CVE-2021-41773とCVE-2026-54088の2教材を、Web上で最後まで完走できる状態にする**。前者はforkがupstreamから継承するLab、後者はforkへ追加する独自Labとし、同じコミットスナップショットから両方をGo Coreで扱えることを確認する。PoCを使った安全な観察と原因・対策・修正比較までを必須とし、Registryの高度化、Providerの一般化、大量のCVE登録は後回しとする。
 
 ## 既存仕様との関係
 
