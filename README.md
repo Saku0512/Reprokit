@@ -48,6 +48,7 @@ Reprokitは、脆弱性の説明を読むだけでなく、管理されたロー
 
 - [プロダクト方針](docs/product-vision.md)
 - [初期教材方針](docs/initial-lessons.md)
+- [Vulhub fork連携・Lab昇格設計](docs/lab-catalog-runtime-v0.1.md)
 - [Vulhub連携MVP](docs/vulhub-learning-mvp.md)
 - [アーキテクチャ](docs/architecture-v0.1.md)
 - [学習インターフェース](docs/interface-study.md)
