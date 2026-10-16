@@ -2,11 +2,11 @@
 
 ## Vulhub連携時の適用方針（2026-10-16更新）
 
-教育MVPでは[Vulhub](https://github.com/vulhub/vulhub)の**レビュー済みDocker Compose環境**と、Reprokitが管理する**Vulhub互換Lab**を利用する。取得元に関係なく同じ許可リスト、Lockfile、明示起動の規則を適用し、安全性検査を省略しない。
+教育MVPでは[`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)の固定スナップショットから、upstream由来Labとfork追加Labを利用する。どちらにも同じ許可リスト、Lockfile、明示起動の規則を適用し、安全性検査を省略しない。
 
 元環境が本書の許可リストに適合する場合に限りそのまま取り込み、非対応の設定（`build`、bind mount、`command`等）が必要な場合は**個別のレビュー済み互換アダプターを管理対象にして、上流コミット・元ファイル・差分を固定・検査**する。自動で制限を弱める機能は付けない。
 
-初期教材のCVE-2021-41773はVulhubの元Composeが`build: .`を使用するため、固定上流Dockerfileから事前ビルドしたレビュー済みイメージをdigest固定し、許可リスト内のComposeへ変換する。CVE-2026-54088はReprokit管理のVulhub互換Labとして、脆弱版2.63.5と修正版2.63.6の比較に必要な事前ビルド済みイメージを使用する。
+初期教材のCVE-2021-41773はfork内の元Composeが`build: .`を使用するため、固定Dockerfileから事前ビルドしたレビュー済みイメージをdigest固定し、許可リスト内のComposeへ変換する。CVE-2026-54088はforkの`filebrowser/CVE-2026-54088`へ追加し、脆弱版2.63.5と修正版2.63.6の比較に必要な事前ビルド済みイメージを使用する。
 
 詳細：[Vulhub連携・教育MVP](vulhub-learning-mvp.md)。
 
