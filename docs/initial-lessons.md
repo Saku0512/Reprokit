@@ -42,7 +42,7 @@ fork内の元Composeはupstreamと同じく`build: .`を使用するため、v0.
 | 製品 | File Browser 2.63.5 |
 | 分類 | Hook Authenticationの未認証OSコマンドインジェクション |
 | 難易度 | 初級〜中級 |
-| 提供元 | `Saku0512/vulhub`へ追加する`filebrowser/CVE-2026-54088` |
+| 提供元 | `Saku0512/vulhub`へ追加済みの`filebrowser/CVE-2026-54088` |
 | 比較対象 | 脆弱版2.63.5 / 修正版2.63.6 |
 | 初期演習 | 隔離コンテナ内の検証用マーカーで、入力が危険な実行経路へ到達したことだけを確認 |
 
@@ -56,7 +56,9 @@ fork内の元Composeはupstreamと同じく`build: .`を使用するため、v0.
 6. 実行権限がFile Browserプロセスの権限になることを確認する。
 7. 修正版ではコマンド引数への展開が削除され、資格情報が環境変数だけで渡されることを比較する。
 
-このLabは`Saku0512/vulhub`の`filebrowser/CVE-2026-54088`へ追加し、上流File Browserの脆弱版ソース・公式アドバイザリ・修正差分を出典として記録する。将来`vulhub/vulhub`へ提案可能な形を保つが、upstreamへの収録をMVPの前提にしない。
+このLabは`Saku0512/vulhub`の`filebrowser/CVE-2026-54088`へ追加済みで、脆弱版2.63.5、修正版2.63.6、loopback限定ポート、非破壊的なマーカーPoCを含む。上流File Browserの脆弱版ソース・公式アドバイザリ・修正差分を出典として記録する。
+
+ただしDocker Hubの`vulhub/*`名前空間はupstream管理であり、fork所有者が独自イメージを公開できる場所ではない。Reprokit用イメージはforkの固定SHAからCIでビルドして`ghcr.io/saku0512/*`へ公開し、digest固定したReprokit用Composeから利用する。詳細は[Lab昇格設計](lab-catalog-runtime-v0.1.md)を参照する。upstreamへのPR・収録は将来の任意工程であり、MVPの前提にしない。
 
 ## Web UIの共通構成
 
