@@ -58,7 +58,7 @@ fork内の元Composeはupstreamと同じく`build: .`を使用するため、v0.
 
 このLabは`Saku0512/vulhub`の`filebrowser/CVE-2026-54088`へ追加済みで、脆弱版2.63.5、修正版2.63.6、loopback限定ポート、非破壊的なマーカーPoCを含む。上流File Browserの脆弱版ソース・公式アドバイザリ・修正差分を出典として記録する。
 
-ただしDocker Hubの`vulhub/*`名前空間はupstream管理であり、fork所有者が独自イメージを公開できる場所ではない。Reprokit用イメージはforkの固定SHAからCIでビルドして`ghcr.io/saku0512/*`へ公開し、digest固定したReprokit用Composeから利用する。詳細は[Lab昇格設計](lab-catalog-runtime-v0.1.md)を参照する。upstreamへのPR・収録は将来の任意工程であり、MVPの前提にしない。
+ただしDocker Hubの`vulhub/*`名前空間はupstream管理であり、fork所有者が独自イメージを公開できる場所ではない。Reprokit用の脆弱版2.63.5と修正版2.63.6は、forkの固定SHAから一度だけビルドして`ghcr.io/saku0512/reprokit-filebrowser`へ公開済み。利用時はタグでなく公開済みdigestを固定する。公開用workflowは成功確認後にforkから削除した。詳細なdigestと工程は[Lab昇格設計](lab-catalog-runtime-v0.1.md)を参照する。upstreamへは[PR #805](https://github.com/vulhub/vulhub/pull/805)を提出済みだが、マージや公式イメージ公開をMVPの前提にしない。
 
 ## Web UIの共通構成
 

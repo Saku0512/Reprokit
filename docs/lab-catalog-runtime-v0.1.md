@@ -34,6 +34,19 @@ ReprokitはVulhub forkの`master`やDockerfileを利用者の端末で直接実�
 
 したがって「forkへLabが存在する状態」と「Reprokitで実行可能な状態」を分ける。
 
+### 2026-10-17の昇格結果
+
+固定ソース`a94285e057faee8c7232e100116dc750cf17e257`から、次のlinux/amd64イメージを一度だけビルドしてGHCRへ公開した。両方とも匿名pull可能であることを確認済み。
+
+| 役割 | 不変参照 |
+| --- | --- |
+| 脆弱版2.63.5 | `ghcr.io/saku0512/reprokit-filebrowser@sha256:49ef35c535495a5eb9443690dc171e3b1fca878ac830ee681f3209f3aa18cbdf` |
+| 修正版2.63.6 | `ghcr.io/saku0512/reprokit-filebrowser@sha256:b297fdc439d384e88e7a29b619fdc74126c78284188016bc1e26b4dc2a16b47b` |
+
+公開に使用した手動実行workflowは成功確認後にforkの`master`から削除済み。イメージはGHCRに保持し、通常のpushで再公開されるCIは残していない。
+
+Vulhub upstreamへは[CVE-2026-54088環境のPR #805](https://github.com/vulhub/vulhub/pull/805)を提出済み。upstreamへのマージや`vulhub/*`イメージ公開はReprokitの前提にしない。
+
 ## 3. Lab昇格パイプライン
 
 ### 3.1 入力
@@ -190,8 +203,8 @@ Indexed → Resolved → Ready → Running → Stopped
 
 ## 9. 実装順序
 
-1. fork CIからFile Browser 2.63.5/2.63.6をGHCRへ公開し、外部からpull可能なdigestを得る。
-2. `filebrowser/CVE-2026-54088/reprokit.compose.yml`を追加する。
+1. **完了**：固定ソースからFile Browser 2.63.5/2.63.6をGHCRへ一度だけ公開し、匿名pull可能なdigestを確定する。
+2. **次に実施**：`filebrowser/CVE-2026-54088/reprokit.compose.yml`を追加する。
 3. File BrowserのManifestとRegistry indexを追加する。
 4. Git取得、Compose検査、digest解決、Lockfile生成を実装する。
 5. 明示起動・停止・削除を実装する。
