@@ -2,50 +2,58 @@
 
 ## 採用方針（2026-10-16更新）
 
-- **標準のLabカタログはVulhub**とする。
-- Vulhubに未収録のCVEは、Reprokitが管理する**Vulhub互換Lab**で補完する。
-- v0.1ではVulhub専用CLIや専用ネットワークプロトコルを作らず、Manifestで指定されたHTTPS Gitリポジトリから取得する共通処理を使う。
+- **標準のLabカタログは[`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)**とする。
+- このリポジトリは`vulhub/vulhub`のforkであり、upstreamから既存環境を継承しつつ、未収録CVEの独自Labを追加する。
+- v0.1ではVulhub専用CLIや専用ネットワークプロトコルを作らず、HTTPS Gitリポジトリから取得する共通処理を使う。
 - `spec.source.type`は`git`のみ。`url`、固定`revision`、`subdirectory`を共通インターフェースとして扱う。
-- カスタムProviderプラグイン、独自取得プロトコル、外部Registryの動的追加はv0.2以降に延期する。
+- カスタムProviderプラグイン、独自取得プロトコル、複数カタログの動的追加はv0.2以降に延期する。
 
-Vulhubは検証環境を収録するGitリポジトリであり、Labを起動するCLIではない。「内部的にVulhubを使う」とは、ReprokitがVulhubの固定コミットと対象ディレクトリを取得し、自身の安全性検査とDocker Compose Runtimeで実行することを指す。
+Vulhubは検証環境を収録するGitリポジトリであり、Labを起動するCLIではない。「内部的にVulhubを使う」とは、Reprokitがforkの固定コミットと対象ディレクトリを取得し、自身の安全性検査とDocker Compose Runtimeで実行することを指す。
 
-## Labの2つの提供形態
+## カタログ構成
 
-### Vulhub由来Lab
+```text
+Saku0512/vulhub
+├── httpd/CVE-2021-41773/       # upstreamから継承
+└── filebrowser/CVE-2026-54088/ # Reprokit用に追加
+```
 
-- `https://github.com/vulhub/vulhub.git`の固定コミットを参照する。
-- `subdirectory`は例として`httpd/CVE-2021-41773`のようなCVE環境ディレクトリ。
-- 上流README、Dockerfile、Compose、ライセンスを出典とともに表示する。
-- 上流ComposeがRuntime許可リストに適合しない場合は、元ファイルを直接実行せず互換アダプターを使用する。
-
-### Vulhub互換Lab
-
-- Reprokitが管理するGitリポジトリ内に、`<product>/<CVE-ID>/`単位で配置する。
-- 最低限、`docker-compose.yml`、環境説明、上流製品・アドバイザリ・修正差分への参照を持つ。
-- Vulhub由来Labと同じManifest、Lockfile、安全性検査、Runtimeを使用する。
-- 将来Vulhubへ提案できる構造を保つが、採用やマージをMVPの前提にしない。
+- forkの`master`はupstream更新を取り込む基準ブランチとする。
+- アプリは`master`を実行時に追従せず、Registry更新時に一度だけ40文字のコミットSHAへ解決する。
+- 同じRegistryスナップショット内では、すべてのLabを同じforkコミットから取得する。
+- upstream由来かfork追加かを教材画面と監査情報に表示する。
+- fork追加Labも将来`vulhub/vulhub`へ提案可能なCVE単位レイアウトを保つ。
 
 ## 初期教材の割り当て
 
-| CVE | 形態 | 取得元 |
+| CVE | 種別 | fork内のパス |
 | --- | --- | --- |
-| CVE-2021-41773 | Vulhub由来Lab + 互換アダプター | Vulhub `httpd/CVE-2021-41773`の固定コミット |
-| CVE-2026-54088 | Vulhub互換Lab | Reprokit管理のFile Browser環境 |
+| CVE-2021-41773 | upstream由来 | `httpd/CVE-2021-41773` |
+| CVE-2026-54088 | fork追加 | `filebrowser/CVE-2026-54088` |
+
+両方のManifestは`source.url: https://github.com/Saku0512/vulhub.git`を使い、同じRegistry更新で解決した`revision`を記録する。Labごとの差は`subdirectory`で表現する。
 
 ## 取得フロー
 
-1. Registryから`metadata.id`でManifestを特定する。
-2. Manifestのスキーマ、CVE・Lab IDの一致、HTTPS Git URL、固定`revision`を検証する。
-3. Git URLとコミットSHAをキーにキャッシュを参照し、存在しなければ取得する。
-4. 指定コミットを検証し、`subdirectory`配下を独立したステージング領域へ複製する。
-5. 上流由来情報、互換アダプターの差分、参照先の範囲外リンクを検査する。
-6. Composeの許可リスト検査、イメージdigest解決、Lockfile生成を行う。
-7. すべて成功した場合のみインスタンスを原子的に登録する。`create`では起動しない。
+1. Registry更新時に`Saku0512/vulhub`の`master`をコミットSHAへ一度だけ解決する。
+2. Registryから`metadata.id`でManifestを特定し、同じfork SHAを`source.revision`として使用する。
+3. Manifestのスキーマ、CVE・Lab IDの一致、HTTPS Git URL、固定`revision`、安全な`subdirectory`を検証する。
+4. Git URLとコミットSHAをキーにキャッシュを参照し、存在しなければ取得する。
+5. 指定コミットを検証し、`subdirectory`配下を独立したステージング領域へ複製する。
+6. upstream由来情報、fork追加情報、互換アダプターの差分、参照先の範囲外リンクを検査する。
+7. Composeの許可リスト検査、イメージdigest解決、Lockfile生成を行う。
+8. すべて成功した場合のみインスタンスを原子的に登録する。`create`では起動しない。
 
 ## ProviderとLab IDの違い
 
-`vulhub/httpd-cve-2021-41773`の`vulhub`や`reprokit/filebrowser-cve-2026-54088`の`reprokit`はLab IDの名前空間であり、実行時に同名のプラグインが必要という意味ではない。取得元の種類は表示・監査用メタデータとして扱い、実際の取得は共通Git処理へ収束させる。
+`vulhub/httpd-cve-2021-41773`と`vulhub/filebrowser-cve-2026-54088`は、同じカタログ内の別Lab IDである。名前空間は実行時プラグインを意味しない。upstream由来/独自追加は表示・監査用メタデータであり、実際の取得は同じGit処理へ収束させる。
+
+## upstream同期と再現性
+
+- forkをupstreamへ同期しても、既存のLockfileが参照するコミットSHAは変更しない。
+- 新しいupstream状態や独自Lab更新を使うには、Registryスナップショットを明示的に更新する。
+- 更新途中で`master`を再解決せず、index、Manifest、Labが別コミットから混ざることを防ぐ。
+- forkを所有していることは安全性の保証ではない。独自LabにもSchema、Compose許可リスト、digest固定、パス検証を適用する。
 
 ## キャッシュと障害時の責任分担
 
