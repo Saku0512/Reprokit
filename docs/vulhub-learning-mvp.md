@@ -1,13 +1,14 @@
 # Reprokit: Vulhubを基盤とする体験型セキュリティ学習MVP
 
-> **採用方針：2026-10-15**。これは製品の方向性・開発優先順位を示す設計書であり、以下の機能は未実装。ルートREADMEは変更しない。
+> **採用方針：2026-10-16更新**。これは製品の方向性・開発優先順位を示す設計書であり、以下の機能は未実装。
 >
 > プロダクトの主目的は「実際のCVEを、自分で試して理解する」。技術基盤自体を売りにするのではなく、**Web上で脆弱性を学習し、実際の検証環境でPoCを試し、なぜ起きるかと対策まで理解する**ことを最優先とする。
 
 ## 採用の要点
 
-- **Vulhub（https://github.com/vulhub/vulhub）を最初の検証環境提供元として採用。** Vulhubの既存Docker Compose環境・README・再現手順を参照する。別サービスの[VulnHub](https://www.vulnhub.com/)（VM配布）とは区別する。
-- Reprokit独自の脆弱アプリ、汎用PoC、環境構築レシピの大量生産は**MVPでは行わない**。
+- **Vulhub（https://github.com/vulhub/vulhub）を標準のLabカタログとして採用。** 固定GitコミットのDocker Compose環境・README・再現手順を参照する。別サービスの[VulnHub](https://www.vulnhub.com/)（VM配布）とは区別する。
+- Vulhubに未収録のCVEは、Vulhubと同様のCVE単位ディレクトリとDocker Composeを持つ**Vulhub互換Lab**としてReprokit側で管理する。独自環境の大量生産は行わず、初期教材に必要なレビュー済み環境だけを追加する。
+- 初期教材は[CVE-2021-41773とCVE-2026-54088](initial-lessons.md)の2本とする。
 - **ローカルWeb UIは学習用、Go製共通Core/CLIは環境操作用**という既存決定を維持。クラウド上で共有された脆弱なLabを実行しない。
 - **教育コンテンツが製品の中核**。脆弱性の日本語解説・前提知識・演習・ヒント・期待結果・原因・修正方法が揃って初めて「教材」とみなす。
 - **PoCは学習者本人が許可済みのローカルLabに対して実行**する。最初は教材に操作方法やコピー可能なコマンドを示す。ブラウザから任意コマンドを自動実行する機能はMVPに含めない。
@@ -17,7 +18,7 @@
 
 1. **選ぶ**：Web UIで脆弱性の分類、難易度、CVE ID、学習目標から教材を選択。
 2. **知る**：「そもそも何が危険なのか」「必要なHTTPやソフトウェアの基礎」を日本語で理解。
-3. **準備**：Go Coreが教材と紐付いたVulhubの固定済みコミット・ディレクトリを取得。環境構成と権限を提示。取得だけでは起動しない。
+3. **準備**：Go Coreが教材と紐付いたVulhub由来LabまたはVulhub互換Labの固定済みコミット・ディレクトリを取得。環境構成と権限を提示。取得だけでは起動しない。
 4. **開始**：学習者がリスクを確認し、明示的にLabを起動。localhost上の利用可能なアドレスと状態を表示。
 5. **試す**：WebにPoCの考え方、最小限の操作・例、期待するレスポンス、補足ヒントを段階的に表示。学習者がブラウザや自分のターミナルから**自分で操作**する。
 6. **理解する**：観察結果から原因の説明・修正方法・再発防止策まで学ぶ。成功したかどうかは学習上の振り返りであり、技術的なVerified状態とは区別。
@@ -30,16 +31,23 @@ Learner → Reprokit Web UI（教材・解説・PoC操作ガイド・ヒント�
                          │
             Local Go Server / Go Core
              ├─ Lesson Catalog（少数の厳選教材）
-             ├─ Vulhub Adapter（既存Labの参照と互換性確認）
+             ├─ Lab Resolver（Vulhub / Vulhub互換Labを共通解決）
              ├─ Lab Metadata / Manifest（CVE・Git SHA・Compose）
              ├─ Lock / Security Checks
              └─ Docker Compose Lifecycle
                          │
-                 Local Vulhub Lab
+                 Local reviewed Lab
 Learner → PoCをローカルLabに対して自分で実行
 ```
 
 CLIは同じGo Coreを直接利用。学習用Web UIでは、Dockerの生の設定・任意シェルコマンドの入力をさせず、承認済み教材に紐付いた操作だけを実行する。
+
+## Lab提供元の扱い
+
+- **Vulhub由来Lab**は`vulhub/vulhub`の固定Gitコミットと環境ディレクトリを参照する。
+- **Vulhub互換Lab**はReprokitが管理するGitリポジトリ内のCVE単位ディレクトリを参照する。
+- どちらもManifest上はHTTPS Git URL、固定`revision`、`subdirectory`で表現し、共通の取得処理を使う。専用のVulhub実行CLIや、独自Labだけを信頼するバイパスは作らない。
+- 独自Labは将来Vulhubへ提案可能な構造を保つが、Vulhubへの収録をMVPの前提にしない。
 
 ## Vulhubの扱いと安全性
 
@@ -56,7 +64,7 @@ CLIは同じGo Coreを直接利用。学習用Web UIでは、Dockerの生の設�
 | --- | --- |
 | 教材一覧 | CVE・題名・ジャンル・難易度・学べること |
 | 教材詳細 | 初心者向けの解説・前提知識・出典・学習目標 |
-| 環境準備 | Vulhub取得元・対応状態・起動リスク・取得/明示起動/停止 |
+| 環境準備 | Lab提供元（Vulhub/互換Lab）・上流コミット・アダプター差分・起動リスク・取得/明示起動/停止 |
 | 演習 | 段階的なPoCガイド、コマンドコピー、ヒント、期待結果と実際の観察 |
 | 振り返り | なぜ脆弱か、修正・緩和方法、片付け |
 
@@ -64,8 +72,8 @@ CLIは同じGo Coreを直接利用。学習用Web UIでは、Dockerの生の設�
 
 | 優先順位 | やること | 完了の判断 |
 | --- | --- | --- |
-| 1 | **教材1本のWeb体験を縦に貫通** | 日本語説明 → 取得・明示起動 → 手動PoC → 観察 → 修正解説 → 停止 |
-| 2 | 追加の初心者教材を1〜2本 | 個別のCVEとVulhub環境で同様に完走可能 |
+| 1 | **CVE-2021-41773のWeb体験を縦に貫通** | Vulhub由来Labで、説明 → 取得・明示起動 → 安全な観察 → 修正解説 → 停止 |
+| 2 | **CVE-2026-54088を追加** | Vulhub互換Labを同じGo Coreで扱い、脆弱版/修正版比較まで完走可能 |
 | 3 | 初学者の利用テスト | つまずき・理解度・安全な片付けを確認 |
 | 後回し | Registryの大規模整備、複数Provider、汎用PoC実行、自動Verified判定、ランキング | 教育MVPの必須条件に含めない |
 
@@ -74,4 +82,4 @@ CLIは同じGo Coreを直接利用。学習用Web UIでは、Dockerの生の設�
 - [プロダクト方針](product-vision.md)、[教材方針](learning-content.md)、[Web+CLI構成](interface-study.md)に本方針を反映する。
 - [技術アーキテクチャ](architecture-v0.1.md)、[Manifest](manifest-v1alpha1.md)、[Registry](registry-v1.md)、[Lockfile](lockfile-v1.md)、[Runtime](runtime-v1.md)は将来の拡張にも使う基盤資料として保持。
 - **既存文書で「v0.1の必須」とされていた高度な基盤機能より、教育MVPの上記完了条件を優先**する。安全性検査やソース固定を省略してよいという意味ではない。
-- 現時点でどのCVEを初期教材にするか、Lessonスキーマ、Webフロントエンドのフレームワークは別途決定する。未決定事項を採用済みと記載しない。
+- 初期教材はCVE-2021-41773とCVE-2026-54088に決定済み。LessonスキーマとWebフロントエンドのフレームワークは今後決定する。未決定事項を採用済みと記載しない。
