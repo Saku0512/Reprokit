@@ -19,8 +19,9 @@ Saku0512/vulhub
 ```
 
 - forkの`master`はupstream更新を取り込む基準ブランチとする。
-- アプリは`master`を実行時に追従せず、Registry更新時に一度だけ40文字のコミットSHAへ解決する。
-- 同じRegistryスナップショット内では、すべてのLabを同じforkコミットから取得する。
+- アプリは`master`を実行時に追従しない。Registry保守工程が採用する40文字のforkコミットSHAを決め、Manifestへ書き込む。
+- クライアントの`registry update`は`jphacks/sd_2601`のRegistryスナップショットだけを取得し、forkの`master`を再解決しない。
+- 同じRegistryスナップショット内では、すべてのLabをManifestに記録された同じforkコミットから取得する。
 - upstream由来かfork追加かを教材画面と監査情報に表示する。
 - fork追加Labも将来`vulhub/vulhub`へ提案可能なCVE単位レイアウトを保つ。
 
@@ -35,14 +36,15 @@ Saku0512/vulhub
 
 ## 取得フロー
 
-1. Registry更新時に`Saku0512/vulhub`の`master`をコミットSHAへ一度だけ解決する。
-2. Registryから`metadata.id`でManifestを特定し、同じfork SHAを`source.revision`として使用する。
+1. Registry保守工程が`Saku0512/vulhub`の採用コミットSHAを決め、レビュー済みManifestへ記録する。
+2. クライアントは固定されたRegistryスナップショットから`metadata.id`でManifestを特定する。
 3. Manifestのスキーマ、CVE・Lab IDの一致、HTTPS Git URL、固定`revision`、安全な`subdirectory`を検証する。
 4. Git URLとコミットSHAをキーにキャッシュを参照し、存在しなければ取得する。
 5. 指定コミットを検証し、`subdirectory`配下を独立したステージング領域へ複製する。
-6. upstream由来情報、fork追加情報、互換アダプターの差分、参照先の範囲外リンクを検査する。
-7. Composeの許可リスト検査、イメージdigest解決、Lockfile生成を行う。
-8. すべて成功した場合のみインスタンスを原子的に登録する。`create`では起動しない。
+6. upstream由来情報、fork追加情報、Reprokit用Composeの差分、参照先の範囲外リンクを検査する。
+7. `ghcr.io/saku0512/*`の昇格済みイメージをplatform別digestへ解決する。Docker Hubの`vulhub/*`へ独自イメージを公開できるとは仮定しない。
+8. Composeの許可リスト検査、Lockfile生成を行う。
+9. すべて成功した場合のみインスタンスを原子的に登録する。`create`では起動しない。
 
 ## ProviderとLab IDの違い
 
@@ -58,3 +60,8 @@ Saku0512/vulhub
 ## キャッシュと障害時の責任分担
 
 ソースは`Git URL + revision`で共有キャッシュを利用できるが、作成中のインスタンスは独立したステージング領域で検証する。取得・検証・digest解決・Lockfile生成がすべて成功した時だけ登録し、失敗時は未完成のインスタンスを残さない。
+
+
+## イメージ公開境界（2026-10-17確定）
+
+forkへのファイル追加権限と、Docker Hubの`vulhub/*`名前空間への公開権限は別である。独自LabのイメージはforkのGitHub Actionsでビルドし、管理可能な`ghcr.io/saku0512/*`へ公開する。upstreamへPRを送り公式イメージとして採用されることは将来の任意工程であり、Reprokitの起動条件にしない。詳細は[Lab昇格設計](lab-catalog-runtime-v0.1.md)を参照する。
