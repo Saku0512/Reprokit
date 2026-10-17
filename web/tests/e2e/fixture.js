@@ -117,6 +117,14 @@ export async function mockRunner(page, options = {}) {
     const id = path.split("/")[3],
       lab = labs[id];
     if (!lab) return respond({ failure: "unknown test session" }, 404);
+    if (path.includes("/logs/")) {
+      const service = path.split("/").at(-1);
+      return respond({ service, content: `${service} log\n` });
+    }
+    if (path.includes("/actions/")) {
+      const [service, action] = path.split("/").slice(-2);
+      return respond({ service, action, output: "success\n" });
+    }
     if (request.method() === "GET" && options.statusGate) {
       const snapshot = structuredClone(lab);
       await options.statusGate();

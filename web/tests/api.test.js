@@ -64,6 +64,20 @@ test("コンテナログは固定比較対象だけを読める", async () => {
   assert.equal(requests.length, 1);
 });
 
+test("検証アクションは固定の/tmp一覧だけを実行する", async () => {
+  const requests = [];
+  const api = new StudyApi("secret", async (path, init) => {
+    requests.push([path, init]);
+    return new Response('{"service":"vulnerable","action":"list_tmp","output":"success\\n"}');
+  });
+  const result = await api.listTmp(labId, "vulnerable");
+  assert.equal(requests[0][0], `/api/labs/${labId}/actions/vulnerable/list_tmp`);
+  assert.equal(requests[0][1].method, "POST");
+  assert.equal(requests[0][1].body, undefined);
+  assert.equal(result.action, "list_tmp");
+  assert.throws(() => api.listTmp(labId, "reprokit_proxy_vulnerable_1"));
+});
+
 test("回答は受講APIのanswerだけに入る", async () => {
   let actual;
   const api = new StudyApi("secret", async (path, init) => {

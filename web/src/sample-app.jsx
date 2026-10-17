@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createRoot } from "react-dom/client";
 import { StudyApi, canStart } from "./api.js";
 import { initialState } from "./sample-data.js";
-import { LessonList, LessonDetail, LessonOutline } from "./sample-views.jsx";
+import { LabConsole, LessonList, LessonDetail, LessonOutline } from "./sample-views.jsx";
 import { LabModal } from "./sample-modal.jsx";
 import "@fontsource/noto-sans-jp/400.css";
 import "@fontsource/noto-sans-jp/500.css";
@@ -43,7 +43,9 @@ function App() {
   const [dark, setDark] = useState(false);
   const [message, setMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [consoleOpen, setConsoleOpen] = useState(false);
   const menu = useRef(null);
+  const consoleDialog = useRef(null);
   const view = useRef(null);
   const pendingPhase = useRef(null);
   const update = (patch) => setState((previous) => ({ ...previous, ...patch }));
@@ -55,6 +57,11 @@ function App() {
     if (menuOpen) menu.current?.showModal();
     else menu.current?.close();
   }, [menuOpen]);
+
+  useEffect(() => {
+    if (consoleOpen) consoleDialog.current?.showModal();
+    else consoleDialog.current?.close();
+  }, [consoleOpen]);
 
   useEffect(() => {
     const compact = window.matchMedia("(max-width: 1000px)");
@@ -143,7 +150,16 @@ function App() {
 
   async function deployLab() {
     if (state.lab === "deploying") return;
-    update({ lab: "deploying", seg: 2, modal: null, labFailure: null, logs: {}, logFailure: null });
+    update({
+      lab: "deploying",
+      seg: 2,
+      modal: null,
+      labFailure: null,
+      logs: {},
+      logFailure: null,
+      actions: {},
+      actionFailure: null,
+    });
     try {
       let runtime = state.runtime;
       if (!canStart(runtime)) runtime = await api.prepare("1.0.0", "vulnerable");
@@ -174,7 +190,14 @@ function App() {
     try {
       const runtime = await api.stop(state.runtime.labSessionId);
       rememberLabSession(runtime);
-      update({ lab: labState(runtime), runtime, logs: {}, logFailure: null });
+      update({
+        lab: labState(runtime),
+        runtime,
+        logs: {},
+        logFailure: null,
+        actions: {},
+        actionFailure: null,
+      });
       setMessage("Labを停止しました");
     } catch (error) {
       const runtime = error?.session;
@@ -226,6 +249,26 @@ function App() {
       update({
         logLoading: null,
         logFailure: error instanceof Error ? error.message : "ログを取得できませんでした。",
+      });
+    }
+  }
+
+  async function listTmp(service) {
+    if (!state.runtime?.labSessionId || state.lab !== "running") return;
+    const key = `${service}:list_tmp`;
+    update({ actionLoading: key, actionFailure: null });
+    try {
+      const action = await api.listTmp(state.runtime.labSessionId, service);
+      setState((previous) => ({
+        ...previous,
+        actions: { ...previous.actions, [key]: action },
+        actionLoading: null,
+      }));
+    } catch (error) {
+      update({
+        actionLoading: null,
+        actionFailure:
+          error instanceof Error ? error.message : "検証アクションを実行できませんでした。",
       });
     }
   }
@@ -327,11 +370,17 @@ function App() {
           setMessage("コピーできませんでした");
         }
         break;
+      case "console":
+        setConsoleOpen(true);
+        break;
+      case "close-console":
+        setConsoleOpen(false);
+        break;
       case "logs":
         await showLogs(v);
         break;
-      case "close-logs":
-        update({ logs: {}, logFailure: null });
+      case "list-tmp":
+        await listTmp(v);
         break;
     }
   }
@@ -362,6 +411,16 @@ function App() {
             実際のCVEを、自分で試して理解する
           </span>
           <div className="hd">
+            {state.lab === "running" && (
+              <button
+                className="btn sm"
+                data-a="console"
+                aria-haspopup="dialog"
+                aria-expanded={consoleOpen}
+              >
+                {"検証コンソール"}
+              </button>
+            )}
             <button className="btn sm" id="theme" onClick={() => setDark(!dark)}>
               表示切替
             </button>
@@ -400,6 +459,28 @@ function App() {
           <LessonOutline state={state} id="mobile-lesson-outline" />
         </dialog>
       )}
+      <dialog
+        ref={consoleDialog}
+        className="console-dialog"
+        aria-labelledby="console-title"
+        onClose={() => setConsoleOpen(false)}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) consoleDialog.current?.close();
+        }}
+      >
+        <div className="console-dialog-header">
+          <h2 id="console-title">{"検証コンソール"}</h2>
+          <button
+            className="menu-close"
+            data-a="close-console"
+            aria-label="検証コンソールを閉じる"
+            autoFocus
+          >
+            ×
+          </button>
+        </div>
+        <LabConsole state={state} />
+      </dialog>
       <div id="modal">
         <LabModal state={state} onChange={update} />
       </div>
@@ -419,6 +500,9 @@ function resetLabState() {
     logs: {},
     logLoading: null,
     logFailure: null,
+    actions: {},
+    actionLoading: null,
+    actionFailure: null,
   };
 }
 

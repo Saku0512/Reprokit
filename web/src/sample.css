@@ -308,29 +308,6 @@ h1.t {
   color: var(--red);
   font-size: 12.5px;
 }
-.tm-logs {
-  @apply [border-top:1px_solid_var(--line)] mt-3 pt-3;
-}
-.tm-logs-heading {
-  @apply flex items-start justify-between gap-3;
-}
-.tm-logs-heading b,
-.tm-log-entry > b {
-  @apply text-[13px];
-}
-.tm-logs-heading p {
-  @apply text-[12px] text-subtle m-[3px_0_0];
-}
-.tm-log-entry {
-  @apply mt-3;
-}
-.tm-log-entry .pill {
-  @apply ml-2;
-}
-.tm-log-entry .log {
-  @apply max-h-64 overflow-auto;
-  @apply mt-1 mb-0;
-}
 .tm .sep {
   @apply w-[1px] h-[18px] bg-line;
 }
@@ -681,6 +658,65 @@ textarea {
 }
 .toast.on {
   @apply opacity-[1];
+}
+.console-dialog {
+  @apply fixed inset-[0_0_0_auto] w-[min(580px,_calc(100vw_-_24px))] h-[100dvh] max-w-[none] max-h-[none] m-0 p-0;
+  @apply [border:0] [border-left:1px_solid_var(--line)] bg-panel text-ink overflow-y-auto;
+}
+.console-dialog[open] {
+  animation: open-console 200ms ease-out;
+}
+.console-dialog::backdrop {
+  @apply bg-[rgba(10,_24,_30,_0.5)];
+}
+.console-dialog-header {
+  @apply sticky top-0 z-1 flex items-center justify-between gap-3 py-3 px-4 bg-panel;
+  @apply [border-bottom:1px_solid_var(--line)];
+}
+.console-dialog-header h2 {
+  @apply text-[17px] m-0;
+}
+.console-content {
+  @apply p-4;
+}
+.console-lead,
+.console-notice {
+  @apply text-[13px] text-subtle m-0;
+}
+.console-notice {
+  @apply mt-4 pt-3 [border-top:1px_solid_var(--line)];
+}
+.console-service {
+  @apply mt-5;
+}
+.console-service h3 {
+  @apply text-[15px] m-0;
+}
+.console-section {
+  @apply mt-3 p-3 bg-canvas rounded-[8px] [border:1px_solid_var(--line)];
+}
+.console-section-heading {
+  @apply flex items-start justify-between gap-3;
+}
+.console-section-heading b {
+  @apply text-[13px];
+}
+.console-section-heading p {
+  @apply text-[12px] text-subtle m-[2px_0_0];
+}
+.console-section .log {
+  @apply max-h-64 overflow-auto mt-3 mb-0;
+}
+html:has(.console-dialog[open]) {
+  @apply overflow-hidden;
+}
+@keyframes open-console {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 .hide {
   @apply hidden;

@@ -103,6 +103,19 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await expect(page.locator(".st")).toHaveText("RUNNING");
   await expect(page.locator('a[href="http://127.0.0.1:18080"]')).toBeVisible();
   await expect(page.locator('a[href="http://127.0.0.1:18081"]')).toBeVisible();
+  await page.getByRole("button", { name: "検証コンソール", exact: true }).click();
+  const consoleDialog = page.getByRole("dialog", { name: "検証コンソール" });
+  await expect(consoleDialog).toBeVisible();
+  await consoleDialog.getByRole("button", { name: "更新", exact: true }).first().click();
+  await expect(consoleDialog.locator(".console-service").first().locator(".log")).toContainText(
+    "vulnerable log",
+  );
+  await consoleDialog.getByRole("button", { name: "/tmp を一覧", exact: true }).first().click();
+  await expect(consoleDialog.locator(".console-service").first().locator(".log").last()).toContainText(
+    "success",
+  );
+  await consoleDialog.getByRole("button", { name: "検証コンソールを閉じる" }).click();
+  await expect(consoleDialog).toBeHidden();
   await page.locator('#phase-0 [data-a="next"]').click();
   await atNextBoundary(page, 0);
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "ヒントを見る" }).click();

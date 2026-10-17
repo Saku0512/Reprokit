@@ -112,6 +112,10 @@ export class StudyApi {
     if (!["vulnerable", "fixed"].includes(ref)) throw new Error("未定義の比較対象です。");
     return this.call(`/api/labs/${identifier(id, labPattern)}/logs/${ref}`);
   }
+  listTmp(id, ref) {
+    if (!["vulnerable", "fixed"].includes(ref)) throw new Error("未定義の比較対象です。");
+    return this.call(`/api/labs/${identifier(id, labPattern)}/actions/${ref}/list_tmp`, "POST");
+  }
   start(id) {
     return this.call(`/api/labs/${identifier(id, labPattern)}/start`, "POST", { confirmed: true });
   }
