@@ -5,7 +5,17 @@
     "format": "bash .codex/skills/reprokit-verify/scripts/format.sh write",
     "format:check": "bash .codex/skills/reprokit-verify/scripts/format.sh check",
     "verify": "bash .codex/skills/reprokit-verify/scripts/verify.sh quick",
-    "verify:full": "bash .codex/skills/reprokit-verify/scripts/verify.sh full"
+    "verify:full": "bash .codex/skills/reprokit-verify/scripts/verify.sh full",
+    "web:install": "npm --prefix web ci",
+    "web:build": "npm --prefix web run build",
+    "web:start": "npm --prefix web start",
+    "web:dev": "npm --prefix web run dev",
+    "web:start:external": "npm --prefix web run start:external",
+    "web:lint": "npm --prefix web run lint",
+    "web:test": "npm --prefix web test",
+    "web:browser:install": "npm --prefix web exec -- playwright install chromium",
+    "web:test:e2e": "npm --prefix web run test:e2e",
+    "web:test:e2e:filebrowser": "npm --prefix web run test:e2e:filebrowser"
   },
   "devDependencies": {
     "prettier": "3.9.10"

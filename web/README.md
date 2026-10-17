@@ -9,14 +9,16 @@ HTTP契約と教材本文は変更しない。
 Node.js 22以上、`backend/go.mod`で指定したGo toolchain、Gitが必要。
 Labを起動する場合はDocker Engine 28以上とDocker Compose v2.36.1以上も必要になる。
 
+リポジトリ直下から実行する場合は、次のルートスクリプトを使う。
+
 ```sh
 npm ci
-npm --prefix web ci
-npm --prefix web run build
-npm --prefix web start
+npm run web:install
+npm run web:build
+npm run web:start
 ```
 
-開発時は `npm --prefix web run dev` でソースを直接配信する。
+開発時は `npm run web:dev` でソースを直接配信する。
 `start`と`dev`は `backend/cmd/reprokit` を一時領域へビルドし、Go Runnerと教材APIを起動してからWebを起動する。
 Runnerは `127.0.0.1` の空きポートへ待ち受け、接続先とトークンを親Webシェルだけが読む専用パイプへ渡す。
 URLやトークンの手入力は不要。
@@ -35,7 +37,7 @@ Ctrl+CでWebとRunnerを終了する。
 親Webシェルのパイプが切れた場合もRunnerを終了する。
 アプリ終了はLab削除の操作ではないため、演習後は画面で停止と削除を行う。
 
-既存Runnerへ接続する組み込み用途では、`REPROKIT_RUNNER_ORIGIN`と`REPROKIT_RUNNER_TOKEN`を起動元で設定し、`npm --prefix web run start:external`を使う。
+既存Runnerへ接続する組み込み用途では、`REPROKIT_RUNNER_ORIGIN`と`REPROKIT_RUNNER_TOKEN`を起動元で設定し、`npm run web:start:external`を使う。
 接続先は `http://127.0.0.1:<Runnerのport>`、トークンはRunnerが発行した値を指定する。
 ソース配信には `dev:external` を使う。
 
@@ -74,16 +76,16 @@ Host、同一Origin、ローカルセッショントークンを検証し、転�
 ## 検証
 
 ```sh
-npm --prefix web run lint
-npm --prefix web test
-npm --prefix web run build
+npm run web:lint
+npm run web:test
+npm run web:build
 # Chromiumを初回だけ用意する場合
-npm --prefix web exec -- playwright install chromium
-npm --prefix web run test:e2e
+npm run web:browser:install
+npm run web:test:e2e
 # インストール済みChromeを使う場合
-REPROKIT_TEST_BROWSER=chrome npm --prefix web run test:e2e
+REPROKIT_TEST_BROWSER=chrome npm run web:test:e2e
 # 専用環境でのみ、実LabをWeb UIから起動して比較する
-npm --prefix web run test:e2e:filebrowser
+npm run web:test:e2e:filebrowser
 npm run verify:full
 ```
 
