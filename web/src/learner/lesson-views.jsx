@@ -351,7 +351,8 @@ function NormalUsage() {
   );
 }
 
-function Reproduction({ state: S }) {
+function Reproduction({ lesson, state: S }) {
+  const affectedData = lesson.affectedData ?? [];
   const h = [
     "（ヒントなし）",
     "このCVEは「認証の結果が出る前」に何かが起きます。ログインの入力欄に注目してください。",
@@ -430,32 +431,25 @@ function Reproduction({ state: S }) {
           </div>
           {"\n            "}
           <div className="card" style={{ marginTop: "14px" }}>
-            <h3>{"影響を受ける架空データ"}</h3>
-            {S.repro ? (
+            <h3>{"影響を受けるデータ"}</h3>
+            {affectedData.length === 0 ? (
+              <p className="console-empty">{"-"}</p>
+            ) : S.repro ? (
               <>
                 <table className="data">
                   <tbody>
                     <tr>
                       <th>{"種類"}</th>
-                      <th>{"内容（すべて架空）"}</th>
+                      <th>{"内容"}</th>
                     </tr>
-                    <tr>
-                      <td>{"ユーザー"}</td>
-                      <td>{"sample-admin / sample-guest"}</td>
-                    </tr>
-                    <tr>
-                      <td>{"ファイル"}</td>
-                      <td>{"dummy-report.txt / dummy-keys.txt"}</td>
-                    </tr>
-                    <tr>
-                      <td>{"設定"}</td>
-                      <td>{"fake-token = 0000-DUMMY"}</td>
-                    </tr>
+                    {affectedData.map((item, index) => (
+                      <tr key={index}>
+                        <td>{item.type}</td>
+                        <td>{item.content}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
-                <p style={{ fontSize: "12.5px", color: "var(--sub)", margin: "6px 0 0" }}>
-                  {"実際の事故で見える可能性があるものを示す、教材用の架空データです。"}
-                </p>
               </>
             ) : (
               <>
@@ -751,7 +745,7 @@ function Remediation({ state: S }) {
 const phases = [NormalUsage, Reproduction, RequestTrace, PatchComparison, Remediation];
 const phaseLeads = [
   "このLabではログインが拒否されることが正常な動作です。拒否される前の処理を確認します。",
-  "ガイドに沿って検証し、観察結果と、影響を受ける架空データを確認します。",
+  "ガイドに沿って検証し、観察結果を確認します。",
   "結果から処理をたどり、入力値がコマンドとして扱われる流れを確認します。",
   "実際の修正差分と、自分が見つけた原因との対応を確認します。",
   "修正版で同じ操作をもう一度行い、両版のログイン拒否と副作用の違いを確認します。",

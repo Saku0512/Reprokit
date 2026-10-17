@@ -115,6 +115,11 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await expect(consoleDialog).toBeHidden();
   await page.locator('#phase-0 [data-a="next"]').click();
   await atNextBoundary(page, 0);
+  const affectedData = page.locator("#phase-1 .card").filter({
+    has: page.getByRole("heading", { name: "影響を受けるデータ", exact: true }),
+  });
+  await expect(affectedData).toContainText("-");
+  await expect(affectedData.locator("table")).toHaveCount(0);
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "ヒントを見る" }).click();
   await expect(page.getByRole("button", { name: "ヒントを見る" })).toBeDisabled();
   await expect(page.locator("#phase-1 .step + .log")).toContainText(
@@ -141,7 +146,8 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
     "logs/vulnerable",
     "logs/vulnerable",
   ]);
-  await expect(page.locator("#phase-1 .data")).toContainText("dummy-report.txt");
+  await expect(affectedData).toContainText("-");
+  await expect(affectedData.locator("table")).toHaveCount(0);
   await page.locator('#phase-1 [data-a="next"]').click();
   await atNextBoundary(page, 1);
   await page.getByRole("button", { name: "1つ戻る" }).click();

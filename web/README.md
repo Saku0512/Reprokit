@@ -24,6 +24,8 @@ RunnerなしでReact画面を確認する場合は `npm --prefix web run dev:ext
 
 `src/learner/main.jsx` が状態管理、`lesson-views.jsx` が一覧と各学習フェーズ、
 `lab-modal.jsx` が確認ダイアログ、`lesson-data.js` がサンプルの固定データを担当する。
+「影響を受けるデータ」は各教材の `affectedData` に `{ type, content }` の配列で設定する。
+空配列または未設定なら「-」と表示する。
 `src/learner/learner.css`、`src/shared/base.css`、`src/admin/admin.css` はTailwind CSSの `@apply` で各画面のスタイルを定義する。
 共通の読み込みと色の対応は `src/shared/tailwind.css` に置き、既存のライト・ダークテーマのCSS変数を参照する。
 既存のブラウザ標準スタイルを維持するためPreflightは読み込まない。
