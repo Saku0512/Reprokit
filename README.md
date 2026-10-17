@@ -19,9 +19,9 @@ Reprokitは、脆弱性の説明を読むだけでなく、管理されたロー
 
 ```sh
 npm ci
-npm --prefix web ci
-npm --prefix web run build
-npm --prefix web start
+npm run web:install
+npm run web:build
+npm run web:start
 ```
 
 起動後に表示される `http://127.0.0.1:4173` をブラウザで開いてください。Webシェルは同時にGo Runnerを起動し、接続先と認証トークンを専用パイプで受け渡します。URLやトークンを手入力する必要はありません。
