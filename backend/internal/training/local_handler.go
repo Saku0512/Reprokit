@@ -324,8 +324,8 @@ func (handler *localHandler) managementPrincipal(request *http.Request) (identit
 func managementPermission(request *http.Request) (identity.Permission, bool) {
 	path := request.URL.Path
 	switch {
-	case path == "/api/training/courses" && (request.Method == http.MethodGet || request.Method == http.MethodPost):
-		return identity.PermissionManageCourses, true
+	case path == "/api/training/materials" && request.Method == http.MethodGet:
+		return identity.PermissionManageAssignments, true
 	case path == "/api/training/cohorts" && request.Method == http.MethodPost:
 		return identity.PermissionManageAssignments, true
 	case path == "/api/training/assignments" && (request.Method == http.MethodGet || request.Method == http.MethodPost):
@@ -373,7 +373,7 @@ func (handler *localHandler) applyPrincipal(request *http.Request, principal ide
 		return false
 	}
 	body["organizationId"] = principal.OrganizationID
-	if request.URL.Path == "/api/training/courses" || request.URL.Path == "/api/training/assignments" {
+	if request.URL.Path == "/api/training/assignments" {
 		if actor, exists := body["actorId"]; exists && actor != principal.UserID {
 			return false
 		}
@@ -413,21 +413,9 @@ func (handler *localHandler) serveLearner(writer http.ResponseWriter, request *h
 			badRequest(writer)
 			return
 		}
-		courses, courseErr := handler.service.ListCourses(handler.config.OrganizationID)
-		if courseErr != nil {
-			result(writer, nil, courseErr, http.StatusOK)
-			return
-		}
-		for _, course := range courses {
-			if course.ID == assignment.CourseID && course.Version == assignment.CourseVersion {
-				writeJSON(writer, http.StatusOK, struct {
-					Assignment Assignment `json:"assignment"`
-					Course     Course     `json:"course"`
-				}{assignment, course})
-				return
-			}
-		}
-		http.Error(writer, "training resource not found", http.StatusNotFound)
+		writeJSON(writer, http.StatusOK, struct {
+			Assignment Assignment `json:"assignment"`
+		}{assignment})
 	case "/api/training/learner/start":
 		if !onlyMethod(writer, request, http.MethodPost) {
 			return

@@ -29,35 +29,17 @@ func NewHandler(service *Service) (http.Handler, error) {
 func serve(service *Service, writer http.ResponseWriter, request *http.Request) {
 	path := request.URL.Path
 	switch path {
-	case "/api/training/courses":
-		if request.Method == http.MethodGet {
-			organizationID, ok := organizationQuery(request)
-			if !ok {
-				badRequest(writer)
-				return
-			}
-			courses, err := service.ListCourses(organizationID)
-			result(writer, courses, err, http.StatusOK)
+	case "/api/training/materials":
+		if !onlyMethod(writer, request, http.MethodGet) {
 			return
 		}
-		if !onlyMethod(writer, request, http.MethodPost) {
-			return
-		}
-		var body struct {
-			OrganizationID  string      `json:"organizationId"`
-			ActorID         string      `json:"actorId"`
-			ID              string      `json:"id"`
-			Version         string      `json:"version"`
-			Title           string      `json:"title"`
-			Lessons         []LessonRef `json:"lessons"`
-			RequiredLessons []LessonRef `json:"requiredLessons"`
-		}
-		if !decodeRequest(request, &body) {
+		organizationID, ok := organizationQuery(request)
+		if !ok {
 			badRequest(writer)
 			return
 		}
-		course, err := service.CreateCourse(CreateCourseInput{OrganizationID: body.OrganizationID, ActorID: body.ActorID, ID: body.ID, Version: body.Version, Title: body.Title, Lessons: body.Lessons, RequiredLessons: body.RequiredLessons})
-		result(writer, course, err, http.StatusCreated)
+		materials, err := service.ListMaterials(organizationID)
+		result(writer, materials, err, http.StatusOK)
 		return
 	case "/api/training/cohorts":
 		if !onlyMethod(writer, request, http.MethodPost) {
@@ -93,8 +75,8 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 		var body struct {
 			OrganizationID string    `json:"organizationId"`
 			ActorID        string    `json:"actorId"`
-			CourseID       string    `json:"courseId"`
-			CourseVersion  string    `json:"courseVersion"`
+			LessonID       string    `json:"lessonId"`
+			LessonVersion  string    `json:"lessonVersion"`
 			LearnerIDs     []string  `json:"learnerIds"`
 			CohortID       string    `json:"cohortId"`
 			DueAt          time.Time `json:"dueAt"`
@@ -104,7 +86,7 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 			badRequest(writer)
 			return
 		}
-		assignments, err := service.CreateAssignments(CreateAssignmentsInput{OrganizationID: body.OrganizationID, ActorID: body.ActorID, CourseID: body.CourseID, CourseVersion: body.CourseVersion, LearnerIDs: body.LearnerIDs, CohortID: body.CohortID, DueAt: body.DueAt, AllowRetry: body.AllowRetry})
+		assignments, err := service.CreateAssignments(CreateAssignmentsInput{OrganizationID: body.OrganizationID, ActorID: body.ActorID, LessonID: body.LessonID, LessonVersion: body.LessonVersion, LearnerIDs: body.LearnerIDs, CohortID: body.CohortID, DueAt: body.DueAt, AllowRetry: body.AllowRetry})
 		result(writer, assignments, err, http.StatusCreated)
 		return
 	case "/api/training/exports/results.csv":

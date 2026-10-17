@@ -44,7 +44,6 @@ const (
 	PermissionManageOrganization Permission = "organization.manage"
 	PermissionManageUsers        Permission = "users.manage"
 	PermissionManageIdentity     Permission = "identity.manage"
-	PermissionManageCourses      Permission = "courses.manage"
 	PermissionManageAssignments  Permission = "assignments.manage"
 	PermissionReviewSubmissions  Permission = "submissions.review"
 	PermissionManageContent      Permission = "content.manage"
@@ -564,7 +563,7 @@ func allowed(roles []Role, permission Permission) bool {
 		}
 		switch role {
 		case RoleTrainingManager:
-			if permission == PermissionManageCourses || permission == PermissionManageAssignments || permission == PermissionReadAudit {
+			if permission == PermissionManageAssignments || permission == PermissionReadAudit {
 				return true
 			}
 		case RoleContentAuthor:
@@ -709,7 +708,6 @@ func validPermission(permission Permission) bool {
 	return permission == PermissionManageOrganization ||
 		permission == PermissionManageUsers ||
 		permission == PermissionManageIdentity ||
-		permission == PermissionManageCourses ||
 		permission == PermissionManageAssignments ||
 		permission == PermissionReviewSubmissions ||
 		permission == PermissionManageContent ||
