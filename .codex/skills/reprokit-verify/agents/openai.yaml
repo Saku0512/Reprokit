@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reprokit Verify"
+  short_description: "Format and verify Reprokit changes consistently"
+  default_prompt: "Use $reprokit-verify to format and test the current Reprokit changes."
