@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 import { mockRunner } from "./fixture.js";
+import { PH } from "../../src/learner/lesson-data.ts";
 
 const sample = await readFile(new URL("../../../docs/ui/ui_sample.html", import.meta.url), "utf8");
 
@@ -57,10 +58,11 @@ for (const width of [1440, 390]) {
     await reference.route("**/reference", (route) =>
       route.fulfill({
         contentType: "text/html",
-        body: sample.replace(
-          /<link[\s\S]*?\/>/,
-          '<link rel="stylesheet" href="/generated/app.css" />',
-        ),
+        // 章数と削除済みのヘッダー文言を現行仕様へ合わせ、残りのレイアウトを比較する。
+        body: sample
+          .replaceAll("/ 5</em>", `/ ${PH.length}</em>`)
+          .replace(/<span\b[^>]*>\s*実際のCVEを、自分で試して理解する\s*<\/span\s*>/, "")
+          .replace(/<link[\s\S]*?\/>/, '<link rel="stylesheet" href="/generated/app.css" />'),
       }),
     );
     await page.goto("/");
@@ -189,13 +191,16 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await expect(traceDetail.locator("code")).toHaveText("sh -c $USERNAME");
   await page.locator('#phase-2 [data-a="next"]').click();
   await atNextBoundary(page, 2);
-  await page.locator('.diff [data-v="a"]').first().click();
-  await expect(page.locator(".diff .hl")).toHaveCount(2);
+  await expect(page.getByLabel("修正するコード（Go）")).toBeVisible();
   await page.locator('#phase-3 [data-a="next"]').click();
   await atNextBoundary(page, 3);
-  for (const action of ["runV", "runF"]) await page.locator(`[data-a="${action}"]`).click();
-  await expect(page.locator("#phase-4 .reveal")).toContainText("確認できました。");
+  await expect(page.locator('.diff [data-change="removed"]')).toHaveCount(16);
+  await expect(page.locator('.diff [data-change="context"]')).toHaveCount(4);
   await page.locator('#phase-4 [data-a="next"]').click();
+  await atNextBoundary(page, 4);
+  for (const action of ["runV", "runF"]) await page.locator(`[data-a="${action}"]`).click();
+  await expect(page.locator("#phase-5 .reveal")).toContainText("確認できました。");
+  await page.locator('#phase-5 [data-a="next"]').click();
   await page.locator('[data-a="stop"]').click();
   await expect(page.locator(".st")).toHaveText("STOPPED");
   await page.locator('[data-a="destroy"]').click();
@@ -289,13 +294,13 @@ for (const width of [1440, 390]) {
     });
     await expect(page.locator(".lesson-phase")).toHaveCount(0);
     await expect(steps.nth(0)).toBeDisabled();
-    await expect(outline).toContainText("0 / 5 ステップ完了");
+    await expect(outline).toContainText(`0 / ${PH.length} ステップ完了`);
     await page.getByRole("button", { name: "学習を開始する ↓", exact: true }).focus();
     await page.keyboard.press("Enter");
     await expect(page.locator("#phase-title-0")).toBeFocused();
     await atPhase(page, 0);
     await expect(steps.nth(0)).toHaveAttribute("aria-current", "step");
-    await expect(outline).toContainText("0 / 5 ステップ完了");
+    await expect(outline).toContainText(`0 / ${PH.length} ステップ完了`);
     await expect(steps.nth(1)).toBeDisabled();
     await expect(page.locator(".lesson-phase")).toHaveCount(1);
     await page.locator('#phase-0 [data-a="next"]').focus();
@@ -320,7 +325,7 @@ for (const width of [1440, 390]) {
       .locator("#phase-title-2")
       .evaluate((element) => element.scrollIntoView({ behavior: "instant", block: "start" }));
     await expect(steps.nth(2)).toHaveAttribute("aria-current", "step");
-    await expect(outline).toContainText("2 / 5 ステップ完了");
+    await expect(outline).toContainText(`2 / ${PH.length} ステップ完了`);
     await expect(steps.nth(3)).toBeDisabled();
     await page.locator('#phase-2 [data-a="prev"]').click();
     await expect(page.locator("#phase-title-1")).toBeFocused();
@@ -346,7 +351,7 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "Step 1を読み返す ↓", exact: true }).click();
     await expect(page.locator("#phase-title-0")).toBeFocused();
     await expect(page.locator(".lesson-phase")).toHaveCount(3);
-    await expect(outline).toContainText("2 / 5 ステップ完了");
+    await expect(outline).toContainText(`2 / ${PH.length} ステップ完了`);
     await expect(page.locator("#phase-0 .log")).toContainText("403 Forbidden");
   });
 }

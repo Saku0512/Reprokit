@@ -4,7 +4,7 @@ import type { LabSession, LabRef } from "../shared/types.ts";
 import { requiredElement } from "../shared/dom.ts";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { initialState } from "./lesson-data.ts";
+import { initialState, PH } from "./lesson-data.ts";
 import { LabConsole, LessonList, LessonDetail, LessonOutline } from "./lesson-views.tsx";
 import { LabModal } from "./lab-modal.tsx";
 import { ApiError, StudyApi, canStart } from "../shared/study-api.ts";
@@ -396,15 +396,15 @@ function App() {
         break;
       case "next": {
         const phase = Number(i);
-        const next = Math.min(4, phase + 1);
-        if (phase < 4) pendingPhase.current = { phase: next, previous: phase };
+        const next = Math.min(PH.length - 1, phase + 1);
+        if (phase < PH.length - 1) pendingPhase.current = { phase: next, previous: phase };
         setState((previous) => ({
           ...previous,
           done: { ...previous.done, [phase]: true },
           revealed: Math.max(previous.revealed, next),
           p: next,
         }));
-        if (phase === 4) setMessage("お疲れさまでした。DESTROYでLabを片付けましょう");
+        if (phase === PH.length - 1) setMessage("お疲れさまでした。DESTROYでLabを片付けましょう");
         break;
       }
       case "prev":
@@ -428,9 +428,6 @@ function App() {
         break;
       case "fwd":
         update({ pos: Math.min(5, state.pos + 1), pick: Math.min(5, state.pos + 1) });
-        break;
-      case "hl":
-        update({ diffHl: v ?? null });
         break;
       case "runV":
       case "runF":
@@ -499,9 +496,6 @@ function App() {
           <button className="logo" data-a="home" aria-label="Reprokit ホーム">
             <img src="/assets/reprokit-logo.png" alt="Reprokit" />
           </button>
-          <span className="header-tagline" style={{ color: "var(--sub)", fontSize: "13.5px" }}>
-            実際のCVEを、自分で試して理解する
-          </span>
           <div className="hd">
             {state.lab === "running" && (
               <button

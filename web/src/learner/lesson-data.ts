@@ -37,7 +37,6 @@ export interface LearnerState {
   pos: number;
   pick: number | null;
   found: number | null;
-  diffHl: string | null;
   runV: boolean;
   runF: boolean;
   note: string;
@@ -82,8 +81,9 @@ export const PH = [
   ["ログイン拒否を確認する", "認証前の処理を観察する"],
   ["脆弱性を再現する", "ガイドに沿って検証"],
   ["処理を見直す", "判断が抜けた地点を探す"],
+  ["自分でコードを修正する", "修正箇所を探して編集する"],
   ["公式パッチと照らす", "修正差分と見比べる"],
-  ["修正する", "同じ操作で防がれる"],
+  ["修正版の挙動を比較する", "同じ操作で防がれる"],
 ];
 export const NODES = [
   ["ログイン要求を受け取る", "POST /api/login", "ユーザー名・パスワードが届く", "u", "外部入力"],
@@ -184,7 +184,6 @@ export const initialState: LearnerState = {
   pos: 0,
   pick: null,
   found: null,
-  diffHl: null,
   runV: false,
   runF: false,
   note: "",

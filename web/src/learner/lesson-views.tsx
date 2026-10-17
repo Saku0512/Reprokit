@@ -2,6 +2,8 @@ import type { PhaseProps, StateProps } from "./lesson-data.ts";
 import { Fragment, useEffect, useRef } from "react";
 import { L, PH, NODES, TRACE_DETAILS } from "./lesson-data.ts";
 import { endpointURL } from "../shared/study-api.ts";
+import { PatchWorkshop } from "./patch-workshop.tsx";
+import { patchComparisonLines } from "./patch-exercise.ts";
 export function LessonList({ state: S }: StateProps) {
   const cats = [
     ["all", "すべて", L.length],
@@ -37,7 +39,7 @@ export function LessonList({ state: S }: StateProps) {
           <div className="grid">
             {items.map((l) => {
               const n = l.ready ? Object.keys(S.done).length : 0,
-                deg = (n / 5) * 360;
+                deg = (n / PH.length) * 360;
               return (
                 <Fragment key={l.id}>
                   <button className="lcard" data-a="open" data-v={l.id} disabled={!l.ready}>
@@ -52,7 +54,7 @@ export function LessonList({ state: S }: StateProps) {
                           {l.src}
                         </span>
                         {l.ready ? (
-                          n === 5 ? (
+                          n === PH.length ? (
                             <>
                               <span className="pill green">{"Completed"}</span>
                             </>
@@ -76,7 +78,7 @@ export function LessonList({ state: S }: StateProps) {
                       <div>
                         <span>
                           {n}
-                          <em>{"/ 5"}</em>
+                          <em>{`/ ${PH.length}`}</em>
                         </span>
                       </div>
                     </div>
@@ -555,46 +557,41 @@ function RequestTrace({ state: S }: StateProps) {
   );
 }
 
-function PatchComparison({ state: S }: StateProps) {
-  const h = S.diffHl;
+function PatchComparison() {
   return (
     <>
       <div className="stage">
         <div className="card">
-          <h3>{"修正差分（要約）2.63.5 → 2.63.6"}</h3>
+          <h3>{"修正差分（演習と同じ抜粋）2.63.5 → 2.63.6"}</h3>
           {"\n            "}
           <p style={{ margin: "0 0 10px", fontSize: "14px" }}>
             {
-              "赤い行が脆弱版で削除された処理、緑の行が修正版で追加された処理です。行をクリックすると、下の説明と対応する行が強調されます。"
+              "赤い「−」の行が削除された処理です。この抜粋には追加行はありません。記号のない行は修正前からある処理です。"
             }
           </p>
           {"\n            "}
-          <div className="diff">
-            <div className={"del " + (h === "a" ? "hl" : "")} data-a="hl" data-v="a">
-              {"- args := os.Expand(hookCommand, lookup(username, password))"}
-            </div>
-            <div className={"del " + (h === "a" ? "hl" : "")} data-a="hl" data-v="a">
-              {'- cmd := exec.Command("sh", "-c", args)'}
-            </div>
-            <div> </div>
-            <div className={"add " + (h === "b" ? "hl" : "")} data-a="hl" data-v="b">
-              {'+ cmd := exec.Command("sh", "-c", hookCommand)'}
-            </div>
-            <div className={"add " + (h === "b" ? "hl" : "")} data-a="hl" data-v="b">
-              {'+ cmd.Env = append(cmd.Env, "USERNAME="+username, "PASSWORD="+password)'}
-            </div>
+          <div className="diff" aria-label="演習コードの修正差分">
+            {patchComparisonLines.map((line, index) => (
+              <div
+                key={index}
+                className={line.removed ? "del" : undefined}
+                data-change={line.removed ? "removed" : "context"}
+              >
+                {`${line.removed ? "- " : "  "}${line.code}`}
+              </div>
+            ))}
           </div>
           {"\n            "}
           <p style={{ fontSize: "12.5px", color: "var(--sub)", margin: "8px 0 0" }}>
-            {"学習用に簡略化した概念図です。実際の差分は"}
+            {"前章と同じ抜粋を使っています。関数全体の差分と回帰テストは"}
             <a
               href={
-                "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-m93h-4hw7-5qcm"
+                "https://github.com/filebrowser/filebrowser/commit/34ae34e764d72540c039f1f5ea2ec4c974168c1f"
               }
               target="_blank"
               rel="noopener"
             >
-              {"公式アドバイザリ"}
+              {"公式修正コミット"}
             </a>
             {"で確認してください。"}
           </p>
@@ -608,50 +605,22 @@ function PatchComparison({ state: S }: StateProps) {
               <b>{"見つけた原因（フェーズ3・手順4）"}</b>
               <br />
               <code>{"os.Expand"}</code>
-              {"がユーザー名・パスワードをコマンド文字列の中へ展開し、その文字列を次の"}
-              <code>{"sh -c"}</code>
+              {"がユーザー名とパスワードをコマンド引数へ展開し、"}
+              <code>{"exec.Command"}</code>
               {
-                "がシェルの命令として解釈します。入力値がデータではなくコマンドの一部になっていたことが問題です。"
+                "へ渡していました。このLabでは管理者の設定がシェルを呼ぶため、入力値がシェルの命令として解釈されます。"
               }
             </p>
             {"\n            "}
             <p style={{ margin: "0", fontSize: "14px" }}>
               <b>{"修正版で変わったこと"}</b>
               <br />
-              {"文字列への展開をやめ、コマンド本体は設定済みの"}
-              <code>{"hookCommand"}</code>
+              {"引数への展開ループと、そのための"}
+              <code>{"envMapping"}</code>
               {
-                "のまま実行します。ユーザー名・パスワードは環境変数として別に渡すため、コマンドの構文に混ざりません。"
+                "を削除しました。exec.Commandの呼び出しと、資格情報をcmd.Envへ設定する2行は修正前からあり、そのまま残っています。環境変数を渡す処理を新設したわけではありません。"
               }
             </p>
-            {"\n            "}
-            {h === "a" ? (
-              <>
-                <div className="reveal">
-                  {"赤い行が原因に対応します。特に"}
-                  <code>{"os.Expand"}</code>
-                  {"の行で入力値をコマンド文字列へ混ぜ、次の"}
-                  <code>{"sh -c"}</code>
-                  {"の行でシェルに解釈させていました。"}
-                </div>
-              </>
-            ) : h === "b" ? (
-              <>
-                <div className="reveal">
-                  {
-                    "緑の行が修正に対応します。固定のコマンド本体と、環境変数で渡す入力値を分けています。"
-                  }
-                </div>
-              </>
-            ) : (
-              <>
-                <p style={{ color: "var(--sub)", fontSize: "13.5px", margin: "8px 0 0" }}>
-                  {
-                    "赤い行は「入力値をコマンドに混ぜた原因」、緑の行は「入力値をコマンドから分離する修正」です。"
-                  }
-                </p>
-              </>
-            )}
           </div>
         </div>
       </div>
@@ -750,11 +719,19 @@ function Remediation({ state: S }: StateProps) {
   );
 }
 
-const phases = [NormalUsage, Reproduction, RequestTrace, PatchComparison, Remediation];
+const phases = [
+  NormalUsage,
+  Reproduction,
+  RequestTrace,
+  PatchWorkshop,
+  PatchComparison,
+  Remediation,
+];
 const phaseLeads = [
   "このLabではログインが拒否されることが正常な動作です。拒否される前の処理を確認します。",
   "ガイドに沿って検証し、観察結果を確認します。",
   "結果から処理をたどり、入力値がコマンドとして扱われる流れを確認します。",
+  "公式の修正差分を見る前に、原因となった処理を探してコードを編集します。",
   "実際の修正差分と、自分が見つけた原因との対応を確認します。",
   "修正版で同じ操作をもう一度行い、両版のログイン拒否と副作用の違いを確認します。",
 ];
@@ -913,9 +890,9 @@ export function LessonDetail({
                       className="btn primary"
                       data-a="next"
                       data-i={i}
-                      disabled={i === 4 && S.done[i]}
+                      disabled={i === PH.length - 1 && S.done[i]}
                     >
-                      {i === 4
+                      {i === PH.length - 1
                         ? S.done[i]
                           ? "学習を完了しました"
                           : "完了する"
