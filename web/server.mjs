@@ -8,6 +8,7 @@ const files = new Map([
   ["/admin", ["admin.html", "text/html; charset=utf-8"]],
   ["/src/app.js", ["src/app.js", "text/javascript; charset=utf-8"]],
   ["/src/admin.js", ["src/admin.js", "text/javascript; charset=utf-8"]],
+  ["/src/admin-model.js", ["src/admin-model.js", "text/javascript; charset=utf-8"]],
   ["/src/admin.css", ["src/admin.css", "text/css; charset=utf-8"]],
   ["/src/api.js", ["src/api.js", "text/javascript; charset=utf-8"]],
   ["/src/storage.js", ["src/storage.js", "text/javascript; charset=utf-8"]],
