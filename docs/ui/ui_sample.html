@@ -102,12 +102,17 @@
                 border-bottom: 1px solid var(--line);
             }
             .logo {
-                font-weight: 700;
-                font-size: 18px;
-                color: var(--teal-d);
+                display: flex;
+                flex: none;
+                align-items: center;
                 background: none;
                 border: 0;
                 padding: 0;
+            }
+            .logo img {
+                display: block;
+                width: 128px;
+                height: auto;
             }
             .hd {
                 margin-left: auto;
@@ -800,7 +805,8 @@
     <body>
         <div class="app">
             <header>
-                <button class="logo" data-a="home">Reprokit</button
+                <button class="logo" data-a="home" aria-label="Reprokit ホーム">
+                    <img src="/assets/reprokit-logo.png" alt="Reprokit" /></button
                 ><span style="color: var(--sub); font-size: 13.5px"
                     >実際のCVEを、自分で試して理解する</span
                 >

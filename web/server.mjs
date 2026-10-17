@@ -85,7 +85,7 @@ export function createWebServer({
 } = {}) {
   const root = new URL(dist ? "./dist/" : "./", import.meta.url);
   let frontendBuild;
-  
+
   const adminSessions = new Map();
   const oidcFlows = new Map();
   const adminEnabled =
