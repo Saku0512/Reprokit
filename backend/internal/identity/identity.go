@@ -500,6 +500,11 @@ func (service *Service) RecordAuthentication(organizationID, userID string, succ
 	if _, exists := service.store.state.Organizations[organizationID]; !exists {
 		return ErrNotFound
 	}
+	if userID != "" {
+		if _, exists := service.store.state.Users[userKey(organizationID, userID)]; !exists {
+			return ErrNotFound
+		}
+	}
 	action := AuditAuthenticationFailed
 	if succeeded {
 		action = AuditAuthenticationOK
@@ -550,6 +555,9 @@ func (service *Service) activeAdminCount(organizationID string) int {
 }
 
 func allowed(roles []Role, permission Permission) bool {
+	if !validPermission(permission) {
+		return false
+	}
 	for _, role := range roles {
 		if role == RoleOrganizationAdmin {
 			return true
@@ -585,16 +593,34 @@ func validState(state persistedState) bool {
 			return false
 		}
 	}
+	subjects := map[string]bool{}
+	activeAdministrators := map[string]int{}
 	for key, user := range state.Users {
-		if key != userKey(user.OrganizationID, user.ID) || !validID(user.OrganizationID) || !validID(user.ID) || !validProfile(user.Subject, user.Email, user.DisplayName) || !validRoles(user.Roles) || user.CreatedAt.IsZero() || user.UpdatedAt.IsZero() {
+		if key != userKey(user.OrganizationID, user.ID) || !validID(user.OrganizationID) || !validID(user.ID) || !validProfile(user.Subject, user.Email, user.DisplayName) || !validRoles(user.Roles) || user.CreatedAt.IsZero() || user.UpdatedAt.Before(user.CreatedAt) {
 			return false
 		}
 		if _, exists := state.Organizations[user.OrganizationID]; !exists {
 			return false
 		}
+		subjectKey := user.OrganizationID + "\x00" + user.Subject
+		if subjects[subjectKey] {
+			return false
+		}
+		subjects[subjectKey] = true
+		if user.Active && hasRole(user.Roles, RoleOrganizationAdmin) {
+			activeAdministrators[user.OrganizationID]++
+		}
+	}
+	for organizationID := range state.Organizations {
+		if activeAdministrators[organizationID] == 0 {
+			return false
+		}
 	}
 	for key, event := range state.AuditEvents {
 		if key != eventKey(event.OrganizationID, event.ID) || !validAuditEvent(event) {
+			return false
+		}
+		if _, exists := state.Organizations[event.OrganizationID]; !exists {
 			return false
 		}
 	}
@@ -677,6 +703,18 @@ func validRoles(roles []Role) bool {
 
 func validRole(role Role) bool {
 	return role == RoleOrganizationAdmin || role == RoleTrainingManager || role == RoleContentAuthor || role == RoleReviewer || role == RoleLearner
+}
+
+func validPermission(permission Permission) bool {
+	return permission == PermissionManageOrganization ||
+		permission == PermissionManageUsers ||
+		permission == PermissionManageIdentity ||
+		permission == PermissionManageCourses ||
+		permission == PermissionManageAssignments ||
+		permission == PermissionReviewSubmissions ||
+		permission == PermissionManageContent ||
+		permission == PermissionAccessLearning ||
+		permission == PermissionReadAudit
 }
 
 func normalizedRoles(roles []Role) []Role {

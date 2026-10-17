@@ -115,6 +115,48 @@ func TestRolePermissions(t *testing.T) {
 			t.Errorf("%s should deny %s", item.role, item.denied)
 		}
 	}
+	if allowed([]Role{RoleOrganizationAdmin}, Permission("unknown.permission")) {
+		t.Fatal("organization administrator was allowed an unknown permission")
+	}
+}
+
+func TestPersistedStateRejectsDuplicateSubjectsAndMissingAdministrator(t *testing.T) {
+	service := testService(t)
+	admin := bootstrap(t, service)
+	user, err := service.CreateUser(admin, CreateUserInput{ID: "reviewer", Subject: "idp-reviewer", Email: "reviewer@acme.test", DisplayName: "レビュー担当", Roles: []Role{RoleReviewer}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := copyPersistedStateForTest(service.store.state)
+	user.Subject = "idp-admin"
+	state.Users[userKey(user.OrganizationID, user.ID)] = user
+	if validState(state) {
+		t.Fatal("duplicate OIDC subjects were accepted")
+	}
+	state = copyPersistedStateForTest(service.store.state)
+	administrator := state.Users[userKey("acme", "admin")]
+	administrator.Active = false
+	state.Users[userKey("acme", "admin")] = administrator
+	if validState(state) {
+		t.Fatal("organization without an active administrator was accepted")
+	}
+}
+
+func copyPersistedStateForTest(source persistedState) persistedState {
+	result := emptyState()
+	for key, value := range source.Organizations {
+		result.Organizations[key] = value
+	}
+	for key, value := range source.Users {
+		result.Users[key] = value
+	}
+	for key, value := range source.AuditEvents {
+		result.AuditEvents[key] = value
+	}
+	for key, value := range source.OIDCProviders {
+		result.OIDCProviders[key] = value
+	}
+	return result
 }
 
 func TestOIDCConfigurationAndAuthenticationAudit(t *testing.T) {

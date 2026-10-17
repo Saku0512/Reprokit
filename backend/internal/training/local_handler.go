@@ -265,7 +265,10 @@ func (handler *localHandler) serveOIDC(writer http.ResponseWriter, request *http
 			return
 		}
 		principal, err := handler.config.OIDC.Complete(request.Context(), flow, body.State, body.Code)
-		if err != nil {
+		if err != nil || principal.OrganizationID != handler.config.OrganizationID || !validID(principal.UserID) {
+			if err == nil {
+				_ = handler.config.Identity.RecordAuthentication(handler.config.OrganizationID, "", false)
+			}
 			http.Error(writer, "OIDC authentication failed", http.StatusUnauthorized)
 			return
 		}

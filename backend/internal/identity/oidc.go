@@ -95,7 +95,7 @@ func (authenticator *OIDCAuthenticator) Complete(ctx context.Context, flow OIDCF
 		}
 		return Principal{}, ErrAuthentication
 	}
-	if !validOIDCFlow(flow) || code == "" || authenticator.now().UTC().After(flow.ExpiresAt) || !constantTimeEqual(flow.State, returnedState) {
+	if !validOIDCFlow(flow) || code == "" || !authenticator.now().UTC().Before(flow.ExpiresAt) || !constantTimeEqual(flow.State, returnedState) {
 		return failed()
 	}
 	config, err := authenticator.service.OIDCConfiguration(flow.OrganizationID)
