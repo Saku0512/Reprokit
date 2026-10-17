@@ -1,0 +1,7 @@
+services:
+  app:
+    image: registry.example/reprokit/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    volumes:
+      - data:/work/../../host
+volumes:
+  data: {}

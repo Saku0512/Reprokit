@@ -1,0 +1,5 @@
+services:
+  app:
+    image: registry.example/reprokit/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    devices:
+      - /dev/fuse:/dev/fuse

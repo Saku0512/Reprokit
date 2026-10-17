@@ -1,0 +1,5 @@
+services:
+  app:
+    image: registry.example/reprokit/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    security_opt:
+      - no-new-privileges:true
