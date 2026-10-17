@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef } from "react";
-import { L, PH, NODES } from "./lesson-data.js";
+import { L, PH, NODES, TRACE_DETAILS } from "./lesson-data.js";
 import { endpointURL } from "../shared/study-api.js";
 export function LessonList({ state: S }) {
   const cats = [
@@ -466,6 +466,7 @@ function Reproduction({ lesson, state: S }) {
 }
 
 function RequestTrace({ state: S }) {
+  const detail = TRACE_DETAILS[S.pos];
   return (
     <>
       <div className="stage">
@@ -521,27 +522,23 @@ function RequestTrace({ state: S }) {
           </div>
         </div>
         {"\n            "}
-        <div className="card">
+        <section className="card trace-detail" aria-label="この地点の様子">
           <h3>{"この地点の様子"}</h3>
-          <div className="log">
-            {
-              [
-                "受信直後の値: 外部入力（未検証）",
-                "分岐: Hook Authentication",
-                "保持: 値は加工されていない",
-                <>
-                  <span className="t">{"展開: 値がコマンド引数へ"}</span>
-                </>,
-                <>
-                  <span className="u">{"実行: 展開後の文字列を解釈"}</span>
-                </>,
-                <>
-                  <span className="t">{"確定: すでにコマンドは実行済み"}</span>
-                </>,
-              ][S.pos]
-            }
-          </div>
-        </div>
+          <h4>{`${S.pos + 1}. ${NODES[S.pos][0]}`}</h4>
+          <p>{detail.description}</p>
+          <p className="console-empty">{detail.codeLabel}</p>
+          <pre className="log">
+            <code>{detail.code}</code>
+          </pre>
+          <p>{detail.result}</p>
+          <a
+            href={`https://github.com/filebrowser/filebrowser/blob/v2.63.5/auth/hook.go#L${detail.line}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {"File Browser 2.63.5の実装を見る"}
+          </a>
+        </section>
       </div>
     </>
   );
@@ -597,7 +594,7 @@ function PatchComparison({ state: S }) {
             <h3>{"原因から修正まで"}</h3>
             {"\n            "}
             <p style={{ margin: "0 0 8px", fontSize: "14px" }}>
-              <b>{"あなたが見つけた原因（フェーズ3・手順4）"}</b>
+              <b>{"見つけた原因（フェーズ3・手順4）"}</b>
               <br />
               <code>{"os.Expand"}</code>
               {"がユーザー名・パスワードをコマンド文字列の中へ展開し、その文字列を次の"}

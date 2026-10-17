@@ -52,6 +52,62 @@ export const NODES = [
   ],
   ["認証結果を確定する", "コマンドの終了後", "実行は認証の確定より前に起きている", "", ""],
 ];
+export const TRACE_DETAILS = [
+  {
+    description:
+      "HookAuth.Authがログイン要求のJSON本文を読み、usernameとpasswordを資格情報として取り出します。この時点では、ログインを許可するかどうかは決まっていません。",
+    codeLabel: "リクエスト本文を読み取る処理（抜粋）",
+    code: "var cred hookCred\njson.NewDecoder(r.Body).Decode(&cred)",
+    result:
+      "教材の固定入力では、usernameに「id > /tmp/success; echo hook.action=block」、passwordに「anything」が入ります。",
+    line: 36,
+  },
+  {
+    description:
+      "このLabは認証方式にHook Authenticationを使います。認証フックは、管理者が設定した外部コマンドの出力を使ってログインの可否を決めます。",
+    codeLabel: "このLabのフック設定",
+    code: "sh -c $USERNAME",
+    result:
+      "shに渡す引数の$USERNAMEへログイン入力を展開する設定です。コマンドを実行して結果を得るまで、認証結果は確定しません。",
+    line: 81,
+  },
+  {
+    description:
+      "HookAuth.Authは読み取った資格情報をa.Credへ保存し、RunCommandを呼び出します。ユーザー名に含まれる「;」や「>」も文字列の一部として保持されます。",
+    codeLabel: "資格情報を保存してフックを呼び出す処理（抜粋）",
+    code: "a.Cred = cred\naction, err := a.RunCommand()",
+    result:
+      "RunCommand内のenvMappingは、USERNAMEを求められるとa.Cred.Username、PASSWORDならa.Cred.Passwordを返します。",
+    line: 51,
+  },
+  {
+    description:
+      "RunCommandは設定コマンドを空白で分割し、実行ファイル名以外の各引数をos.Expandで置換します。このLabでは$USERNAMEが、入力されたユーザー名全体に置き換わります。",
+    codeLabel: "引数の置換処理（抜粋）",
+    code: "command[i] = os.Expand(arg, envMapping)",
+    result:
+      "置換後の引数は「-c」と「id > /tmp/success; echo hook.action=block」です。os.Expandは文字列を置換するだけで、シェル向けのエスケープは行いません。",
+    line: 82,
+  },
+  {
+    description:
+      "exec.Commandが設定されたshを起動し、cmd.Outputが実行終了を待って標準出力を受け取ります。shは-cの次の引数をシェルの命令として解釈します。",
+    codeLabel: "外部コマンドを実行する処理（抜粋）",
+    code: "cmd := exec.Command(command[0], command[1:]...)\nout, err := cmd.Output()",
+    result:
+      "この固定入力では、idの出力がコンテナ内の/tmp/successへ書き込まれ、続いてechoがhook.action=blockを出力します。処理はFile Browserプロセスの権限で実行されます。",
+    line: 99,
+  },
+  {
+    description:
+      "GetValuesがフックの標準出力をキーと値に分け、hook.actionを読み取ります。HookAuth.Authは、その値がblockなら権限エラーを返してログインを拒否します。",
+    codeLabel: "フックの出力から認証動作を取り出す処理（抜粋）",
+    code: 'a.GetValues(string(out))\nreturn a.Fields.Values["hook.action"], nil',
+    result:
+      "画面にはログイン拒否が返っても、その前に外部コマンドは実行済みです。/tmp/successの作成は、後からログインを拒否しても取り消されません。",
+    line: 107,
+  },
+];
 export const initialState = {
   view: "list",
   cat: "all",

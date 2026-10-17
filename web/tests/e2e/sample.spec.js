@@ -150,8 +150,28 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await expect(affectedData.locator("table")).toHaveCount(0);
   await page.locator('#phase-1 [data-a="next"]').click();
   await atNextBoundary(page, 1);
+  const traceDetail = page.getByRole("region", { name: "この地点の様子", exact: true });
+  await expect(traceDetail).toContainText("後からログインを拒否しても取り消されません");
+  await expect(traceDetail.locator("code")).toContainText('a.Fields.Values["hook.action"]');
   await page.getByRole("button", { name: "1つ戻る" }).click();
   await expect(page.locator(".nd.at")).toContainText("外部コマンドを実行する");
+  await expect(traceDetail).toContainText("File Browserプロセスの権限");
+  await expect(traceDetail.locator("code")).toContainText("cmd.Output()");
+  for (const code of [
+    "os.Expand(arg, envMapping)",
+    "a.Cred = cred",
+    "sh -c $USERNAME",
+    "json.NewDecoder(r.Body).Decode(&cred)",
+  ]) {
+    await page.getByRole("button", { name: "1つ戻る" }).click();
+    await expect(traceDetail.locator("code")).toContainText(code);
+  }
+  await expect(page.getByRole("button", { name: "1つ戻る" })).toBeDisabled();
+  await expect(
+    traceDetail.getByRole("link", { name: "File Browser 2.63.5の実装を見る" }),
+  ).toHaveAttribute("href", /v2\.63\.5\/auth\/hook\.go#L36$/);
+  await page.getByRole("button", { name: "1つ進める" }).click();
+  await expect(traceDetail.locator("code")).toHaveText("sh -c $USERNAME");
   await page.locator('#phase-2 [data-a="next"]').click();
   await atNextBoundary(page, 2);
   await page.locator('.diff [data-v="a"]').first().click();
