@@ -2,6 +2,7 @@ package training
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -10,6 +11,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/jphacks/sd_2601/internal/identity"
 	"github.com/jphacks/sd_2601/internal/lesson"
@@ -20,6 +23,12 @@ const (
 	managementUserHeader         = "X-Reprokit-User-ID"
 )
 
+// OIDCAuthenticatorはWebシェルが中継するOIDCフローの境界である。
+type OIDCAuthenticator interface {
+	Begin(context.Context, string) (string, identity.OIDCFlow, error)
+	Complete(context.Context, identity.OIDCFlow, string, string) (identity.Principal, error)
+}
+
 // LocalConfigはWebシェルから渡す管理主体と、この端末の固定受講者を定義する。
 type LocalConfig struct {
 	SessionToken    string
@@ -29,6 +38,7 @@ type LocalConfig struct {
 	LearnerID       string
 	AssignmentID    string
 	Identity        *identity.Service
+	OIDC            OIDCAuthenticator
 }
 
 type localHandler struct {
@@ -37,6 +47,8 @@ type localHandler struct {
 	management http.Handler
 	next       http.Handler
 	config     LocalConfig
+	flowsMu    sync.Mutex
+	flows      map[string]identity.OIDCFlow
 }
 
 // NewLocalHandlerは管理APIと受講APIを、用途別の認証情報でローカルRunnerへ接続する。
@@ -48,12 +60,14 @@ func NewLocalHandler(service *Service, study *lesson.SessionStore, next http.Han
 	if err != nil {
 		return nil, err
 	}
-	handler := &localHandler{service: service, study: study, management: management, next: next, config: config}
+	handler := &localHandler{service: service, study: study, management: management, next: next, config: config, flows: map[string]identity.OIDCFlow{}}
 	return http.HandlerFunc(handler.serveHTTP), nil
 }
 
 func (handler *localHandler) serveHTTP(writer http.ResponseWriter, request *http.Request) {
-	if !strings.HasPrefix(request.URL.Path, "/api/training/") {
+	isTraining := strings.HasPrefix(request.URL.Path, "/api/training/")
+	isOIDC := request.URL.Path == "/api/auth/oidc/start" || request.URL.Path == "/api/auth/oidc/callback"
+	if !isTraining && !isOIDC {
 		handler.next.ServeHTTP(writer, request)
 		return
 	}
@@ -61,6 +75,14 @@ func (handler *localHandler) serveHTTP(writer http.ResponseWriter, request *http
 	writer.Header().Set("X-Content-Type-Options", "nosniff")
 	if !trainingLocalHost(request.Host) || !trainingSameOrigin(request) {
 		http.Error(writer, "invalid local origin", http.StatusForbidden)
+		return
+	}
+	if isOIDC {
+		if !constantToken(request.Header.Get("X-Reprokit-Management-Session"), handler.config.ManagementToken) {
+			http.Error(writer, "invalid management session", http.StatusUnauthorized)
+			return
+		}
+		handler.serveOIDC(writer, request)
 		return
 	}
 	if strings.HasPrefix(request.URL.Path, "/api/training/learner/") {
@@ -98,6 +120,91 @@ func (handler *localHandler) serveHTTP(writer http.ResponseWriter, request *http
 		return
 	}
 	handler.management.ServeHTTP(writer, request)
+}
+
+func (handler *localHandler) serveOIDC(writer http.ResponseWriter, request *http.Request) {
+	if handler.config.OIDC == nil {
+		http.Error(writer, "OIDC login is unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	switch request.URL.Path {
+	case "/api/auth/oidc/start":
+		if !onlyMethod(writer, request, http.MethodPost) {
+			return
+		}
+		if request.URL.RawQuery != "" || !decodeRequest(request, &struct{}{}) {
+			badRequest(writer)
+			return
+		}
+		authorizationURL, flow, err := handler.config.OIDC.Begin(request.Context(), handler.config.OrganizationID)
+		if err != nil || !handler.storeOIDCFlow(flow) {
+			http.Error(writer, "could not start OIDC login", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(writer, http.StatusOK, struct {
+			AuthorizationURL string `json:"authorizationUrl"`
+		}{AuthorizationURL: authorizationURL})
+	case "/api/auth/oidc/callback":
+		if !onlyMethod(writer, request, http.MethodPost) {
+			return
+		}
+		if request.URL.RawQuery != "" {
+			badRequest(writer)
+			return
+		}
+		var body struct {
+			State string `json:"state"`
+			Code  string `json:"code"`
+		}
+		if !decodeRequest(request, &body) || body.State == "" || body.Code == "" {
+			badRequest(writer)
+			return
+		}
+		flow, exists := handler.takeOIDCFlow(body.State)
+		if !exists {
+			_ = handler.config.Identity.RecordAuthentication(handler.config.OrganizationID, "", false)
+			http.Error(writer, "OIDC authentication failed", http.StatusUnauthorized)
+			return
+		}
+		principal, err := handler.config.OIDC.Complete(request.Context(), flow, body.State, body.Code)
+		if err != nil {
+			http.Error(writer, "OIDC authentication failed", http.StatusUnauthorized)
+			return
+		}
+		writeJSON(writer, http.StatusOK, struct {
+			OrganizationID string `json:"organizationId"`
+			UserID         string `json:"userId"`
+		}{OrganizationID: principal.OrganizationID, UserID: principal.UserID})
+	default:
+		http.NotFound(writer, request)
+	}
+}
+
+func (handler *localHandler) storeOIDCFlow(flow identity.OIDCFlow) bool {
+	if flow.OrganizationID != handler.config.OrganizationID || flow.State == "" || flow.ExpiresAt.IsZero() {
+		return false
+	}
+	handler.flowsMu.Lock()
+	defer handler.flowsMu.Unlock()
+	now := time.Now().UTC()
+	for state, existing := range handler.flows {
+		if !existing.ExpiresAt.After(now) {
+			delete(handler.flows, state)
+		}
+	}
+	if len(handler.flows) >= 64 {
+		return false
+	}
+	handler.flows[flow.State] = flow
+	return true
+}
+
+func (handler *localHandler) takeOIDCFlow(state string) (identity.OIDCFlow, bool) {
+	handler.flowsMu.Lock()
+	defer handler.flowsMu.Unlock()
+	flow, exists := handler.flows[state]
+	delete(handler.flows, state)
+	return flow, exists
 }
 
 func (handler *localHandler) managementPrincipal(request *http.Request) (identity.Principal, bool) {

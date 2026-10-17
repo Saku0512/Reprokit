@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -29,6 +30,8 @@ const (
 type configuration struct {
 	repository, state                          string
 	organizationID, administratorID, learnerID string
+	oidcIssuer, oidcClientID, oidcClientSecret string
+	oidcRedirectURL                            string
 }
 type materializeSource func(context.Context, lab.ResolvedLab, string) (lab.MaterializedSource, error)
 type application struct {
@@ -37,6 +40,7 @@ type application struct {
 	managementToken string
 	organizationID  string
 	administratorID string
+	oidcEnabled     bool
 }
 
 func newApplication(ctx context.Context, config configuration, provider runtime.Provider, materialize materializeSource) (*application, error) {
@@ -51,6 +55,10 @@ func newApplication(ctx context.Context, config configuration, provider runtime.
 	}
 	if config.learnerID == "" {
 		config.learnerID = "local-learner"
+	}
+	oidcEnabled, err := validOIDCConfiguration(config)
+	if err != nil {
+		return nil, err
 	}
 	for _, directory := range []string{config.state, filepath.Join(config.state, "labs"), filepath.Join(config.state, "study"), filepath.Join(config.state, "training"), filepath.Join(config.state, "identity")} {
 		if err := privateDirectory(directory); err != nil {
@@ -143,6 +151,23 @@ func newApplication(ctx context.Context, config configuration, provider runtime.
 		server.Listener.Close()
 		return nil, err
 	}
+	var oidcAuthenticator *identity.OIDCAuthenticator
+	if oidcEnabled {
+		if err := ensureOIDCConfiguration(identityService, config); err != nil {
+			server.Listener.Close()
+			return nil, err
+		}
+		oidcAuthenticator, err = identity.NewOIDCAuthenticator(identityService, http.DefaultClient, func(organizationID string) (string, error) {
+			if organizationID != config.organizationID {
+				return "", identity.ErrNotFound
+			}
+			return config.oidcClientSecret, nil
+		})
+		if err != nil {
+			server.Listener.Close()
+			return nil, err
+		}
+	}
 	assignment, err := ensureLocalAssignment(trainingService, config)
 	if err != nil {
 		server.Listener.Close()
@@ -153,13 +178,47 @@ func newApplication(ctx context.Context, config configuration, provider runtime.
 		server.Listener.Close()
 		return nil, err
 	}
-	server.Handler, err = training.NewLocalHandler(trainingService, study, server.Handler, training.LocalConfig{SessionToken: server.SessionToken, ManagementToken: managementToken, OrganizationID: config.organizationID, AdministratorID: config.administratorID, LearnerID: config.learnerID, AssignmentID: assignment.ID, Identity: identityService})
+	server.Handler, err = training.NewLocalHandler(trainingService, study, server.Handler, training.LocalConfig{SessionToken: server.SessionToken, ManagementToken: managementToken, OrganizationID: config.organizationID, AdministratorID: config.administratorID, LearnerID: config.learnerID, AssignmentID: assignment.ID, Identity: identityService, OIDC: oidcAuthenticator})
 	if err != nil {
 		server.Listener.Close()
 		return nil, err
 	}
 	cleanup = false
-	return &application{server: server, snapshot: root, managementToken: managementToken, organizationID: config.organizationID, administratorID: config.administratorID}, nil
+	return &application{server: server, snapshot: root, managementToken: managementToken, organizationID: config.organizationID, administratorID: config.administratorID, oidcEnabled: oidcEnabled}, nil
+}
+
+func validOIDCConfiguration(config configuration) (bool, error) {
+	values := []string{config.oidcIssuer, config.oidcClientID, config.oidcClientSecret, config.oidcRedirectURL}
+	configured := 0
+	for _, value := range values {
+		if value != "" {
+			configured++
+		}
+	}
+	if configured == 0 {
+		return false, nil
+	}
+	if configured != len(values) {
+		return false, errors.New("all OIDC settings are required")
+	}
+	return true, nil
+}
+
+func ensureOIDCConfiguration(service *identity.Service, config configuration) error {
+	current, err := service.OIDCConfiguration(config.organizationID)
+	if err == nil && current.Issuer == config.oidcIssuer && current.ClientID == config.oidcClientID && current.RedirectURL == config.oidcRedirectURL {
+		return nil
+	}
+	if err != nil && !errors.Is(err, identity.ErrNotFound) {
+		return err
+	}
+	_, err = service.ConfigureOIDC(
+		identity.Principal{OrganizationID: config.organizationID, UserID: config.administratorID},
+		config.oidcIssuer,
+		config.oidcClientID,
+		config.oidcRedirectURL,
+	)
+	return err
 }
 
 func ensureLocalIdentities(service *identity.Service, config configuration) error {
