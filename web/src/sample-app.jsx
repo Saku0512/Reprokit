@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { StudyApi, canStart } from "./api.js";
 import { initialState } from "./sample-data.js";
 import { LessonList, LessonDetail, LessonOutline } from "./sample-views.jsx";
 import { LabModal } from "./sample-modal.jsx";
@@ -9,6 +10,33 @@ import "@fontsource/noto-sans-jp/700.css";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
 import "./sample.css";
+
+const api = new StudyApi(document.querySelector('meta[name="reprokit-session"]')?.content ?? "");
+const labSessionStorageKey = "reprokit:sample:filebrowser:lab-session";
+
+function labState(session) {
+  if (session?.state === "running") return "running";
+  if (session?.state === "stopped") return "stopped";
+  if (session?.state === "error") return "failed";
+  return "ready";
+}
+
+function rememberLabSession(session) {
+  if (!session?.labSessionId) return;
+  try {
+    window.localStorage.setItem(labSessionStorageKey, session.labSessionId);
+  } catch {
+    // Lab Sessionは画面内の状態だけで継続する。
+  }
+}
+
+function forgetLabSession() {
+  try {
+    window.localStorage.removeItem(labSessionStorageKey);
+  } catch {
+    // 保存先が使えない場合も、削除操作の結果は維持する。
+  }
+}
 
 function App() {
   const [state, setState] = useState(initialState);
@@ -84,28 +112,110 @@ function App() {
     document.addEventListener("keydown", escape);
     return () => document.removeEventListener("keydown", escape);
   }, [state.modal]);
-  // サンプルと同じ表示用の進捗。RunnerやDockerへのリクエストは発行しない。
+  // 再読み込み後もRunnerが所有するSessionだけを状態取得する。
   useEffect(() => {
-    if (state.lab !== "deploying") return;
-    const timer = setInterval(() => {
-      setState((previous) => {
-        if (previous.lab !== "deploying") return previous;
-        const seg = previous.seg + 1;
-        return { ...previous, seg, lab: seg >= 20 ? "running" : "deploying" };
+    let cancelled = false;
+    let id;
+    try {
+      id = window.localStorage.getItem(labSessionStorageKey);
+    } catch {
+      return undefined;
+    }
+    if (!id) return undefined;
+    api
+      .status(id)
+      .then((runtime) => {
+        if (cancelled) return;
+        setState((previous) => ({
+          ...previous,
+          lab: labState(runtime),
+          runtime,
+          labFailure: null,
+        }));
+      })
+      .catch(() => {
+        if (!cancelled) forgetLabSession();
       });
-    }, 350);
-    return () => clearInterval(timer);
-  }, [state.lab]);
-  useEffect(() => {
-    if (state.lab === "running")
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function deployLab() {
+    if (state.lab === "deploying") return;
+    update({ lab: "deploying", seg: 2, modal: null, labFailure: null });
+    try {
+      let runtime = state.runtime;
+      if (!canStart(runtime)) runtime = await api.prepare("1.0.0", "vulnerable");
+      if (!canStart(runtime))
+        throw new Error("安全性とloopback公開を確認できないため、Labを起動できません。");
+      rememberLabSession(runtime);
+      update({ runtime, seg: 12 });
+      runtime = await api.start(runtime.labSessionId);
+      if (runtime.state !== "running") throw new Error("Labの起動状態を確認できませんでした。");
+      rememberLabSession(runtime);
+      update({ lab: "running", runtime, seg: 20 });
       setMessage("Labが起動しました。「別タブで開く」から画面を開けます");
-  }, [state.lab]);
+    } catch (error) {
+      const runtime = error?.session;
+      if (runtime?.labSessionId) rememberLabSession(runtime);
+      update({
+        lab: runtime ? labState(runtime) : "ready",
+        runtime: runtime ?? state.runtime,
+        labFailure: error instanceof Error ? error.message : "Labの起動に失敗しました。",
+      });
+      setMessage("Labを起動できませんでした。状態を確認してください。");
+    }
+  }
+
+  async function stopLab() {
+    if (!state.runtime?.labSessionId || state.lab === "deploying") return;
+    update({ lab: "deploying", seg: 16, labFailure: null });
+    try {
+      const runtime = await api.stop(state.runtime.labSessionId);
+      rememberLabSession(runtime);
+      update({ lab: labState(runtime), runtime });
+      setMessage("Labを停止しました");
+    } catch (error) {
+      const runtime = error?.session;
+      if (runtime?.labSessionId) rememberLabSession(runtime);
+      update({
+        lab: runtime ? labState(runtime) : "running",
+        runtime: runtime ?? state.runtime,
+        labFailure: error instanceof Error ? error.message : "Labの停止に失敗しました。",
+      });
+      setMessage("Labを停止できませんでした。状態を確認してください。");
+    }
+  }
+
+  async function destroyLab() {
+    if (!state.runtime?.labSessionId || state.lab === "deploying") return;
+    update({ lab: "deploying", seg: 18, modal: null, labFailure: null });
+    try {
+      const runtime = await api.delete(
+        state.runtime.labSessionId,
+        state.vol === "keep" ? "retain" : "delete",
+      );
+      if (runtime.state !== "deleted") throw new Error("Labの削除状態を確認できませんでした。");
+      forgetLabSession();
+      update({ ...resetLabState(), lab: "ready", runtime: null });
+      setMessage(`削除しました（Volume：${state.vol === "keep" ? "保持" : "削除"}）`);
+    } catch (error) {
+      const runtime = error?.session;
+      if (runtime?.labSessionId) rememberLabSession(runtime);
+      update({
+        lab: runtime ? labState(runtime) : "failed",
+        runtime: runtime ?? state.runtime,
+        labFailure: error instanceof Error ? error.message : "Labの削除に失敗しました。",
+      });
+      setMessage("Labを削除できませんでした。状態を確認してください。");
+    }
+  }
 
   async function action(event) {
     const target = event.target.closest("[data-a]");
     if (!target || target.disabled) return;
     const { a, v, i } = target.dataset;
-    const reset = { repro: false, runV: false, runF: false, normF: false };
     switch (a) {
       case "home":
         update({ view: "list" });
@@ -180,26 +290,16 @@ function App() {
         update({ modal: null });
         break;
       case "go-deploy":
-        if (state.ok) update({ lab: "deploying", seg: 0, modal: null });
-        break;
-      case "cancel":
-        update({ lab: "ready" });
-        setMessage("起動を中止しました");
-        break;
-      case "reset":
-        update(reset);
-        setMessage("Labを初期状態に戻しました");
+        if (state.ok) await deployLab();
         break;
       case "stop":
-        update({ lab: "stopped" });
-        setMessage("Labを停止しました");
+        await stopLab();
         break;
       case "destroy":
         update({ modal: "destroy" });
         break;
       case "go-destroy":
-        update({ ...reset, lab: "ready", modal: null });
-        setMessage(`削除しました（Volume：${state.vol === "keep" ? "保持" : "削除"}）`);
+        await destroyLab();
         break;
       case "copy":
         try {
@@ -284,6 +384,10 @@ function App() {
       </div>
     </div>
   );
+}
+
+function resetLabState() {
+  return { repro: false, runV: false, runF: false, normF: false };
 }
 
 createRoot(document.getElementById("root")).render(<App />);

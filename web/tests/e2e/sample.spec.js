@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
+import { mockRunner } from "./fixture.js";
 
 const sample = await readFile(new URL("../../../docs/ui/ui_sample.html", import.meta.url), "utf8");
 
@@ -80,13 +81,10 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("教材の操作、デモの起動・停止・削除、完了表示", async ({ page }) => {
+test("教材の操作、Runnerでの起動・停止・削除、完了表示", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  const api = [];
-  page.on("request", (request) => {
-    if (request.url().includes("/api/")) api.push(request.url());
-  });
+  const fixture = await mockRunner(page, { paired: true });
   await page.goto("/");
   await page.getByRole("button", { name: "パストラバーサル 1", exact: true }).click();
   await expect(page.locator(".lcard")).toHaveCount(1);
@@ -102,13 +100,9 @@ test("教材の操作、デモの起動・停止・削除、完了表示", async
   await expect(page.getByRole("button", { name: "起動する", exact: true })).toBeDisabled();
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "起動する", exact: true }).click();
-  await expect(page.locator(".st")).toHaveText("DEPLOYING");
-  await page.locator('[data-a="cancel"]').click();
-  await expect(page.locator(".st")).toHaveText("READY");
-  await page.locator('[data-a="deploy"]').click();
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "起動する", exact: true }).click();
-  await expect(page.locator(".st")).toHaveText("RUNNING", { timeout: 15000 });
+  await expect(page.locator(".st")).toHaveText("RUNNING");
+  await expect(page.locator('a[href="http://127.0.0.1:18080"]')).toBeVisible();
+  await expect(page.locator('a[href="http://127.0.0.1:18081"]')).toBeVisible();
   await page.locator('#phase-0 [data-a="next"]').click();
   await atNextBoundary(page, 0);
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "ヒントを見る" }).click();
@@ -137,7 +131,26 @@ test("教材の操作、デモの起動・停止・削除、完了表示", async
   await expect(page.locator(".st")).toHaveText("READY");
   await page.locator('[data-a="home"]').first().click();
   await expect(page.locator(".lcard").first()).toContainText("Completed");
-  expect(api).toEqual([]);
+  expect(
+    fixture.calls.filter((call) => call.path === "/api/labs" && call.method === "POST"),
+  ).toEqual([
+    expect.objectContaining({
+      body: {
+        lessonId: "command-injection/filebrowser-auth-hook",
+        lessonVersion: "1.0.0",
+        labRef: "vulnerable",
+      },
+    }),
+  ]);
+  expect(
+    fixture.calls.filter(
+      (call) => call.path.endsWith("/start") && call.method === "POST" && call.body.confirmed,
+    ),
+  ).toHaveLength(1);
+  expect(fixture.calls.filter((call) => call.path.endsWith("/stop"))).toHaveLength(1);
+  expect(fixture.calls.filter((call) => call.method === "DELETE")[0].query).toBe(
+    "?volumePolicy=delete",
+  );
   expect(errors).toEqual([]);
 });
 
