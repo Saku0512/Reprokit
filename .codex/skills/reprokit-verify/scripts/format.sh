@@ -21,7 +21,7 @@ mapfile -t go_files < <(
 if ((${#go_files[@]} > 0)); then
   gofmt_command=(gofmt)
   if [[ -f go.mod ]]; then
-    gofmt_command=(go tool gofmt)
+    gofmt_command=("$(go env GOROOT)/bin/gofmt")
   fi
 
   if [[ "$mode" == "write" ]]; then
