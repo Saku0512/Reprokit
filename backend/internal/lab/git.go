@@ -9,6 +9,8 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+
+	"github.com/jphacks/sd_2601/internal/network"
 )
 
 const maxGitMetadataBytes = 8 << 20
@@ -32,15 +34,15 @@ type gitBackend interface {
 }
 
 type commandRunner interface {
-	Run(context.Context, string, int64, ...string) ([]byte, error)
+	Run(context.Context, string, int64, []string, ...string) ([]byte, error)
 }
 
 type execCommandRunner struct{}
 
-func (execCommandRunner) Run(ctx context.Context, directory string, outputLimit int64, arguments ...string) ([]byte, error) {
+func (execCommandRunner) Run(ctx context.Context, directory string, outputLimit int64, environment []string, arguments ...string) ([]byte, error) {
 	command := exec.CommandContext(ctx, "git", arguments...)
 	command.Dir = directory
-	command.Env = append(os.Environ(),
+	command.Env = append(append([]string{}, environment...),
 		"GIT_TERMINAL_PROMPT=0",
 		"GIT_CONFIG_NOSYSTEM=1",
 		"GIT_CONFIG_GLOBAL=/dev/null",
@@ -76,11 +78,16 @@ func (buffer *limitedBuffer) Write(contents []byte) (int, error) {
 }
 
 type execGitBackend struct {
-	runner commandRunner
+	runner      commandRunner
+	environment []string
 }
 
-func newGitBackend() gitBackend {
-	return execGitBackend{runner: execCommandRunner{}}
+func newGitBackend(config network.Config) (gitBackend, error) {
+	environment, err := config.Environment(os.Environ())
+	if err != nil {
+		return nil, err
+	}
+	return execGitBackend{runner: execCommandRunner{}, environment: environment}, nil
 }
 
 func (backend execGitBackend) Fetch(ctx context.Context, source Source) (gitSnapshot, error) {
@@ -98,20 +105,20 @@ func (backend execGitBackend) Fetch(ctx context.Context, source Source) (gitSnap
 		}
 	}()
 
-	if _, err := backend.runner.Run(ctx, repositoryPath, maxGitMetadataBytes, "init", "--bare", "."); err != nil {
+	if _, err := backend.runner.Run(ctx, repositoryPath, maxGitMetadataBytes, backend.environment, "init", "--bare", "."); err != nil {
 		return nil, err
 	}
-	if _, err := backend.runner.Run(ctx, repositoryPath, maxGitMetadataBytes, "remote", "add", "origin", source.URL); err != nil {
+	if _, err := backend.runner.Run(ctx, repositoryPath, maxGitMetadataBytes, backend.environment, "remote", "add", "origin", source.URL); err != nil {
 		return nil, err
 	}
-	if _, err := backend.runner.Run(ctx, repositoryPath, maxGitMetadataBytes,
+	if _, err := backend.runner.Run(ctx, repositoryPath, maxGitMetadataBytes, backend.environment,
 		"-c", "protocol.file.allow=never",
 		"-c", "http.followRedirects=false",
 		"fetch", "--depth=1", "--no-tags", "origin", source.Revision,
 	); err != nil {
-		return nil, err
+		return nil, network.NewConnectionError("固定Gitリビジョンの取得", network.HostFromURL(source.URL), "プロキシ設定、社内DNS、またはGit接続許可を確認してください", err)
 	}
-	resolved, err := backend.runner.Run(ctx, repositoryPath, 256, "rev-parse", "--verify", "FETCH_HEAD^{commit}")
+	resolved, err := backend.runner.Run(ctx, repositoryPath, 256, backend.environment, "rev-parse", "--verify", "FETCH_HEAD^{commit}")
 	if err != nil {
 		return nil, err
 	}
@@ -124,6 +131,7 @@ func (backend execGitBackend) Fetch(ctx context.Context, source Source) (gitSnap
 		repositoryPath: repositoryPath,
 		revision:       source.Revision,
 		runner:         backend.runner,
+		environment:    backend.environment,
 	}, nil
 }
 
@@ -131,10 +139,11 @@ type execGitSnapshot struct {
 	repositoryPath string
 	revision       string
 	runner         commandRunner
+	environment    []string
 }
 
 func (snapshot *execGitSnapshot) Entries(ctx context.Context, subdirectory string) ([]treeEntry, error) {
-	output, err := snapshot.runner.Run(ctx, snapshot.repositoryPath, maxGitMetadataBytes,
+	output, err := snapshot.runner.Run(ctx, snapshot.repositoryPath, maxGitMetadataBytes, snapshot.environment,
 		"ls-tree", "-r", "-z", "--full-tree", snapshot.revision, "--", subdirectory,
 	)
 	if err != nil {
@@ -144,7 +153,7 @@ func (snapshot *execGitSnapshot) Entries(ctx context.Context, subdirectory strin
 }
 
 func (snapshot *execGitSnapshot) BlobSize(ctx context.Context, oid string) (int64, error) {
-	output, err := snapshot.runner.Run(ctx, snapshot.repositoryPath, 128, "cat-file", "-s", oid)
+	output, err := snapshot.runner.Run(ctx, snapshot.repositoryPath, 128, snapshot.environment, "cat-file", "-s", oid)
 	if err != nil {
 		return 0, err
 	}
@@ -160,7 +169,7 @@ func (snapshot *execGitSnapshot) ReadBlob(ctx context.Context, oid string) ([]by
 	if err != nil {
 		return nil, err
 	}
-	return snapshot.runner.Run(ctx, snapshot.repositoryPath, size+1, "cat-file", "blob", oid)
+	return snapshot.runner.Run(ctx, snapshot.repositoryPath, size+1, snapshot.environment, "cat-file", "blob", oid)
 }
 
 func (snapshot *execGitSnapshot) Close() error {

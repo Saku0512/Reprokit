@@ -10,19 +10,24 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
+
+	"github.com/jphacks/sd_2601/internal/network"
+	"gopkg.in/yaml.v3"
 )
 
 var projectPattern = regexp.MustCompile(`^reprokit_[0-9a-f]{12}$`)
 
 type dockerCommandRunner interface {
-	Run(context.Context, ...string) ([]byte, error)
+	Run(context.Context, []string, ...string) ([]byte, error)
 }
 
 type execDockerCommandRunner struct{}
 
-func (execDockerCommandRunner) Run(ctx context.Context, arguments ...string) ([]byte, error) {
+func (execDockerCommandRunner) Run(ctx context.Context, environment []string, arguments ...string) ([]byte, error) {
 	command := exec.CommandContext(ctx, "docker", arguments...)
+	command.Env = environment
 	var output limitedOutput
 	command.Stdout = &output
 	command.Stderr = &output
@@ -51,15 +56,30 @@ func (output *limitedOutput) Write(contents []byte) (int, error) {
 
 // DockerComposeProvider はRunnerが作成した一時ComposeファイルだけをDockerへ渡す。
 type DockerComposeProvider struct {
-	runner dockerCommandRunner
+	runner  dockerCommandRunner
+	network network.Config
+	env     []string
 }
 
 func NewDockerComposeProvider() *DockerComposeProvider {
-	return &DockerComposeProvider{runner: execDockerCommandRunner{}}
+	provider, err := NewDockerComposeProviderWithNetwork(network.Config{})
+	if err != nil {
+		panic(err)
+	}
+	return provider
+}
+
+// NewDockerComposeProviderWithNetwork は認証情報を一時Docker設定としてだけ利用する。
+func NewDockerComposeProviderWithNetwork(config network.Config) (*DockerComposeProvider, error) {
+	environment, err := config.Environment(os.Environ())
+	if err != nil {
+		return nil, err
+	}
+	return &DockerComposeProvider{runner: execDockerCommandRunner{}, network: config, env: environment}, nil
 }
 
 func newDockerComposeProviderForTest(runner dockerCommandRunner) *DockerComposeProvider {
-	return &DockerComposeProvider{runner: runner}
+	return &DockerComposeProvider{runner: runner, env: []string{"PATH=/usr/bin"}}
 }
 
 func (provider *DockerComposeProvider) Start(ctx context.Context, project string, compose []byte) error {
@@ -83,15 +103,15 @@ func (provider *DockerComposeProvider) Inspect(ctx context.Context, project stri
 		return Resources{}, errors.New("invalid Runner project name")
 	}
 	filter := "label=com.docker.compose.project=" + project
-	containers, err := provider.runner.Run(ctx, "ps", "--all", "--filter", filter, "--format", "{{json .}}")
+	containers, err := provider.runner.Run(ctx, provider.env, "ps", "--all", "--filter", filter, "--format", "{{json .}}")
 	if err != nil {
 		return Resources{}, err
 	}
-	networks, err := provider.runner.Run(ctx, "network", "ls", "--filter", filter, "--format", "{{.Name}}")
+	networks, err := provider.runner.Run(ctx, provider.env, "network", "ls", "--filter", filter, "--format", "{{.Name}}")
 	if err != nil {
 		return Resources{}, err
 	}
-	volumes, err := provider.runner.Run(ctx, "volume", "ls", "--filter", filter, "--format", "{{.Name}}")
+	volumes, err := provider.runner.Run(ctx, provider.env, "volume", "ls", "--filter", filter, "--format", "{{.Name}}")
 	if err != nil {
 		return Resources{}, err
 	}
@@ -115,10 +135,60 @@ func (provider *DockerComposeProvider) withCompose(ctx context.Context, project 
 	if err := os.WriteFile(path, compose, 0o600); err != nil {
 		return fmt.Errorf("write Compose staging file: %w", err)
 	}
-	arguments := []string{"compose", "--project-name", project, "--file", path}
+	arguments := []string{}
+	configDirectory, cleanup, err := provider.network.DockerConfigDir()
+	if err != nil {
+		return fmt.Errorf("create temporary registry credentials: %w", err)
+	}
+	defer cleanup()
+	if configDirectory != "" {
+		arguments = append(arguments, "--config", configDirectory)
+	}
+	arguments = append(arguments, "compose", "--project-name", project, "--file", path)
 	arguments = append(arguments, action...)
-	_, err = provider.runner.Run(ctx, arguments...)
+	_, err = provider.runner.Run(ctx, provider.env, arguments...)
+	if err != nil && len(action) > 0 && action[0] == "up" && likelyConnectionFailure(err) {
+		return network.NewConnectionError("コンテナイメージの取得", strings.Join(registryHosts(compose), ", "), "プロキシ設定、レジストリ認証情報、またはネットワーク接続を確認してください", err)
+	}
 	return err
+}
+
+func likelyConnectionFailure(err error) bool {
+	message := strings.ToLower(err.Error())
+	for _, value := range []string{"connection", "timeout", "no such host", "proxy", "tls", "unauthorized", "denied", "pull"} {
+		if strings.Contains(message, value) {
+			return true
+		}
+	}
+	return false
+}
+
+func registryHosts(compose []byte) []string {
+	var document struct {
+		Services map[string]struct {
+			Image string `yaml:"image"`
+		} `yaml:"services"`
+	}
+	if yaml.Unmarshal(compose, &document) != nil {
+		return []string{"コンテナレジストリ"}
+	}
+	seen := map[string]bool{}
+	for _, service := range document.Services {
+		image := service.Image
+		name := strings.SplitN(image, "@", 2)[0]
+		parts := strings.Split(name, "/")
+		host := "registry-1.docker.io"
+		if len(parts) > 1 && (strings.Contains(parts[0], ".") || strings.Contains(parts[0], ":") || parts[0] == "localhost") {
+			host = parts[0]
+		}
+		seen[host] = true
+	}
+	hosts := make([]string, 0, len(seen))
+	for host := range seen {
+		hosts = append(hosts, host)
+	}
+	slices.Sort(hosts)
+	return hosts
 }
 
 func decodeContainers(output []byte) []Container {

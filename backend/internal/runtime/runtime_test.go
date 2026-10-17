@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/jphacks/sd_2601/internal/network"
 )
 
 func TestPrepareDoesNotStartAndStartRechecksCompose(t *testing.T) {
@@ -105,6 +107,45 @@ func TestPrepareWritesCompleteLockfile(t *testing.T) {
 	}
 	if lock.LockVersion != 1 || lock.Lab != session.LabID || lock.Source.URL != "https://github.com/Saku0512/vulhub.git" || lock.Source.Subdirectory != "filebrowser/CVE-2026-54088" || lock.Runtime.Platform != "linux/amd64" || lock.Images["app"].Platform != "linux/amd64" {
 		t.Fatalf("lock = %#v", lock)
+	}
+}
+
+func TestOfflineArtifactsListsOnlyFixedSourceAndImages(t *testing.T) {
+	store := NewMemoryStore()
+	manager, _ := NewManager(store, &fakeProvider{})
+	session, err := manager.Prepare(context.Background(), validLab())
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifacts, err := manager.OfflineArtifacts(context.Background(), session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(artifacts) != 2 || artifacts[0].Kind != "git-source" || artifacts[0].Revision != session.SourceRevision || artifacts[1].Kind != "container-image" || artifacts[1].Digest == "" {
+		t.Fatalf("unexpected offline artifacts: %#v", artifacts)
+	}
+	for _, artifact := range artifacts {
+		if strings.Contains(strings.ToLower(artifact.Reference), "password") || strings.Contains(strings.ToLower(artifact.Reference), "token") {
+			t.Fatalf("credential leaked into offline artifacts: %#v", artifact)
+		}
+	}
+}
+
+func TestConnectionCredentialsAreNotWrittenToLockfile(t *testing.T) {
+	provider, err := NewDockerComposeProviderWithNetwork(network.Config{RegistryCredentials: []network.RegistryCredential{{Registry: "registry.example", Username: "learner", Password: "secret"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := NewManager(NewMemoryStore(), provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := manager.Prepare(context.Background(), validLab())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(session.Lockfile), "secret") || strings.Contains(string(session.Lockfile), "learner") || strings.Contains(string(session.Lockfile), "registry.example") {
+		t.Fatalf("connection credential leaked into lockfile: %s", session.Lockfile)
 	}
 }
 

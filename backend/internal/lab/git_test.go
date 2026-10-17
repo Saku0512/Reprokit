@@ -2,10 +2,13 @@ package lab
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/jphacks/sd_2601/internal/network"
 )
 
 func TestGitBackendFetchesAndVerifiesExactRevision(t *testing.T) {
@@ -37,6 +40,26 @@ func TestGitBackendFetchesAndVerifiesExactRevision(t *testing.T) {
 	}
 }
 
+func TestGitBackendUsesExplicitProxyAndReportsSourceHost(t *testing.T) {
+	source := testResolvedLab().Source
+	config := network.Config{HTTPSProxy: "https://proxy.example:8443"}
+	environment, err := config.Environment([]string{"PATH=/bin", "HTTPS_PROXY=http://inherited.invalid"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	runner := &recordingCommandRunner{revision: source.Revision, err: errors.New("connection timeout")}
+	backend := execGitBackend{runner: runner, environment: environment}
+	_, err = backend.Fetch(context.Background(), source)
+	var connection *network.ConnectionError
+	if !errors.As(err, &connection) || connection.Host != "github.com" || !strings.Contains(connection.Error(), "プロキシ設定") {
+		t.Fatalf("fetch error = %v", err)
+	}
+	joined := strings.Join(runner.environments[2], "\n")
+	if !strings.Contains(joined, "HTTPS_PROXY=https://proxy.example:8443") || strings.Contains(joined, "inherited.invalid") {
+		t.Fatalf("unexpected Git environment: %s", joined)
+	}
+}
+
 func TestGitBackendRejectsRevisionMismatch(t *testing.T) {
 	source := testResolvedLab().Source
 	runner := &recordingCommandRunner{revision: strings.Repeat("f", 40)}
@@ -49,12 +72,18 @@ func TestGitBackendRejectsRevisionMismatch(t *testing.T) {
 }
 
 type recordingCommandRunner struct {
-	revision string
-	calls    [][]string
+	revision     string
+	calls        [][]string
+	environments [][]string
+	err          error
 }
 
-func (runner *recordingCommandRunner) Run(_ context.Context, _ string, _ int64, arguments ...string) ([]byte, error) {
+func (runner *recordingCommandRunner) Run(_ context.Context, _ string, _ int64, environment []string, arguments ...string) ([]byte, error) {
 	runner.calls = append(runner.calls, slices.Clone(arguments))
+	runner.environments = append(runner.environments, slices.Clone(environment))
+	if slices.Contains(arguments, "fetch") && runner.err != nil {
+		return nil, runner.err
+	}
 	if slices.Contains(arguments, "rev-parse") {
 		return []byte(runner.revision + "\n"), nil
 	}

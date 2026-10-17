@@ -2,8 +2,13 @@ package runtime
 
 import (
 	"context"
+	"errors"
+	"os"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/jphacks/sd_2601/internal/network"
 )
 
 func TestDockerComposeProviderUsesRunnerOwnedProjectAndTemporaryCompose(t *testing.T) {
@@ -22,6 +27,29 @@ func TestDockerComposeProviderUsesRunnerOwnedProjectAndTemporaryCompose(t *testi
 	}
 	if err := provider.Start(context.Background(), "outside_scope", []byte("services: {}\n")); err == nil {
 		t.Fatal("unsafe project name was accepted")
+	}
+}
+
+func TestDockerComposeProviderUsesTemporaryCredentialsAndExplainsConnectionFailure(t *testing.T) {
+	runner := &recordingDockerRunner{err: errors.New("pull timeout")}
+	config := network.Config{RegistryCredentials: []network.RegistryCredential{{Registry: "registry.example", Username: "learner", Password: "secret"}}}
+	provider, err := NewDockerComposeProviderWithNetwork(config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider.runner = runner
+	err = provider.Start(context.Background(), "reprokit_0123456789ab", []byte("services:\n  app:\n    image: registry.example/reprokit/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"))
+	var connection *network.ConnectionError
+	if !errors.As(err, &connection) || connection.Host != "registry.example" || strings.Contains(connection.Error(), "secret") {
+		t.Fatalf("start error = %v", err)
+	}
+	call := runner.calls[0]
+	index := slices.Index(call, "--config")
+	if index < 0 || index+1 >= len(call) {
+		t.Fatalf("temporary Docker config was not used: %#v", call)
+	}
+	if _, err := os.Stat(call[index+1]); !os.IsNotExist(err) {
+		t.Fatalf("temporary Docker config remains after command: %v", err)
 	}
 }
 
@@ -49,10 +77,14 @@ func TestDockerComposeProviderInspectsProjectLabels(t *testing.T) {
 type recordingDockerRunner struct {
 	calls   [][]string
 	outputs [][]byte
+	err     error
 }
 
-func (runner *recordingDockerRunner) Run(_ context.Context, arguments ...string) ([]byte, error) {
+func (runner *recordingDockerRunner) Run(_ context.Context, _ []string, arguments ...string) ([]byte, error) {
 	runner.calls = append(runner.calls, slices.Clone(arguments))
+	if runner.err != nil {
+		return nil, runner.err
+	}
 	if len(runner.outputs) == 0 {
 		return nil, nil
 	}
