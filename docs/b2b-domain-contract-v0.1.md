@@ -297,13 +297,13 @@ PoCの生ログ、シェル履歴、Lab内のデータは既定では含めな�
 
 主な所有範囲：
 
-- `cmd/reprokit/`
-- `internal/lab/`
-- `internal/runtime/`
-- `internal/security/`
-- `internal/manifest/`
-- `internal/lockfile/`
-- `internal/registry/`
+- `backend/cmd/reprokit/`
+- `backend/internal/lab/`
+- `backend/internal/runtime/`
+- `backend/internal/security/`
+- `backend/internal/manifest/`
+- `backend/internal/lockfile/`
+- `backend/internal/registry/`
 - `registry/`
 - `schemas/manifest-*`
 - `schemas/lock-*`
@@ -315,7 +315,7 @@ PoCの生ログ、シェル履歴、Lab内のデータは既定では含めな�
 
 - `web/`
 - `lessons/`
-- `internal/lesson/`
+- `backend/internal/lesson/`
 - `schemas/lesson-*`
 - `docs/training/`
 - Lesson、受講体験、研修ガイドに直接関係するテストと文書
@@ -324,11 +324,11 @@ PoCの生ログ、シェル履歴、Lab内のデータは既定では含めな�
 
 次は共有領域とし、担当者間の事前合意または相互レビューを必要とする。
 
-- `go.mod`、`go.sum`
+- `backend/go.mod`、`backend/go.sum`
 - `README.md`
-- `cmd/reprokit/`の公開サブコマンド構成
+- `backend/cmd/reprokit/`の公開サブコマンド構成
 - ローカルHTTP APIの公開契約
-- `internal/training/`
+- `backend/internal/training/`
 - `docs/b2b-domain-contract-v0.1.md`
 - CI設定
 - リポジトリ全体へ影響するビルド設定
@@ -339,7 +339,7 @@ PoCの生ログ、シェル履歴、Lab内のデータは既定では含めな�
 2. PRは原則として担当レーンのファイルだけを変更する。
 3. 共有領域を変更する場合は、機能実装とは別の小さなPRに分離する。
 4. 契約変更は先に本書または対応Schemaを更新し、両担当者が合意してから実装する。
-5. `go.mod`や共通エントリポイントを変更するPRを同時に複数開かない。
+5. `backend/go.mod`や共通エントリポイントを変更するPRを同時に複数開かない。
 6. Lesson側はRunner内部パッケージへ直接依存せず、公開インターフェースだけを使う。
 7. Runner側はLesson本文やUI構造を解釈せず、解決済みのLab参照だけを受け取る。
 8. 統合Issueで大規模な横断修正を行わず、問題を元の担当Issueへ戻す。

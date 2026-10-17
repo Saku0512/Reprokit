@@ -34,5 +34,5 @@ If `node_modules` is missing or `package-lock.json` changed, run `npm ci` before
 
 ## Script behavior
 
-- `scripts/format.sh check|write` applies `gofmt` to Go and the pinned Prettier to supported repository files.
-- `scripts/verify.sh quick|full` checks formatting and whitespace, then runs available Go and Web checks. `full` adds the race suite and opted-in harmless Docker integration tests.
+- `scripts/format.sh check|write` applies `gofmt` from `backend/go.mod` to Go and the pinned Prettier to supported repository files.
+- `scripts/verify.sh quick|full` checks formatting and whitespace, then runs available Go checks from `backend/` and Web checks from `web/`. `full` adds the race suite and opted-in harmless Docker integration tests.

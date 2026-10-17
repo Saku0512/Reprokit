@@ -17,9 +17,9 @@ Do not read every design document for a narrow change. Existing implementation a
 
 ## Ownership and parallel work
 
-- `@Saku0512` owns Core/Runner work: `cmd/reprokit/`, `internal/{lab,runtime,security,manifest,lockfile,registry}/`, `registry/`, and Manifest/Lock schemas.
-- `@yui-szk` owns Learning/Training work: `web/`, `lessons/`, `internal/lesson/`, Lesson schemas, and `docs/training/`.
-- Shared contracts, `go.mod`, `go.sum`, public CLI/API surfaces, `internal/training/`, CI, and root configuration require coordination and a small isolated PR.
+- `@Saku0512` owns Core/Runner work: `backend/cmd/reprokit/`, `backend/internal/{lab,runtime,security,manifest,lockfile,registry}/`, `registry/`, and Manifest/Lock schemas.
+- `@yui-szk` owns Learning/Training work: `web/`, `lessons/`, `backend/internal/lesson/`, Lesson schemas, and `docs/training/`.
+- Shared contracts, `backend/go.mod`, `backend/go.sum`, public CLI/API surfaces, `backend/internal/training/`, CI, and root configuration require coordination and a small isolated PR.
 - Keep one Issue per branch and include the Issue number when one exists. Avoid unrelated cleanup in implementation PRs.
 - Do not silently change a contract owned by the other development lane. Update the shared contract first and request the other owner's review.
 
@@ -27,7 +27,7 @@ Do not read every design document for a narrow change. Existing implementation a
 
 The repository formatter contract is deterministic and shared by both developers.
 
-- Go: `gofmt` from the toolchain selected by `go.mod`; do not use `gofumpt` or editor-specific alternatives.
+- Go: `gofmt` from the toolchain selected by `backend/go.mod`; do not use `gofumpt` or editor-specific alternatives.
 - JSON, YAML, JavaScript, TypeScript, CSS, and future Web files: the repository-pinned Prettier version.
 - Markdown under `docs/` is intentionally excluded from automatic formatting to avoid broad prose churn. Preserve the surrounding document style.
 - Editor settings must not override repository output. `.editorconfig` defines whitespace defaults, but `gofmt` and Prettier are authoritative.

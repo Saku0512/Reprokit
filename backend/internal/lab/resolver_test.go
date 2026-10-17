@@ -10,7 +10,7 @@ import (
 const testRegistryRevision = "1111111111111111111111111111111111111111"
 
 func TestResolverResolvesRepositoryRegistry(t *testing.T) {
-	resolved, err := (Resolver{}).Resolve("../../registry", testRegistryRevision, "vulhub/log4j-solr")
+	resolved, err := (Resolver{}).Resolve("../../../registry", testRegistryRevision, "vulhub/log4j-solr")
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}

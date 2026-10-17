@@ -33,10 +33,12 @@ Web UIはGo製のローカルHTTPサーバーから提供し、`reprokit ui`で�
 ## リポジトリ上の予定構成
 
 ```text
-cmd/reprokit/          # Go CLIとローカルWeb起動エントリ（今後実装）
+backend/
+├── go.mod
+├── cmd/reprokit/      # Go CLIとローカルWeb起動エントリ（今後実装）
+└── internal/{cli,registry,lesson,manifest,resolver,lockfile,runtime,security,storage,server}/
 web/                  # 教材表示用フロントエンド（技術選定は未確定）
 lessons/              # CVEごとの教材メタデータと本文（今後実装）
-internal/{cli,registry,lesson,manifest,resolver,lockfile,runtime,security,storage,server}/
 registry/index.json
 registry/manifests/vulhub/
 schemas/manifest-v1alpha1.schema.json
