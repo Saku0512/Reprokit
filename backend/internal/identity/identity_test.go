@@ -116,3 +116,38 @@ func TestRolePermissions(t *testing.T) {
 		}
 	}
 }
+
+func TestOIDCConfigurationAndAuthenticationAudit(t *testing.T) {
+	service := testService(t)
+	admin := bootstrap(t, service)
+	config, err := service.ConfigureOIDC(admin, "https://idp.acme.test", "reprokit", "https://training.acme.test/api/auth/oidc/callback")
+	if err != nil || config.OrganizationID != "acme" {
+		t.Fatalf("unexpected OIDC config: %#v %v", config, err)
+	}
+	loaded, err := service.OIDCConfiguration("acme")
+	if err != nil || loaded.ClientID != "reprokit" {
+		t.Fatalf("OIDC config was not persisted: %#v %v", loaded, err)
+	}
+	if err := service.RecordAuthentication("acme", "admin", true); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.RecordAuthentication("acme", "", false); err != nil {
+		t.Fatal(err)
+	}
+	events, err := service.ListAuditEvents(admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	actions := map[AuditAction]bool{}
+	for _, event := range events {
+		actions[event.Action] = true
+	}
+	for _, action := range []AuditAction{AuditIdentityConfigured, AuditAuthenticationOK, AuditAuthenticationFailed} {
+		if !actions[action] {
+			t.Fatalf("missing audit action %q: %#v", action, events)
+		}
+	}
+	if _, err := service.ConfigureOIDC(admin, "http://idp.example.test", "reprokit", "https://training.acme.test/callback"); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("insecure remote issuer was accepted: %v", err)
+	}
+}

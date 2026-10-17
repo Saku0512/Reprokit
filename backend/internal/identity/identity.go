@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -96,10 +98,20 @@ type AuditEvent struct {
 	OccurredAt     time.Time   `json:"occurredAt"`
 }
 
+// OIDCConfigは公開可能なIdP設定だけを保持する。Client Secretは実行時に注入する。
+type OIDCConfig struct {
+	OrganizationID string    `json:"organizationId"`
+	Issuer         string    `json:"issuer"`
+	ClientID       string    `json:"clientId"`
+	RedirectURL    string    `json:"redirectUrl"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+}
+
 type persistedState struct {
 	Organizations map[string]Organization `json:"organizations"`
 	Users         map[string]User         `json:"users"`
 	AuditEvents   map[string]AuditEvent   `json:"auditEvents"`
+	OIDCProviders map[string]OIDCConfig   `json:"oidcProviders"`
 }
 
 type Store struct {
@@ -127,7 +139,7 @@ func NewStore(root string) (*Store, error) {
 }
 
 func emptyState() persistedState {
-	return persistedState{Organizations: map[string]Organization{}, Users: map[string]User{}, AuditEvents: map[string]AuditEvent{}}
+	return persistedState{Organizations: map[string]Organization{}, Users: map[string]User{}, AuditEvents: map[string]AuditEvent{}, OIDCProviders: map[string]OIDCConfig{}}
 }
 
 func (store *Store) load() error {
@@ -141,7 +153,13 @@ func (store *Store) load() error {
 	var state persistedState
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&state); err != nil || decoder.Decode(&struct{}{}) != io.EOF || !validState(state) {
+	if err := decoder.Decode(&state); err != nil || decoder.Decode(&struct{}{}) != io.EOF {
+		return errors.New("corrupt identity state")
+	}
+	if state.OIDCProviders == nil {
+		state.OIDCProviders = map[string]OIDCConfig{}
+	}
+	if !validState(state) {
 		return errors.New("corrupt identity state")
 	}
 	store.state = state
@@ -414,6 +432,78 @@ func (service *Service) ListAuditEvents(principal Principal) ([]AuditEvent, erro
 	return events, nil
 }
 
+func (service *Service) ConfigureOIDC(principal Principal, issuer, clientID, redirectURL string) (OIDCConfig, error) {
+	if !validOIDCIssuer(issuer) || clientID == "" || len(clientID) > 256 || !validRedirectURL(redirectURL) {
+		return OIDCConfig{}, ErrInvalid
+	}
+	service.store.mu.Lock()
+	defer service.store.mu.Unlock()
+	actor, err := service.authorizedUser(principal, PermissionManageIdentity)
+	if err != nil {
+		return OIDCConfig{}, err
+	}
+	previous, existed := service.store.state.OIDCProviders[actor.OrganizationID]
+	config := OIDCConfig{OrganizationID: actor.OrganizationID, Issuer: issuer, ClientID: clientID, RedirectURL: redirectURL, UpdatedAt: service.now().UTC()}
+	event, err := newAudit(actor.OrganizationID, AuditIdentityConfigured, actor.ID, "", nil, nil, config.UpdatedAt)
+	if err != nil {
+		return OIDCConfig{}, err
+	}
+	service.store.state.OIDCProviders[actor.OrganizationID] = config
+	service.store.state.AuditEvents[eventKey(event.OrganizationID, event.ID)] = event
+	if err := service.store.save(); err != nil {
+		if existed {
+			service.store.state.OIDCProviders[actor.OrganizationID] = previous
+		} else {
+			delete(service.store.state.OIDCProviders, actor.OrganizationID)
+		}
+		delete(service.store.state.AuditEvents, eventKey(event.OrganizationID, event.ID))
+		return OIDCConfig{}, err
+	}
+	return config, nil
+}
+
+func (service *Service) OIDCConfiguration(organizationID string) (OIDCConfig, error) {
+	if !validID(organizationID) {
+		return OIDCConfig{}, ErrInvalid
+	}
+	service.store.mu.Lock()
+	defer service.store.mu.Unlock()
+	config, exists := service.store.state.OIDCProviders[organizationID]
+	if !exists {
+		return OIDCConfig{}, ErrNotFound
+	}
+	return config, nil
+}
+
+// RecordAuthenticationはトークンやclaimを保存せず、認証結果だけを監査する。
+func (service *Service) RecordAuthentication(organizationID, userID string, succeeded bool) error {
+	if !validID(organizationID) || (userID != "" && !validID(userID)) {
+		return ErrInvalid
+	}
+	service.store.mu.Lock()
+	defer service.store.mu.Unlock()
+	if _, exists := service.store.state.Organizations[organizationID]; !exists {
+		return ErrNotFound
+	}
+	action := AuditAuthenticationFailed
+	if succeeded {
+		action = AuditAuthenticationOK
+		if user, exists := service.store.state.Users[userKey(organizationID, userID)]; !exists || !user.Active {
+			return ErrNotFound
+		}
+	}
+	event, err := newAudit(organizationID, action, userID, userID, nil, nil, service.now().UTC())
+	if err != nil {
+		return err
+	}
+	service.store.state.AuditEvents[eventKey(organizationID, event.ID)] = event
+	if err := service.store.save(); err != nil {
+		delete(service.store.state.AuditEvents, eventKey(organizationID, event.ID))
+		return err
+	}
+	return nil
+}
+
 func (service *Service) authorizedUser(principal Principal, permission Permission) (User, error) {
 	if !validID(principal.OrganizationID) || !validID(principal.UserID) {
 		return User{}, ErrForbidden
@@ -472,7 +562,7 @@ func allowed(roles []Role, permission Permission) bool {
 }
 
 func validState(state persistedState) bool {
-	if state.Organizations == nil || state.Users == nil || state.AuditEvents == nil {
+	if state.Organizations == nil || state.Users == nil || state.AuditEvents == nil || state.OIDCProviders == nil {
 		return false
 	}
 	for key, organization := range state.Organizations {
@@ -489,11 +579,37 @@ func validState(state persistedState) bool {
 		}
 	}
 	for key, event := range state.AuditEvents {
-		if key != eventKey(event.OrganizationID, event.ID) || !validID(event.OrganizationID) || !validID(event.ID) || event.OccurredAt.IsZero() {
+		if key != eventKey(event.OrganizationID, event.ID) || !validAuditEvent(event) {
+			return false
+		}
+	}
+	for key, config := range state.OIDCProviders {
+		if key != config.OrganizationID || !validID(config.OrganizationID) || !validOIDCIssuer(config.Issuer) || config.ClientID == "" || len(config.ClientID) > 256 || !validRedirectURL(config.RedirectURL) || config.UpdatedAt.IsZero() {
+			return false
+		}
+		if _, exists := state.Organizations[config.OrganizationID]; !exists {
 			return false
 		}
 	}
 	return true
+}
+
+func validAuditEvent(event AuditEvent) bool {
+	if !validID(event.OrganizationID) || !validID(event.ID) || event.OccurredAt.IsZero() {
+		return false
+	}
+	switch event.Action {
+	case AuditUserCreated, AuditUserRolesChanged, AuditUserDisabled:
+		return validID(event.ActorID) && validID(event.TargetUserID)
+	case AuditAuthenticationOK:
+		return validID(event.ActorID) && event.TargetUserID == event.ActorID
+	case AuditAuthenticationFailed:
+		return event.ActorID == event.TargetUserID && (event.ActorID == "" || validID(event.ActorID))
+	case AuditIdentityConfigured:
+		return validID(event.ActorID) && event.TargetUserID == ""
+	default:
+		return false
+	}
 }
 
 func validProfile(subject, email, displayName string) bool {
@@ -501,6 +617,34 @@ func validProfile(subject, email, displayName string) bool {
 }
 
 func validID(value string) bool { return idPattern.MatchString(value) }
+
+func validOIDCIssuer(value string) bool {
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Host == "" {
+		return false
+	}
+	if parsed.Scheme == "https" {
+		return true
+	}
+	host := parsed.Hostname()
+	return parsed.Scheme == "http" && (host == "127.0.0.1" || host == "::1" || host == "localhost")
+}
+
+func validRedirectURL(value string) bool {
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Host == "" {
+		return false
+	}
+	if parsed.Scheme == "https" {
+		return true
+	}
+	host := parsed.Hostname()
+	if parsed.Scheme != "http" || (host != "127.0.0.1" && host != "::1" && host != "localhost") {
+		return false
+	}
+	_, port, err := net.SplitHostPort(parsed.Host)
+	return err == nil && port != ""
+}
 
 func validRoles(roles []Role) bool {
 	if len(roles) == 0 || len(roles) > 5 {
