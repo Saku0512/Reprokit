@@ -6,8 +6,10 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "node server.mjs",
-    "start": "node server.mjs --dist",
+    "dev": "node launch.mjs --dev",
+    "start": "node launch.mjs",
+    "dev:external": "node server.mjs",
+    "start:external": "node server.mjs --dist",
     "lint": "node scripts/check.mjs",
     "test": "node --test tests/*.test.js",
     "test:e2e": "playwright test",
