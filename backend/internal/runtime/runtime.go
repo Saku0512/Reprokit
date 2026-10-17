@@ -105,6 +105,12 @@ type Provider interface {
 	DiskUsage(context.Context, string) (int64, error)
 }
 
+// EndpointChecker はDockerが要求されたloopback公開を実際に作成したか確認する追加境界である。
+// Engineが設定を受理してもポート転送を作らない場合、起動成功として扱わない。
+type EndpointChecker interface {
+	CheckEndpoints(context.Context, string, []byte) error
+}
+
 // MarkerReader は承認済みの比較Labだけでマーカーを読むProviderの追加機能である。
 // Lifecycleの基本Providerに読取り権限を要求しないため、無害なテストProviderを保てる。
 type MarkerReader interface {
@@ -209,6 +215,11 @@ func (manager *Manager) Start(ctx context.Context, id string) (Session, error) {
 		}
 		if err := manager.provider.Start(ctx, session.Project, compose); err != nil {
 			return manager.startFailure(ctx, session, err)
+		}
+		if checker, ok := manager.provider.(EndpointChecker); ok {
+			if err := checker.CheckEndpoints(ctx, session.Project, compose); err != nil {
+				return manager.startFailure(ctx, session, err)
+			}
 		}
 		resources, err := manager.provider.Inspect(ctx, session.Project, session.Compose)
 		if err != nil {
@@ -463,7 +474,8 @@ func (manager *Manager) change(ctx context.Context, id string, operation func(*S
 func endpoints(compose []byte) ([]Endpoint, error) {
 	var document struct {
 		Services map[string]struct {
-			Ports []string `yaml:"ports"`
+			DependsOn []string `yaml:"depends_on"`
+			Ports     []string `yaml:"ports"`
 		} `yaml:"services"`
 	}
 	if err := yaml.Unmarshal(compose, &document); err != nil {
@@ -471,6 +483,13 @@ func endpoints(compose []byte) ([]Endpoint, error) {
 	}
 	var result []Endpoint
 	for service, definition := range document.Services {
+		if !strings.HasPrefix(service, "reprokit_proxy_") {
+			continue
+		}
+		if len(definition.DependsOn) != 1 || definition.DependsOn[0] == "" {
+			return nil, errors.New("invalid Runner ingress proxy service")
+		}
+		originalService := definition.DependsOn[0]
 		for _, value := range definition.Ports {
 			parts := strings.Split(value, ":")
 			if len(parts) != 3 || parts[0] != "127.0.0.1" {
@@ -480,7 +499,7 @@ func endpoints(compose []byte) ([]Endpoint, error) {
 			if _, err := fmt.Sscanf(parts[1], "%d", &port); err != nil {
 				return nil, err
 			}
-			result = append(result, Endpoint{Service: service, Address: parts[0], Port: port})
+			result = append(result, Endpoint{Service: originalService, Address: parts[0], Port: port})
 		}
 	}
 	return result, nil

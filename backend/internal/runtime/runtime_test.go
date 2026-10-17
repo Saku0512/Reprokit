@@ -239,13 +239,30 @@ func TestOfflineArtifactsListsOnlyFixedSourceAndImages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(artifacts) != 2 || artifacts[0].Kind != "git-source" || artifacts[0].Revision != session.SourceRevision || artifacts[1].Kind != "container-image" || artifacts[1].Digest == "" {
+	if len(artifacts) != 3 || artifacts[0].Kind != "git-source" || artifacts[0].Revision != session.SourceRevision || artifacts[1].Kind != "container-image" || artifacts[1].Digest == "" || artifacts[2].Reference != "caddy" || artifacts[2].Digest == "" {
 		t.Fatalf("unexpected offline artifacts: %#v", artifacts)
 	}
 	for _, artifact := range artifacts {
 		if strings.Contains(strings.ToLower(artifact.Reference), "password") || strings.Contains(strings.ToLower(artifact.Reference), "token") {
 			t.Fatalf("credential leaked into offline artifacts: %#v", artifact)
 		}
+	}
+}
+
+func TestPreparePublishesRunnerProxyAsTheOriginalService(t *testing.T) {
+	manager, err := NewManager(NewMemoryStore(), &fakeProvider{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := manager.Prepare(context.Background(), validLab())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(session.Endpoints) != 1 || session.Endpoints[0] != (Endpoint{Service: "app", Address: "127.0.0.1", Port: 8080}) {
+		t.Fatalf("endpoints = %#v", session.Endpoints)
+	}
+	if !strings.Contains(string(session.Compose), "reprokit_proxy_app_1") || !strings.Contains(string(session.Lockfile), "caddy") {
+		t.Fatalf("Runner ingress proxy was not fixed in the stored artifacts")
 	}
 }
 

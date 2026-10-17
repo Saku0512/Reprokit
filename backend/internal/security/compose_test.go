@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestInspectComposeAcceptsAndNormalizesLoopbackPorts(t *testing.T) {
@@ -89,6 +91,65 @@ func TestInspectComposeWithGuardrailsInjectsLimitsAndIsolatedNetwork(t *testing.
 	}
 	if strings.Contains(contents, "storage_opt") {
 		t.Fatalf("normalized Compose must not require filesystem-specific storage_opt:\n%s", contents)
+	}
+}
+
+func TestInspectComposeWithGuardrailsMovesLoopbackPortsToRunnerIngressProxy(t *testing.T) {
+	inspection, err := InspectComposeWithGuardrails([]byte(`services:
+  app:
+    image: example/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    ports:
+      - "8080:80"
+      - "8081:8081"
+`), Guardrails{MaxRuntimeSeconds: 1800, CPUCores: 1, MemoryMiB: 512, PIDs: 128, DiskMiB: 1024, Egress: "none"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		Services map[string]struct {
+			Command   []string `yaml:"command"`
+			DependsOn []string `yaml:"depends_on"`
+			Image     string   `yaml:"image"`
+			Networks  []string `yaml:"networks"`
+			Ports     []string `yaml:"ports"`
+		} `yaml:"services"`
+		Networks map[string]struct {
+			Internal bool `yaml:"internal"`
+		} `yaml:"networks"`
+	}
+	if err := yaml.Unmarshal(inspection.Normalized, &document); err != nil {
+		t.Fatal(err)
+	}
+	if ports := document.Services["app"].Ports; len(ports) != 0 {
+		t.Fatalf("Lab service must not publish directly: %#v", ports)
+	}
+	for name, target := range map[string]string{
+		"reprokit_proxy_app_1": "app:80",
+		"reprokit_proxy_app_2": "app:8081",
+	} {
+		proxy, exists := document.Services[name]
+		if !exists || proxy.Image != ingressProxyImage || len(proxy.DependsOn) != 1 || proxy.DependsOn[0] != "app" || len(proxy.Networks) != 2 || proxy.Networks[0] != ingressNetworkName || proxy.Networks[1] != isolatedNetworkName || len(proxy.Command) != 6 || proxy.Command[0] != "caddy" || proxy.Command[5] != target {
+			t.Fatalf("Runner ingress proxy %q = %#v", name, proxy)
+		}
+	}
+	if ports := document.Services["reprokit_proxy_app_2"].Ports; len(ports) != 1 || ports[0] != "127.0.0.1:8081:80" {
+		t.Fatalf("proxy port mapping = %#v", ports)
+	}
+	if !document.Networks[isolatedNetworkName].Internal || document.Networks[ingressNetworkName].Internal {
+		t.Fatalf("networks = %#v", document.Networks)
+	}
+}
+
+func TestInspectComposeWithGuardrailsKeepsUnpublishedServiceIsolated(t *testing.T) {
+	inspection, err := InspectComposeWithGuardrails([]byte(`services:
+  worker:
+    image: example/worker@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+`), Guardrails{MaxRuntimeSeconds: 1800, CPUCores: 1, MemoryMiB: 512, PIDs: 128, DiskMiB: 1024, Egress: "none"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(inspection.Normalized), ingressProxyPrefix) || !strings.Contains(string(inspection.Normalized), "reprokit_isolated") {
+		t.Fatalf("unexpected unpublished service Compose:\n%s", inspection.Normalized)
 	}
 }
 
