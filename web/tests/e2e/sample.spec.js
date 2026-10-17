@@ -64,6 +64,7 @@ for (const width of [1440, 390]) {
     );
     await page.goto("/");
     await reference.goto("/reference");
+    await expect(page.locator('img[alt="Reprokit"]')).toBeVisible();
     const compare = async (name) => {
       await ready(page);
       await ready(reference);
