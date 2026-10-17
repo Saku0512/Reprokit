@@ -35,6 +35,7 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 		}
 		var body struct {
 			OrganizationID  string      `json:"organizationId"`
+			ActorID         string      `json:"actorId"`
 			ID              string      `json:"id"`
 			Version         string      `json:"version"`
 			Title           string      `json:"title"`
@@ -45,7 +46,7 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 			badRequest(writer)
 			return
 		}
-		course, err := service.CreateCourse(CreateCourseInput{OrganizationID: body.OrganizationID, ID: body.ID, Version: body.Version, Title: body.Title, Lessons: body.Lessons, RequiredLessons: body.RequiredLessons})
+		course, err := service.CreateCourse(CreateCourseInput{OrganizationID: body.OrganizationID, ActorID: body.ActorID, ID: body.ID, Version: body.Version, Title: body.Title, Lessons: body.Lessons, RequiredLessons: body.RequiredLessons})
 		result(writer, course, err, http.StatusCreated)
 		return
 	case "/api/training/cohorts":
@@ -71,6 +72,7 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 		}
 		var body struct {
 			OrganizationID string    `json:"organizationId"`
+			ActorID        string    `json:"actorId"`
 			CourseID       string    `json:"courseId"`
 			CourseVersion  string    `json:"courseVersion"`
 			LearnerIDs     []string  `json:"learnerIds"`
@@ -82,12 +84,42 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 			badRequest(writer)
 			return
 		}
-		assignments, err := service.CreateAssignments(CreateAssignmentsInput{OrganizationID: body.OrganizationID, CourseID: body.CourseID, CourseVersion: body.CourseVersion, LearnerIDs: body.LearnerIDs, CohortID: body.CohortID, DueAt: body.DueAt, AllowRetry: body.AllowRetry})
+		assignments, err := service.CreateAssignments(CreateAssignmentsInput{OrganizationID: body.OrganizationID, ActorID: body.ActorID, CourseID: body.CourseID, CourseVersion: body.CourseVersion, LearnerIDs: body.LearnerIDs, CohortID: body.CohortID, DueAt: body.DueAt, AllowRetry: body.AllowRetry})
 		result(writer, assignments, err, http.StatusCreated)
+		return
+	case "/api/training/exports/results.csv":
+		if !onlyMethod(writer, request, http.MethodGet) {
+			return
+		}
+		values := request.URL.Query()
+		organizationID := values.Get("organizationId")
+		if organizationID == "" || len(values) != 1 || len(values["organizationId"]) != 1 || !validID(organizationID) {
+			badRequest(writer)
+			return
+		}
+		writer.Header().Set("Content-Type", "text/csv; charset=utf-8")
+		writer.Header().Set("Content-Disposition", "attachment; filename=\"reprokit-training-results.csv\"")
+		if err := service.WriteResultsCSV(flushingWriter{ResponseWriter: writer}, organizationID); err != nil {
+			return
+		}
 		return
 	}
 
 	parts := strings.Split(strings.TrimPrefix(path, "/api/training/"), "/")
+	if len(parts) == 1 && parts[0] == "audit-events" {
+		if !onlyMethod(writer, request, http.MethodGet) {
+			return
+		}
+		values := request.URL.Query()
+		organizationID := values.Get("organizationId")
+		if organizationID == "" || len(values) != 1 || len(values["organizationId"]) != 1 {
+			badRequest(writer)
+			return
+		}
+		events, err := service.ListAuditEvents(organizationID)
+		result(writer, events, err, http.StatusOK)
+		return
+	}
 	if len(parts) == 3 && parts[0] == "assignments" && parts[2] == "start" {
 		if !onlyMethod(writer, request, http.MethodPost) {
 			return
@@ -215,4 +247,15 @@ func writeJSON(writer http.ResponseWriter, status int, value any) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(status)
 	_ = json.NewEncoder(writer).Encode(value)
+}
+
+// flushingWriterはCSVの各レコードをHTTPレスポンスへ順に流す。
+type flushingWriter struct{ http.ResponseWriter }
+
+func (writer flushingWriter) Write(value []byte) (int, error) {
+	count, err := writer.ResponseWriter.Write(value)
+	if flusher, ok := writer.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+	return count, err
 }

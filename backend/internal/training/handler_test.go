@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -37,11 +38,11 @@ func TestHandlerCreatesAndCompletesTrainingAssignment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	course := decodeResponse[Course](t, request(t, handler, http.MethodPost, "/api/training/courses", `{"organizationId":"acme","id":"secure-basics","version":"1.0.0","title":"安全な実装の基礎","lessons":[{"lessonId":"filebrowser/hook","lessonVersion":"1.0.0"}],"requiredLessons":[{"lessonId":"filebrowser/hook","lessonVersion":"1.0.0"}]}`), http.StatusCreated)
+	course := decodeResponse[Course](t, request(t, handler, http.MethodPost, "/api/training/courses", `{"organizationId":"acme","actorId":"trainer","id":"secure-basics","version":"1.0.0","title":"安全な実装の基礎","lessons":[{"lessonId":"filebrowser/hook","lessonVersion":"1.0.0"}],"requiredLessons":[{"lessonId":"filebrowser/hook","lessonVersion":"1.0.0"}]}`), http.StatusCreated)
 	if course.OrganizationID != "acme" || len(course.Lessons) != 1 {
 		t.Fatalf("unexpected course: %#v", course)
 	}
-	assignments := decodeResponse[[]Assignment](t, request(t, handler, http.MethodPost, "/api/training/assignments", `{"organizationId":"acme","courseId":"secure-basics","courseVersion":"1.0.0","learnerIds":["alice"],"cohortId":"","dueAt":"2026-11-01T00:00:00Z","allowRetry":true}`), http.StatusCreated)
+	assignments := decodeResponse[[]Assignment](t, request(t, handler, http.MethodPost, "/api/training/assignments", `{"organizationId":"acme","actorId":"trainer","courseId":"secure-basics","courseVersion":"1.0.0","learnerIds":["alice"],"cohortId":"","dueAt":"2026-11-01T00:00:00Z","allowRetry":true}`), http.StatusCreated)
 	if len(assignments) != 1 {
 		t.Fatalf("unexpected assignments: %#v", assignments)
 	}
@@ -63,6 +64,14 @@ func TestHandlerCreatesAndCompletesTrainingAssignment(t *testing.T) {
 	if loaded.Status != StatusCompleted {
 		t.Fatalf("unexpected persisted assignment: %#v", loaded)
 	}
+	csv := request(t, handler, http.MethodGet, "/api/training/exports/results.csv?organizationId=acme", "")
+	if csv.Code != http.StatusOK || csv.Header().Get("Content-Type") != "text/csv; charset=utf-8" || !strings.Contains(csv.Body.String(), "learner_id,course_id") || strings.Contains(csv.Body.String(), "認証処理の前に実行される") {
+		t.Fatalf("unexpected CSV response: status=%d header=%q body=%q", csv.Code, csv.Header().Get("Content-Type"), csv.Body.String())
+	}
+	events := decodeResponse[[]AuditEvent](t, request(t, handler, http.MethodGet, "/api/training/audit-events?organizationId=acme", ""), http.StatusOK)
+	if len(events) == 0 || events[0].OrganizationID != "acme" {
+		t.Fatalf("unexpected audit events: %#v", events)
+	}
 }
 
 func TestHandlerRejectsUnknownFieldsAndOrganizationBypass(t *testing.T) {
@@ -71,7 +80,7 @@ func TestHandlerRejectsUnknownFieldsAndOrganizationBypass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	invalid := request(t, handler, http.MethodPost, "/api/training/courses", `{"organizationId":"acme","id":"secure-basics","version":"1.0.0","title":"研修","lessons":[],"requiredLessons":[],"command":"unsafe"}`)
+	invalid := request(t, handler, http.MethodPost, "/api/training/courses", `{"organizationId":"acme","actorId":"trainer","id":"secure-basics","version":"1.0.0","title":"研修","lessons":[],"requiredLessons":[],"command":"unsafe"}`)
 	if invalid.Code != http.StatusBadRequest {
 		t.Fatalf("unknown field status = %d", invalid.Code)
 	}

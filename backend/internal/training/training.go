@@ -5,6 +5,7 @@ package training
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -44,6 +45,16 @@ const (
 	EvaluationPending    EvaluationStatus = "pending"
 	EvaluationAccepted   EvaluationStatus = "accepted"
 	EvaluationNeedsRetry EvaluationStatus = "needs_retry"
+)
+
+// AuditActionは研修管理で追跡する、固定された操作種別である。
+type AuditAction string
+
+const (
+	AuditCoursePublished         AuditAction = "course_published"
+	AuditCourseUpdated           AuditAction = "course_updated"
+	AuditAssignmentCreated       AuditAction = "assignment_created"
+	AuditAssignmentStatusChanged AuditAction = "assignment_status_changed"
 )
 
 // LessonRefはCourseへ取り込んだ、版まで固定された教材参照である。
@@ -110,8 +121,25 @@ type Completion struct {
 	CompletedAt    time.Time `json:"completedAt"`
 }
 
+// AuditEventは研修運用上の状態変化だけを記録する。回答、Lab、操作履歴は含めない。
+type AuditEvent struct {
+	ID             string           `json:"id"`
+	OrganizationID string           `json:"organizationId"`
+	Action         AuditAction      `json:"action"`
+	ActorID        string           `json:"actorId"`
+	ResourceType   string           `json:"resourceType"`
+	ResourceID     string           `json:"resourceId"`
+	CourseID       string           `json:"courseId,omitempty"`
+	CourseVersion  string           `json:"courseVersion,omitempty"`
+	AssignmentID   string           `json:"assignmentId,omitempty"`
+	PreviousStatus AssignmentStatus `json:"previousStatus,omitempty"`
+	Status         AssignmentStatus `json:"status,omitempty"`
+	OccurredAt     time.Time        `json:"occurredAt"`
+}
+
 type CreateCourseInput struct {
 	OrganizationID  string
+	ActorID         string
 	ID              string
 	Version         string
 	Title           string
@@ -128,6 +156,7 @@ type CreateCohortInput struct {
 
 type CreateAssignmentsInput struct {
 	OrganizationID string
+	ActorID        string
 	CourseID       string
 	CourseVersion  string
 	LearnerIDs     []string
@@ -158,6 +187,7 @@ type persistedState struct {
 	Assignments map[string]Assignment `json:"assignments"`
 	Submissions map[string]Submission `json:"submissions"`
 	Completions map[string]Completion `json:"completions"`
+	AuditEvents map[string]AuditEvent `json:"auditEvents"`
 }
 
 // Storeは組織をまたがない研修管理データを、privateなローカルJSONへ保存する。
@@ -186,7 +216,7 @@ func NewStore(root string) (*Store, error) {
 }
 
 func emptyState() persistedState {
-	return persistedState{Courses: map[string]Course{}, Cohorts: map[string]Cohort{}, Assignments: map[string]Assignment{}, Submissions: map[string]Submission{}, Completions: map[string]Completion{}}
+	return persistedState{Courses: map[string]Course{}, Cohorts: map[string]Cohort{}, Assignments: map[string]Assignment{}, Submissions: map[string]Submission{}, Completions: map[string]Completion{}, AuditEvents: map[string]AuditEvent{}}
 }
 
 func (store *Store) load() error {
@@ -200,7 +230,14 @@ func (store *Store) load() error {
 	var state persistedState
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&state); err != nil || decoder.Decode(&struct{}{}) != io.EOF || !validState(state) {
+	if err := decoder.Decode(&state); err != nil || decoder.Decode(&struct{}{}) != io.EOF {
+		return errors.New("corrupt training state")
+	}
+	// 監査イベント導入前の状態ファイルは、空の監査イベント集合として移行する。
+	if state.AuditEvents == nil {
+		state.AuditEvents = map[string]AuditEvent{}
+	}
+	if !validState(state) {
 		return errors.New("corrupt training state")
 	}
 	store.state = state
@@ -265,7 +302,7 @@ func validRequiredLessons(lessons, required []LessonRef) bool {
 }
 
 func validState(state persistedState) bool {
-	if state.Courses == nil || state.Cohorts == nil || state.Assignments == nil || state.Submissions == nil || state.Completions == nil {
+	if state.Courses == nil || state.Cohorts == nil || state.Assignments == nil || state.Submissions == nil || state.Completions == nil || state.AuditEvents == nil {
 		return false
 	}
 	for key, course := range state.Courses {
@@ -306,6 +343,11 @@ func validState(state persistedState) bool {
 		}
 		assignment, exists := state.Assignments[scopedKey(completion.OrganizationID, completion.AssignmentID)]
 		if !exists || assignment.LearnerID != completion.LearnerID || assignment.Status != StatusCompleted {
+			return false
+		}
+	}
+	for key, event := range state.AuditEvents {
+		if key != scopedKey(event.OrganizationID, event.ID) || !validAuditEvent(event) {
 			return false
 		}
 	}
@@ -353,6 +395,22 @@ func validAssignmentStatus(status AssignmentStatus) bool {
 	return status == StatusAssigned || status == StatusInProgress || status == StatusSubmitted || status == StatusCompleted || status == StatusNeedsRetry
 }
 
+func validAuditEvent(event AuditEvent) bool {
+	if !validID(event.OrganizationID) || !validID(event.ID) || !validID(event.ActorID) || !validID(event.ResourceID) || event.OccurredAt.IsZero() {
+		return false
+	}
+	switch event.Action {
+	case AuditCoursePublished, AuditCourseUpdated:
+		return event.ResourceType == "course" && event.ResourceID == event.CourseID && validID(event.CourseID) && event.CourseVersion != "" && event.AssignmentID == "" && event.PreviousStatus == "" && event.Status == ""
+	case AuditAssignmentCreated:
+		return event.ResourceType == "assignment" && event.ResourceID == event.AssignmentID && validID(event.AssignmentID) && validID(event.CourseID) && event.CourseVersion != "" && event.PreviousStatus == "" && event.Status == StatusAssigned
+	case AuditAssignmentStatusChanged:
+		return event.ResourceType == "assignment" && event.ResourceID == event.AssignmentID && validID(event.AssignmentID) && validID(event.CourseID) && event.CourseVersion != "" && validAssignmentStatus(event.PreviousStatus) && validAssignmentStatus(event.Status) && event.PreviousStatus != event.Status
+	default:
+		return false
+	}
+}
+
 func validSubmission(submission Submission) bool {
 	if !validID(submission.OrganizationID) || !validID(submission.ID) || !validID(submission.AssignmentID) || !validID(submission.LearnerID) || submission.LessonID == "" || submission.LessonVersion == "" || submission.SubmittedAt.IsZero() || len(submission.Answers) == 0 || len(submission.Answers) > 64 {
 		return false
@@ -390,7 +448,7 @@ func NewService(store *Store) (*Service, error) {
 }
 
 func (service *Service) CreateCourse(input CreateCourseInput) (Course, error) {
-	if !validID(input.OrganizationID) || !validID(input.ID) || input.Version == "" || input.Title == "" || !validLessons(input.Lessons) || !validRequiredLessons(input.Lessons, input.RequiredLessons) {
+	if !validID(input.OrganizationID) || !validID(input.ActorID) || !validID(input.ID) || input.Version == "" || input.Title == "" || !validLessons(input.Lessons) || !validRequiredLessons(input.Lessons, input.RequiredLessons) {
 		return Course{}, ErrInvalid
 	}
 	service.store.mu.Lock()
@@ -399,10 +457,23 @@ func (service *Service) CreateCourse(input CreateCourseInput) (Course, error) {
 	if _, exists := service.store.state.Courses[key]; exists {
 		return Course{}, ErrInvalid
 	}
+	action := AuditCoursePublished
+	for _, existing := range service.store.state.Courses {
+		if existing.OrganizationID == input.OrganizationID && existing.ID == input.ID {
+			action = AuditCourseUpdated
+			break
+		}
+	}
+	event, err := service.courseAudit(action, input.ActorID, input.OrganizationID, input.ID, input.Version)
+	if err != nil {
+		return Course{}, err
+	}
 	course := Course{ID: input.ID, OrganizationID: input.OrganizationID, Version: input.Version, Title: input.Title, Lessons: append([]LessonRef{}, input.Lessons...), RequiredLessons: append([]LessonRef{}, input.RequiredLessons...), CreatedAt: service.now().UTC()}
 	service.store.state.Courses[key] = course
+	service.store.state.AuditEvents[scopedKey(input.OrganizationID, event.ID)] = event
 	if err := service.store.save(); err != nil {
 		delete(service.store.state.Courses, key)
+		delete(service.store.state.AuditEvents, scopedKey(input.OrganizationID, event.ID))
 		return Course{}, err
 	}
 	return course, nil
@@ -428,7 +499,7 @@ func (service *Service) CreateCohort(input CreateCohortInput) (Cohort, error) {
 }
 
 func (service *Service) CreateAssignments(input CreateAssignmentsInput) ([]Assignment, error) {
-	if !validID(input.OrganizationID) || !validID(input.CourseID) || input.CourseVersion == "" || input.DueAt.IsZero() || (len(input.LearnerIDs) > 0 && input.CohortID != "") {
+	if !validID(input.OrganizationID) || !validID(input.ActorID) || !validID(input.CourseID) || input.CourseVersion == "" || input.DueAt.IsZero() || (len(input.LearnerIDs) > 0 && input.CohortID != "") {
 		return nil, ErrInvalid
 	}
 	service.store.mu.Lock()
@@ -448,18 +519,32 @@ func (service *Service) CreateAssignments(input CreateAssignmentsInput) ([]Assig
 		return nil, ErrInvalid
 	}
 	assignments := make([]Assignment, 0, len(learners))
+	events := make([]AuditEvent, 0, len(learners))
 	for _, learnerID := range learners {
 		id, err := newID()
 		if err != nil {
 			return nil, err
 		}
 		assignment := Assignment{ID: id, OrganizationID: input.OrganizationID, CourseID: input.CourseID, CourseVersion: input.CourseVersion, LearnerID: learnerID, CohortID: input.CohortID, DueAt: input.DueAt.UTC(), AllowRetry: input.AllowRetry, Status: StatusAssigned, CreatedAt: service.now().UTC()}
-		service.store.state.Assignments[scopedKey(input.OrganizationID, id)] = assignment
+		event, err := service.assignmentAudit(AuditAssignmentCreated, input.ActorID, assignment, "")
+		if err != nil {
+			return nil, err
+		}
 		assignments = append(assignments, assignment)
+		events = append(events, event)
+	}
+	for _, assignment := range assignments {
+		service.store.state.Assignments[scopedKey(input.OrganizationID, assignment.ID)] = assignment
+	}
+	for _, event := range events {
+		service.store.state.AuditEvents[scopedKey(input.OrganizationID, event.ID)] = event
 	}
 	if err := service.store.save(); err != nil {
 		for _, assignment := range assignments {
 			delete(service.store.state.Assignments, scopedKey(input.OrganizationID, assignment.ID))
+		}
+		for _, event := range events {
+			delete(service.store.state.AuditEvents, scopedKey(input.OrganizationID, event.ID))
 		}
 		return nil, err
 	}
@@ -491,9 +576,15 @@ func (service *Service) Start(organizationID, assignmentID, learnerID string) (A
 	}
 	previous := assignment
 	assignment.Status = StatusInProgress
+	event, err := service.assignmentAudit(AuditAssignmentStatusChanged, learnerID, assignment, previous.Status)
+	if err != nil {
+		return Assignment{}, err
+	}
 	service.store.state.Assignments[scopedKey(organizationID, assignmentID)] = assignment
+	service.store.state.AuditEvents[scopedKey(organizationID, event.ID)] = event
 	if err := service.store.save(); err != nil {
 		service.store.state.Assignments[scopedKey(organizationID, assignmentID)] = previous
+		delete(service.store.state.AuditEvents, scopedKey(organizationID, event.ID))
 		return Assignment{}, err
 	}
 	return assignment, nil
@@ -528,11 +619,24 @@ func (service *Service) Submit(input SubmitInput) (Submission, error) {
 	submission := Submission{ID: id, OrganizationID: input.OrganizationID, AssignmentID: input.AssignmentID, LearnerID: input.LearnerID, LessonID: input.LessonID, LessonVersion: input.LessonVersion, Answers: copyAnswers(input.Answers), SubmittedAt: service.now().UTC(), Evaluation: EvaluationPending}
 	previous := assignment
 	assignment.Status = StatusSubmitted
+	var event AuditEvent
+	if previous.Status != assignment.Status {
+		event, err = service.assignmentAudit(AuditAssignmentStatusChanged, input.LearnerID, assignment, previous.Status)
+		if err != nil {
+			return Submission{}, err
+		}
+	}
 	service.store.state.Submissions[scopedKey(input.OrganizationID, id)] = submission
 	service.store.state.Assignments[scopedKey(input.OrganizationID, input.AssignmentID)] = assignment
+	if event.ID != "" {
+		service.store.state.AuditEvents[scopedKey(input.OrganizationID, event.ID)] = event
+	}
 	if err := service.store.save(); err != nil {
 		delete(service.store.state.Submissions, scopedKey(input.OrganizationID, id))
 		service.store.state.Assignments[scopedKey(input.OrganizationID, input.AssignmentID)] = previous
+		if event.ID != "" {
+			delete(service.store.state.AuditEvents, scopedKey(input.OrganizationID, event.ID))
+		}
 		return Submission{}, err
 	}
 	return submission, nil
@@ -576,12 +680,26 @@ func (service *Service) Review(input ReviewInput) (Submission, Assignment, *Comp
 		completion = &value
 		service.store.state.Completions[scopedKey(input.OrganizationID, id)] = value
 	}
+	var event AuditEvent
+	if previousAssignment.Status != assignment.Status {
+		var auditErr error
+		event, auditErr = service.assignmentAudit(AuditAssignmentStatusChanged, input.EvaluatorID, assignment, previousAssignment.Status)
+		if auditErr != nil {
+			return Submission{}, Assignment{}, nil, auditErr
+		}
+	}
 	service.store.state.Assignments[scopedKey(input.OrganizationID, assignment.ID)] = assignment
+	if event.ID != "" {
+		service.store.state.AuditEvents[scopedKey(input.OrganizationID, event.ID)] = event
+	}
 	if err := service.store.save(); err != nil {
 		service.store.state.Submissions[key] = previousSubmission
 		service.store.state.Assignments[scopedKey(input.OrganizationID, assignment.ID)] = previousAssignment
 		if completion != nil {
 			delete(service.store.state.Completions, scopedKey(input.OrganizationID, completion.ID))
+		}
+		if event.ID != "" {
+			delete(service.store.state.AuditEvents, scopedKey(input.OrganizationID, event.ID))
 		}
 		return Submission{}, Assignment{}, nil, err
 	}
@@ -641,4 +759,95 @@ func (service *Service) ListSubmissions(organizationID, assignmentID string) ([]
 	}
 	sort.Slice(result, func(left, right int) bool { return result[left].SubmittedAt.Before(result[right].SubmittedAt) })
 	return result, nil
+}
+
+// ListAuditEventsは組織内の監査イベントを時刻順に返す。回答本文やLab情報は返さない。
+func (service *Service) ListAuditEvents(organizationID string) ([]AuditEvent, error) {
+	if !validID(organizationID) {
+		return nil, ErrInvalid
+	}
+	service.store.mu.Lock()
+	defer service.store.mu.Unlock()
+	result := []AuditEvent{}
+	for _, event := range service.store.state.AuditEvents {
+		if event.OrganizationID == organizationID {
+			result = append(result, event)
+		}
+	}
+	sort.Slice(result, func(left, right int) bool {
+		if result[left].OccurredAt.Equal(result[right].OccurredAt) {
+			return result[left].ID < result[right].ID
+		}
+		return result[left].OccurredAt.Before(result[right].OccurredAt)
+	})
+	return result, nil
+}
+
+// WriteResultsCSVは受講結果を1レコードずつCSVへ書き出す。回答、Lab、操作履歴は出力しない。
+func (service *Service) WriteResultsCSV(writer io.Writer, organizationID string) error {
+	if writer == nil || !validID(organizationID) {
+		return ErrInvalid
+	}
+	service.store.mu.Lock()
+	defer service.store.mu.Unlock()
+	completions := map[string]Completion{}
+	for _, completion := range service.store.state.Completions {
+		if completion.OrganizationID == organizationID {
+			completions[completion.AssignmentID] = completion
+		}
+	}
+	csvWriter := csv.NewWriter(writer)
+	if err := writeCSVRecord(csvWriter, []string{"learner_id", "course_id", "course_version", "status", "completed_at", "evaluation_result"}); err != nil {
+		return err
+	}
+	for _, assignment := range service.store.state.Assignments {
+		if assignment.OrganizationID != organizationID {
+			continue
+		}
+		completedAt := ""
+		if completion, exists := completions[assignment.ID]; exists {
+			completedAt = completion.CompletedAt.UTC().Format(time.RFC3339Nano)
+		}
+		if err := writeCSVRecord(csvWriter, []string{assignment.LearnerID, assignment.CourseID, assignment.CourseVersion, string(assignment.Status), completedAt, evaluationResult(assignment.Status)}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func writeCSVRecord(writer *csv.Writer, record []string) error {
+	if err := writer.Write(record); err != nil {
+		return err
+	}
+	writer.Flush()
+	return writer.Error()
+}
+
+func evaluationResult(status AssignmentStatus) string {
+	switch status {
+	case StatusSubmitted:
+		return string(EvaluationPending)
+	case StatusCompleted:
+		return string(EvaluationAccepted)
+	case StatusNeedsRetry:
+		return string(EvaluationNeedsRetry)
+	default:
+		return ""
+	}
+}
+
+func (service *Service) courseAudit(action AuditAction, actorID, organizationID, courseID, courseVersion string) (AuditEvent, error) {
+	id, err := newID()
+	if err != nil {
+		return AuditEvent{}, err
+	}
+	return AuditEvent{ID: id, OrganizationID: organizationID, Action: action, ActorID: actorID, ResourceType: "course", ResourceID: courseID, CourseID: courseID, CourseVersion: courseVersion, OccurredAt: service.now().UTC()}, nil
+}
+
+func (service *Service) assignmentAudit(action AuditAction, actorID string, assignment Assignment, previousStatus AssignmentStatus) (AuditEvent, error) {
+	id, err := newID()
+	if err != nil {
+		return AuditEvent{}, err
+	}
+	return AuditEvent{ID: id, OrganizationID: assignment.OrganizationID, Action: action, ActorID: actorID, ResourceType: "assignment", ResourceID: assignment.ID, CourseID: assignment.CourseID, CourseVersion: assignment.CourseVersion, AssignmentID: assignment.ID, PreviousStatus: previousStatus, Status: assignment.Status, OccurredAt: service.now().UTC()}, nil
 }
