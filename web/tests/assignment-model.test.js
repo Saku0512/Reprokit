@@ -7,7 +7,7 @@ import {
   filterAssignments,
   materialForAssignment,
   parseLearnerIDs,
-} from "../src/admin-model.js";
+} from "../src/admin/assignment-model.js";
 
 const assignments = [
   {

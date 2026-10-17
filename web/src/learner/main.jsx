@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { initialState } from "./data.js";
-import { LabConsole, LessonList, LessonDetail, LessonOutline } from "./views.jsx";
-import { LabModal } from "./modal.jsx";
-import { StudyApi, canStart } from "./api.js";
+import { initialState } from "./lesson-data.js";
+import { LabConsole, LessonList, LessonDetail, LessonOutline } from "./lesson-views.jsx";
+import { LabModal } from "./lab-modal.jsx";
+import { StudyApi, canStart } from "../shared/study-api.js";
 import "@fontsource/noto-sans-jp/400.css";
 import "@fontsource/noto-sans-jp/500.css";
 import "@fontsource/noto-sans-jp/700.css";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
-import "./app.css";
+import "./learner.css";
 
 const api = new StudyApi(document.querySelector('meta[name="reprokit-session"]')?.content ?? "");
 const labSessionStorageKey = "reprokit:sample:filebrowser:lab-session";

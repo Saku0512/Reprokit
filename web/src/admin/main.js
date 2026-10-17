@@ -6,7 +6,7 @@ import {
   filterAssignments,
   materialForAssignment,
   parseLearnerIDs,
-} from "./admin-model.js";
+} from "./assignment-model.js";
 
 const loginPanel = document.querySelector("#login-panel");
 const dashboard = document.querySelector("#dashboard");
