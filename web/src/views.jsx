@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef } from "react";
+import { L, PH, NODES } from "./data.js";
 import { endpointURL } from "./api.js";
-import { L, PH, NODES } from "./sample-data.js";
 export function LessonList({ state: S }) {
   const cats = [
     ["all", "すべて", L.length],
