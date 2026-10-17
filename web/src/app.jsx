@@ -48,6 +48,8 @@ function App() {
   const consoleDialog = useRef(null);
   const view = useRef(null);
   const pendingPhase = useRef(null);
+  const deployProgressTimer = useRef(null);
+  const deployProgressValue = useRef(0);
   const update = (patch) => setState((previous) => ({ ...previous, ...patch }));
   const trackPhase = useCallback((phase) => {
     setState((previous) => (previous.p === phase ? previous : { ...previous, p: phase }));
@@ -106,6 +108,12 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
   }, [dark]);
+  useEffect(
+    () => () => {
+      if (deployProgressTimer.current) window.clearInterval(deployProgressTimer.current);
+    },
+    [],
+  );
   useEffect(() => {
     if (!message) return;
     const timer = setTimeout(() => setMessage(""), 2200);
@@ -148,11 +156,46 @@ function App() {
     };
   }, []);
 
+  function advanceDeployProgress(target) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      deployProgressValue.current = target;
+      update({ seg: target });
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      if (deployProgressTimer.current) window.clearInterval(deployProgressTimer.current);
+      const timer = window.setInterval(() => {
+        const seg = Math.min(target, deployProgressValue.current + 1);
+        deployProgressValue.current = seg;
+        update({ seg });
+        if (seg === target) {
+          window.clearInterval(timer);
+          if (deployProgressTimer.current === timer) deployProgressTimer.current = null;
+          resolve();
+        }
+      }, 120);
+      deployProgressTimer.current = timer;
+    });
+  }
+
+  async function withDeployProgress(operation, target) {
+    // 通信失敗も直ちに捕捉し、進捗表示の完了後に同じエラーとして扱う。
+    const result = operation.then(
+      (value) => ({ value }),
+      (error) => ({ error }),
+    );
+    await advanceDeployProgress(target);
+    const { value, error } = await result;
+    if (error) throw error;
+    return value;
+  }
+
   async function deployLab() {
     if (state.lab === "deploying") return;
+    deployProgressValue.current = 0;
     update({
       lab: "deploying",
-      seg: 2,
+      seg: 0,
       modal: null,
       labFailure: null,
       logs: {},
@@ -162,14 +205,16 @@ function App() {
     });
     try {
       let runtime = state.runtime;
-      if (!canStart(runtime)) runtime = await api.prepare("1.0.0", "vulnerable");
+      if (!canStart(runtime))
+        runtime = await withDeployProgress(api.prepare("1.0.0", "vulnerable"), 10);
       if (!canStart(runtime))
         throw new Error("安全性とloopback公開を確認できないため、Labを起動できません。");
       rememberLabSession(runtime);
-      update({ runtime, seg: 12 });
-      runtime = await api.start(runtime.labSessionId);
+      update({ runtime });
+      runtime = await withDeployProgress(api.start(runtime.labSessionId), 19);
       if (runtime.state !== "running") throw new Error("Labの起動状態を確認できませんでした。");
       rememberLabSession(runtime);
+      deployProgressValue.current = 20;
       update({ lab: "running", runtime, seg: 20 });
       setMessage("Labが起動しました。「別タブで開く」から画面を開けます");
     } catch (error) {

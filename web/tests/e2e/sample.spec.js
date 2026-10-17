@@ -181,6 +181,21 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   expect(errors).toEqual([]);
 });
 
+test("Deployの進捗バーは目盛りごとに増える", async ({ page }) => {
+  await mockRunner(page, { delayPrepare: 2000 });
+  await page.goto("/");
+  await page.locator('[data-a="open"]').first().click();
+  await startLesson(page);
+  await page.locator('[data-a="deploy"]').click();
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "起動する", exact: true }).click();
+
+  const progress = page.locator(".seg i.on");
+  await expect.poll(async () => (await progress.count()) > 0).toBe(true);
+  expect(await progress.count()).toBeLessThan(10);
+  await expect(page.locator(".st")).toHaveText("RUNNING");
+});
+
 for (const width of [1440, 390]) {
   test(`縦ナビと次へで章を追加し、スクロールで読み返せる (${width}px)`, async ({
     page,
