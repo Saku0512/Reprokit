@@ -46,6 +46,30 @@ test(
     await request(`/api/study-sessions/${session.id}/answers/trace-boundary`, "PUT", {
       answer: "認証前の外部入力をコマンド文字列へ展開しない。",
     });
+    const training = await request("/api/training/learner/assignment");
+    assert.equal(training.assignment.status, "assigned");
+    await request("/api/training/learner/start", "POST", {});
+    await request("/api/training/learner/submissions", "POST", { studySessionId: session.id });
+    const login = await fetch(`${app.origin}/api/admin/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: app.adminUsername, password: app.adminPassword }),
+    });
+    assert.equal(login.status, 204);
+    const cookie = login.headers.get("set-cookie").split(";")[0];
+    const assignments = await (
+      await fetch(`${app.origin}/api/training/assignments`, { headers: { Cookie: cookie } })
+    ).json();
+    assert.equal(assignments[0].status, "submitted");
+    const submissions = await (
+      await fetch(`${app.origin}/api/training/assignments/${assignments[0].id}/submissions`, {
+        headers: { Cookie: cookie },
+      })
+    ).json();
+    assert.equal(
+      submissions[0].answers["trace-boundary"],
+      "認証前の外部入力をコマンド文字列へ展開しない。",
+    );
     assert.deepEqual(await readdir(join(state, "labs")), []);
     const oldToken = token,
       oldProcess = app.child;

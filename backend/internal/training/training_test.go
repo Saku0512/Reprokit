@@ -132,6 +132,25 @@ func TestRetryRequiresPermissionAndExplicitRestart(t *testing.T) {
 	}
 }
 
+func TestCourseAndAssignmentListsStayInsideOrganization(t *testing.T) {
+	service := testService(t)
+	createCourse(t, service)
+	if _, err := service.CreateCourse(CreateCourseInput{OrganizationID: "other", ActorID: "trainer", ID: "other-course", Version: "1.0.0", Title: "別組織", Lessons: []LessonRef{{LessonID: "sample/fix", LessonVersion: "1.0.0"}}, RequiredLessons: []LessonRef{{LessonID: "sample/fix", LessonVersion: "1.0.0"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CreateAssignments(CreateAssignmentsInput{OrganizationID: "acme", ActorID: "trainer", CourseID: "secure-basics", CourseVersion: "1.0.0", LearnerIDs: []string{"alice"}, DueAt: time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC), AllowRetry: true}); err != nil {
+		t.Fatal(err)
+	}
+	courses, err := service.ListCourses("acme")
+	if err != nil || len(courses) != 1 || courses[0].OrganizationID != "acme" {
+		t.Fatalf("unexpected courses: %#v %v", courses, err)
+	}
+	assignments, err := service.ListAssignments("acme")
+	if err != nil || len(assignments) != 1 || assignments[0].LearnerID != "alice" {
+		t.Fatalf("unexpected assignments: %#v %v", assignments, err)
+	}
+}
+
 func TestAuditEventsAndResultsCSVArePersistedWithoutLearnerAnswers(t *testing.T) {
 	service := testService(t)
 	createCourse(t, service)

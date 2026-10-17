@@ -78,6 +78,17 @@ export class StudyApi {
       { answer },
     );
   }
+  trainingAssignment() {
+    return this.call("/api/training/learner/assignment");
+  }
+  startTraining() {
+    return this.call("/api/training/learner/start", "POST", {});
+  }
+  submitTraining(id) {
+    return this.call("/api/training/learner/submissions", "POST", {
+      studySessionId: identifier(id, studyPattern),
+    });
+  }
   binding(id, ref) {
     if (!["vulnerable", "fixed"].includes(ref)) throw new Error("未定義のLab参照です。");
     return this.call(`/api/study-sessions/${identifier(id, studyPattern)}/labs/${ref}`);

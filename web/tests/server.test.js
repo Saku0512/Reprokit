@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import { createWebServer, runnerConfig } from "../server.mjs";
+import { createWebServer, managementConfig, runnerConfig } from "../server.mjs";
 
 const token = "test_token_for_local_session";
 async function start(server, context) {
@@ -31,6 +31,69 @@ test("接続先とトークンは起動設定で固定し、外部URLを拒否�
   ])
     assert.throws(() => runnerConfig(url, token));
   assert.throws(() => runnerConfig("http://127.0.0.1:9123", '<script>"'));
+  assert.deepEqual(managementConfig("management_token_value", "local", "admin"), {
+    token: "management_token_value",
+    organizationId: "local",
+    administratorId: "admin",
+  });
+  assert.throws(() => managementConfig("short", "local", "admin"));
+});
+
+test("管理ログイン後だけ管理トークンで研修APIへ接続する", async (t) => {
+  const received = [];
+  const upstream = await start(
+    http.createServer((req, res) => {
+      received.push({
+        url: req.url,
+        management: req.headers["x-reprokit-management-session"],
+        learner: req.headers["x-reprokit-session"],
+      });
+      res.setHeader("Content-Type", "application/json");
+      res.end("[]");
+    }),
+    t,
+  );
+  const management = managementConfig("management_token_value", "local", "admin");
+  const origin = await start(
+    createWebServer({
+      runner: runnerConfig(upstream, token),
+      management,
+      admin: { username: "admin", password: "local-password-123" },
+    }),
+    t,
+  );
+  assert.equal((await fetch(`${origin}/api/training/courses`)).status, 401);
+  assert.equal(
+    (
+      await fetch(`${origin}/api/admin/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: "admin", password: "wrong-password" }),
+      })
+    ).status,
+    401,
+  );
+  const login = await fetch(`${origin}/api/admin/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username: "admin", password: "local-password-123" }),
+  });
+  assert.equal(login.status, 204);
+  const cookie = login.headers.get("set-cookie").split(";")[0];
+  const courses = await fetch(`${origin}/api/training/courses`, { headers: { Cookie: cookie } });
+  assert.equal(courses.status, 200);
+  assert.equal(received[0].management, management.token);
+  assert.equal(received[0].learner, undefined);
+  assert.equal(
+    (
+      await fetch(`${origin}/api/training/learner/assignment`, {
+        headers: { "X-Reprokit-Session": token },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(received[1].management, undefined);
+  assert.equal(received[1].learner, token);
 });
 
 test("静的ファイルを限定し、API未設定を成功表示しない", async (t) => {
@@ -39,6 +102,9 @@ test("静的ファイルを限定し、API未設定を成功表示しない", as
   assert.equal(page.status, 200);
   assert.match(await page.text(), /<html lang="ja">/);
   assert.match(page.headers.get("content-security-policy"), /connect-src 'self'/);
+  const admin = await fetch(`${origin}/admin`);
+  assert.equal(admin.status, 200);
+  assert.match(await admin.text(), /研修管理へログイン/);
   const logo = await fetch(`${origin}/assets/reprokit-logo.png`);
   assert.equal(logo.status, 200);
   assert.equal(logo.headers.get("content-type"), "image/png");

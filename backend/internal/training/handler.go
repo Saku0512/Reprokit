@@ -30,6 +30,16 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 	path := request.URL.Path
 	switch path {
 	case "/api/training/courses":
+		if request.Method == http.MethodGet {
+			organizationID, ok := organizationQuery(request)
+			if !ok {
+				badRequest(writer)
+				return
+			}
+			courses, err := service.ListCourses(organizationID)
+			result(writer, courses, err, http.StatusOK)
+			return
+		}
 		if !onlyMethod(writer, request, http.MethodPost) {
 			return
 		}
@@ -67,6 +77,16 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 		result(writer, cohort, err, http.StatusCreated)
 		return
 	case "/api/training/assignments":
+		if request.Method == http.MethodGet {
+			organizationID, ok := organizationQuery(request)
+			if !ok {
+				badRequest(writer)
+				return
+			}
+			assignments, err := service.ListAssignments(organizationID)
+			result(writer, assignments, err, http.StatusOK)
+			return
+		}
 		if !onlyMethod(writer, request, http.MethodPost) {
 			return
 		}
@@ -137,6 +157,16 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 		return
 	}
 	if len(parts) == 3 && parts[0] == "assignments" && parts[2] == "submissions" {
+		if request.Method == http.MethodGet {
+			organizationID, ok := organizationQuery(request)
+			if !ok {
+				badRequest(writer)
+				return
+			}
+			submissions, err := service.ListSubmissions(organizationID, parts[1])
+			result(writer, submissions, err, http.StatusOK)
+			return
+		}
 		if !onlyMethod(writer, request, http.MethodPost) {
 			return
 		}
@@ -195,6 +225,12 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 		return
 	}
 	http.NotFound(writer, request)
+}
+
+func organizationQuery(request *http.Request) (string, bool) {
+	values := request.URL.Query()
+	organizationID := values.Get("organizationId")
+	return organizationID, organizationID != "" && len(values) == 1 && len(values["organizationId"]) == 1
 }
 
 func decodeRequest(request *http.Request, target any) bool {

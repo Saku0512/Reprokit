@@ -24,6 +24,11 @@ Runnerは `127.0.0.1` の空きポートへ待ち受け、接続先とトーク�
 URLやトークンの手入力は不要。
 トークンは端末やファイルへ出力しない。
 
+同じ起動処理で研修管理APIも接続し、`/admin` に管理画面を公開する。
+管理ユーザー名は `REPROKIT_ADMIN_USERNAME`（既定 `admin`）、パスワードは `REPROKIT_ADMIN_PASSWORD` で指定する。
+パスワード未指定時は起動ごとに一時パスワードを生成して端末へ表示し、再起動時に失効する。
+ログイン後はHttpOnlyかつSameSite=StrictのCookieを使い、Runnerの管理トークン自体はHTML、JavaScript、Cookieへ渡さない。
+
 起動時にはコミット済みのRegistryとFile Browser教材を同じHEADのスナップショットから検証する。
 作業ツリーの未コミット教材や設定変更は公開対象へ混ぜない。
 固定ソースの取得は最初の「Labを準備する」まで遅らせ、共通のResolver、Materializer、Core検査を通す。
@@ -31,8 +36,8 @@ URLやトークンの手入力は不要。
 準備もコンテナを起動しない。
 
 保存先は `REPROKIT_STATE_DIR`、未指定なら `$XDG_STATE_HOME/reprokit`、XDG未指定なら `~/.local/state/reprokit`。
-保存先とその `study/`、`labs/` は実ディレクトリかつ権限0700に限定する。
-受講状態とLabの検証情報を保存し、プロセスを再起動しても復元する。
+保存先とその `study/`、`labs/`、`training/` は実ディレクトリかつ権限0700に限定する。
+受講状態、研修の割り当て・提出、Labの検証情報を保存し、プロセスを再起動しても復元する。
 Ctrl+CでWebとRunnerを終了する。
 親Webシェルのパイプが切れた場合もRunnerを終了する。
 アプリ終了はLab削除の操作ではないため、演習後は画面で停止と削除を行う。
@@ -65,6 +70,8 @@ Host、同一Origin、ローカルセッショントークンを検証し、転�
   削除は対象SessionとVolume方針を再表示し、既定は `retain`。
   削除後も状態取得と残存確認ができる。
 - 回答は受講APIに保存する。
+  全問保存後、ブラウザはStudy Session IDだけを研修APIへ渡し、Runnerが保存済み回答を提出物へ変換する。
+  受講開始も固定されたローカル割り当てへ反映する。
   予想、観察、振り返りはブラウザの下書きに保存する。
   自由記述はLab操作へ転送しない。
 - 受講IDとLab IDの対応をブラウザへ保存し、再読み込み後にAPIで状態を取得し直す。
@@ -72,6 +79,8 @@ Host、同一Origin、ローカルセッショントークンを検証し、転�
 - 自動更新は5秒間隔の状態取得のみ。
   準備、起動、停止、削除は明示操作で行う。
   学習記録を理解度の合格判定として表示しない。
+- 管理画面は、保存済みコース、組織内の割り当て、割り当てごとの提出回答を取得する。
+  認証済みの組織IDと管理者IDはRunner側で固定し、ブラウザ入力による別組織への切り替えを拒否する。
 
 ## 検証
 
@@ -104,7 +113,7 @@ HTTPテストはloopbackの一時サーバーだけを使う。
 
 ```text
 verify: full checks passed
-Web tests: pass 12 / fail 0
+Web tests: pass 14 / fail 0
 Playwright (Chrome): 8 passed
 Real Go Runner bootstrap and browser Prepare: PASS
 ```

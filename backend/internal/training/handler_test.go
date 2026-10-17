@@ -42,16 +42,28 @@ func TestHandlerCreatesAndCompletesTrainingAssignment(t *testing.T) {
 	if course.OrganizationID != "acme" || len(course.Lessons) != 1 {
 		t.Fatalf("unexpected course: %#v", course)
 	}
+	courses := decodeResponse[[]Course](t, request(t, handler, http.MethodGet, "/api/training/courses?organizationId=acme", ""), http.StatusOK)
+	if len(courses) != 1 || courses[0].ID != course.ID {
+		t.Fatalf("unexpected course list: %#v", courses)
+	}
 	assignments := decodeResponse[[]Assignment](t, request(t, handler, http.MethodPost, "/api/training/assignments", `{"organizationId":"acme","actorId":"trainer","courseId":"secure-basics","courseVersion":"1.0.0","learnerIds":["alice"],"cohortId":"","dueAt":"2026-11-01T00:00:00Z","allowRetry":true}`), http.StatusCreated)
 	if len(assignments) != 1 {
 		t.Fatalf("unexpected assignments: %#v", assignments)
 	}
 	assignment := assignments[0]
+	listed := decodeResponse[[]Assignment](t, request(t, handler, http.MethodGet, "/api/training/assignments?organizationId=acme", ""), http.StatusOK)
+	if len(listed) != 1 || listed[0].ID != assignment.ID {
+		t.Fatalf("unexpected assignment list: %#v", listed)
+	}
 	started := decodeResponse[Assignment](t, request(t, handler, http.MethodPost, "/api/training/assignments/"+assignment.ID+"/start", `{"organizationId":"acme","learnerId":"alice"}`), http.StatusOK)
 	if started.Status != StatusInProgress {
 		t.Fatalf("unexpected status: %#v", started)
 	}
 	submission := decodeResponse[Submission](t, request(t, handler, http.MethodPost, "/api/training/assignments/"+assignment.ID+"/submissions", `{"organizationId":"acme","learnerId":"alice","lessonId":"filebrowser/hook","lessonVersion":"1.0.0","answers":{"cause":"認証処理の前に実行される"}}`), http.StatusCreated)
+	submissions := decodeResponse[[]Submission](t, request(t, handler, http.MethodGet, "/api/training/assignments/"+assignment.ID+"/submissions?organizationId=acme", ""), http.StatusOK)
+	if len(submissions) != 1 || submissions[0].ID != submission.ID {
+		t.Fatalf("unexpected submission list: %#v", submissions)
+	}
 	response := decodeResponse[struct {
 		Submission Submission  `json:"submission"`
 		Assignment Assignment  `json:"assignment"`

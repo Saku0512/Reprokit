@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"os"
@@ -13,26 +15,43 @@ import (
 	"github.com/jphacks/sd_2601/internal/lesson"
 	"github.com/jphacks/sd_2601/internal/runnerapi"
 	"github.com/jphacks/sd_2601/internal/runtime"
+	"github.com/jphacks/sd_2601/internal/training"
 )
 
 const (
 	lessonID      = "command-injection/filebrowser-auth-hook"
 	lessonVersion = "1.0.0"
 	labID         = "vulhub/filebrowser-cve-2026-54088"
+	localCourseID = "secure-development-foundations"
 )
 
-type configuration struct{ repository, state string }
+type configuration struct {
+	repository, state                          string
+	organizationID, administratorID, learnerID string
+}
 type materializeSource func(context.Context, lab.ResolvedLab, string) (lab.MaterializedSource, error)
 type application struct {
-	server   *runnerapi.LocalServer
-	snapshot string
+	server          *runnerapi.LocalServer
+	snapshot        string
+	managementToken string
+	organizationID  string
+	administratorID string
 }
 
 func newApplication(ctx context.Context, config configuration, provider runtime.Provider, materialize materializeSource) (*application, error) {
 	if !filepath.IsAbs(config.repository) || !filepath.IsAbs(config.state) || provider == nil || materialize == nil {
 		return nil, errors.New("absolute application paths and Runner dependencies are required")
 	}
-	for _, directory := range []string{config.state, filepath.Join(config.state, "labs"), filepath.Join(config.state, "study")} {
+	if config.organizationID == "" {
+		config.organizationID = "local"
+	}
+	if config.administratorID == "" {
+		config.administratorID = "admin"
+	}
+	if config.learnerID == "" {
+		config.learnerID = "local-learner"
+	}
+	for _, directory := range []string{config.state, filepath.Join(config.state, "labs"), filepath.Join(config.state, "study"), filepath.Join(config.state, "training")} {
 		if err := privateDirectory(directory); err != nil {
 			return nil, err
 		}
@@ -99,8 +118,72 @@ func newApplication(ctx context.Context, config configuration, provider runtime.
 	if err != nil {
 		return nil, err
 	}
+	trainingStore, err := training.NewStore(filepath.Join(config.state, "training"))
+	if err != nil {
+		server.Listener.Close()
+		return nil, err
+	}
+	trainingService, err := training.NewService(trainingStore)
+	if err != nil {
+		server.Listener.Close()
+		return nil, err
+	}
+	assignment, err := ensureLocalAssignment(trainingService, config)
+	if err != nil {
+		server.Listener.Close()
+		return nil, err
+	}
+	managementToken, err := localSecret()
+	if err != nil {
+		server.Listener.Close()
+		return nil, err
+	}
+	server.Handler, err = training.NewLocalHandler(trainingService, study, server.Handler, training.LocalConfig{SessionToken: server.SessionToken, ManagementToken: managementToken, OrganizationID: config.organizationID, AdministratorID: config.administratorID, LearnerID: config.learnerID, AssignmentID: assignment.ID})
+	if err != nil {
+		server.Listener.Close()
+		return nil, err
+	}
 	cleanup = false
-	return &application{server: server, snapshot: root}, nil
+	return &application{server: server, snapshot: root, managementToken: managementToken, organizationID: config.organizationID, administratorID: config.administratorID}, nil
+}
+
+func ensureLocalAssignment(service *training.Service, config configuration) (training.Assignment, error) {
+	courses, err := service.ListCourses(config.organizationID)
+	if err != nil {
+		return training.Assignment{}, err
+	}
+	foundCourse := false
+	for _, course := range courses {
+		foundCourse = foundCourse || (course.ID == localCourseID && course.Version == lessonVersion)
+	}
+	if !foundCourse {
+		_, err = service.CreateCourse(training.CreateCourseInput{OrganizationID: config.organizationID, ActorID: config.administratorID, ID: localCourseID, Version: lessonVersion, Title: "実在事例から学ぶセキュア開発", Lessons: []training.LessonRef{{LessonID: lessonID, LessonVersion: lessonVersion}}, RequiredLessons: []training.LessonRef{{LessonID: lessonID, LessonVersion: lessonVersion}}})
+		if err != nil {
+			return training.Assignment{}, err
+		}
+	}
+	assignments, err := service.ListAssignments(config.organizationID)
+	if err != nil {
+		return training.Assignment{}, err
+	}
+	for _, assignment := range assignments {
+		if assignment.CourseID == localCourseID && assignment.CourseVersion == lessonVersion && assignment.LearnerID == config.learnerID {
+			return assignment, nil
+		}
+	}
+	created, err := service.CreateAssignments(training.CreateAssignmentsInput{OrganizationID: config.organizationID, ActorID: config.administratorID, CourseID: localCourseID, CourseVersion: lessonVersion, LearnerIDs: []string{config.learnerID}, DueAt: time.Now().UTC().AddDate(1, 0, 0), AllowRetry: true})
+	if err != nil {
+		return training.Assignment{}, err
+	}
+	return created[0], nil
+}
+
+func localSecret() (string, error) {
+	value := make([]byte, 32)
+	if _, err := rand.Read(value); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(value), nil
 }
 
 func privateDirectory(path string) error {
