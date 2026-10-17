@@ -91,6 +91,9 @@ func newApplication(ctx context.Context, config configuration, provider runtime.
 	if err != nil {
 		return nil, err
 	}
+	if err := manager.Recover(ctx); err != nil {
+		return nil, fmt.Errorf("recover Lab resources from a previous Runner: %w", err)
+	}
 	service := &lazyService{manager: manager, resolved: resolved, materialize: materialize, state: config.state}
 	server, err := lesson.NewLocalServer(catalog, study, service)
 	if err != nil {

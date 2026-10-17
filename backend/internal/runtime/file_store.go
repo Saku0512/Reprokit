@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 )
 
 // FileStore はRunner専用ディレクトリにSessionと検査済みComposeを保存する。
@@ -76,6 +78,36 @@ func (store *FileStore) Load(_ context.Context, id string) (Session, error) {
 		return Session{}, errors.New("stored session identity is invalid")
 	}
 	return copySession(stored.Session), nil
+}
+
+// List はRunnerが所有するSessionだけを復元する。想定外のファイル名は
+// stateディレクトリが破損または改ざんされた可能性として拒否する。
+func (store *FileStore) List(ctx context.Context) ([]Session, error) {
+	entries, err := os.ReadDir(store.directory)
+	if err != nil {
+		return nil, fmt.Errorf("list sessions: %w", err)
+	}
+	ids := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			return nil, errors.New("session directory contains an unexpected directory")
+		}
+		name := entry.Name()
+		if !strings.HasSuffix(name, ".json") || !idPattern.MatchString(strings.TrimSuffix(name, ".json")) {
+			return nil, errors.New("session directory contains an unexpected file")
+		}
+		ids = append(ids, strings.TrimSuffix(name, ".json"))
+	}
+	sort.Strings(ids)
+	sessions := make([]Session, 0, len(ids))
+	for _, id := range ids {
+		session, err := store.Load(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, session)
+	}
+	return sessions, nil
 }
 
 func (store *FileStore) Save(_ context.Context, session Session) error {

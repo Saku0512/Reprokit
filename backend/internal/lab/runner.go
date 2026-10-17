@@ -28,7 +28,8 @@ func ToPreparedLab(resolved ResolvedLab, materialized MaterializedSource) (runti
 			RuntimeFile:        resolved.Runtime.File,
 			Platform:           resolved.Runtime.Platform,
 		},
-		Compose: bytes.Clone(materialized.RuntimeCompose),
+		Compose:    bytes.Clone(materialized.RuntimeCompose),
+		Guardrails: resolved.Runtime.Guardrails,
 	}, nil
 }
 

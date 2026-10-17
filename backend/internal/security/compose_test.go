@@ -71,6 +71,35 @@ func TestInspectComposeRejectsAliasesAndUnknownTopLevelOptions(t *testing.T) {
 	}
 }
 
+func TestInspectComposeWithGuardrailsInjectsLimitsAndIsolatedNetwork(t *testing.T) {
+	inspection, err := InspectComposeWithGuardrails([]byte(`services:
+  app:
+    image: example/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    ports:
+      - "8080:80"
+`), Guardrails{MaxRuntimeSeconds: 1800, CPUCores: 1, MemoryMiB: 512, PIDs: 128, DiskMiB: 1024, Egress: "none"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents := string(inspection.Normalized)
+	for _, expected := range []string{"127.0.0.1:8080:80", "reprokit_isolated", "internal: true", "cpus: \"1\"", "memory: 512M", "pids: 128", "size: 1024M"} {
+		if !strings.Contains(contents, expected) {
+			t.Fatalf("normalized Compose does not contain %q:\n%s", expected, contents)
+		}
+	}
+}
+
+func TestGuardrailsRejectsEgressAndUnboundedValues(t *testing.T) {
+	for _, guardrails := range []Guardrails{
+		{MaxRuntimeSeconds: 59, CPUCores: 1, MemoryMiB: 512, PIDs: 128, DiskMiB: 1024, Egress: "none"},
+		{MaxRuntimeSeconds: 1800, CPUCores: 1, MemoryMiB: 512, PIDs: 128, DiskMiB: 1024, Egress: "allow"},
+	} {
+		if err := guardrails.Validate(); err == nil {
+			t.Fatalf("Validate() accepted %#v", guardrails)
+		}
+	}
+}
+
 func readFixture(t *testing.T, name string) []byte {
 	t.Helper()
 	contents, err := os.ReadFile(filepath.Join("testdata", "compose", name))

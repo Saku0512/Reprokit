@@ -30,6 +30,40 @@ type Inspection struct {
 	Normalized []byte
 }
 
+// Guardrails はレビュー済みLabに固定する実行上限である。利用者入力や
+// Compose入力から任意に緩和できないよう、Manifestからのみ渡される。
+type Guardrails struct {
+	MaxRuntimeSeconds int    `yaml:"maxRuntimeSeconds" json:"maxRuntimeSeconds"`
+	CPUCores          int    `yaml:"cpuCores" json:"cpuCores"`
+	MemoryMiB         int    `yaml:"memoryMiB" json:"memoryMiB"`
+	PIDs              int    `yaml:"pids" json:"pids"`
+	DiskMiB           int    `yaml:"diskMiB" json:"diskMiB"`
+	Egress            string `yaml:"egress" json:"egress"`
+}
+
+// Validate はホスト上のDockerが確実に扱える保守的な範囲だけを許可する。
+func (guardrails Guardrails) Validate() error {
+	if guardrails.MaxRuntimeSeconds < 60 || guardrails.MaxRuntimeSeconds > 4*60*60 {
+		return errors.New("maxRuntimeSeconds must be between 60 and 14400")
+	}
+	if guardrails.CPUCores < 1 || guardrails.CPUCores > 4 {
+		return errors.New("cpuCores must be between 1 and 4")
+	}
+	if guardrails.MemoryMiB < 128 || guardrails.MemoryMiB > 4096 {
+		return errors.New("memoryMiB must be between 128 and 4096")
+	}
+	if guardrails.PIDs < 64 || guardrails.PIDs > 512 {
+		return errors.New("pids must be between 64 and 512")
+	}
+	if guardrails.DiskMiB < 256 || guardrails.DiskMiB > 8192 {
+		return errors.New("diskMiB must be between 256 and 8192")
+	}
+	if guardrails.Egress != "none" {
+		return errors.New("egress must be none")
+	}
+	return nil
+}
+
 // Violation identifies a forbidden setting and the action needed to correct
 // it. Service is "<compose>" for a top-level setting.
 type Violation struct {
@@ -74,6 +108,33 @@ func InspectCompose(contents []byte) (Inspection, error) {
 		return Inspection{}, &ValidationError{Violations: validator.violations}
 	}
 
+	normalized, err := yaml.Marshal(root)
+	if err != nil {
+		return Inspection{}, fmt.Errorf("encode normalized Compose: %w", err)
+	}
+	return Inspection{Normalized: normalized}, nil
+}
+
+// InspectComposeWithGuardrails は安全性検査済みComposeに、Manifestで固定した
+// 実行上限と外向き通信を持たない専用ネットワークを付与する。入力Composeに
+// deployやstorage_optを許可するものではない。
+func InspectComposeWithGuardrails(contents []byte, guardrails Guardrails) (Inspection, error) {
+	if err := guardrails.Validate(); err != nil {
+		return Inspection{}, fmt.Errorf("validate guardrails: %w", err)
+	}
+	root, err := parseCompose(contents)
+	if err != nil {
+		return Inspection{}, err
+	}
+	validator := composeValidator{}
+	validator.validateSyntax(root)
+	validator.validateRoot(root)
+	if len(validator.violations) != 0 {
+		return Inspection{}, &ValidationError{Violations: validator.violations}
+	}
+	if err := applyGuardrails(root, guardrails); err != nil {
+		return Inspection{}, err
+	}
 	normalized, err := yaml.Marshal(root)
 	if err != nil {
 		return Inspection{}, fmt.Errorf("encode normalized Compose: %w", err)
@@ -403,6 +464,86 @@ func isString(node *yaml.Node) bool {
 func validPort(value string) bool {
 	port, err := strconv.Atoi(value)
 	return err == nil && port >= 1 && port <= 65535
+}
+
+func applyGuardrails(root *yaml.Node, guardrails Guardrails) error {
+	fields := rawMapping(root)
+	services := fields["services"]
+	if services == nil || services.Kind != yaml.MappingNode {
+		return errors.New("Compose services are missing after validation")
+	}
+	const networkName = "reprokit_isolated"
+	setMapping(root, "networks", mappingNode(map[string]*yaml.Node{
+		networkName: mappingNode(map[string]*yaml.Node{"internal": boolNode(true)}),
+	}))
+	serviceFields := rawMapping(services)
+	for _, name := range sortedKeys(serviceFields) {
+		service := serviceFields[name]
+		if service.Kind != yaml.MappingNode {
+			return fmt.Errorf("service %q is invalid after validation", name)
+		}
+		setMapping(service, "networks", sequenceNode(stringNode(networkName)))
+		setMapping(service, "deploy", mappingNode(map[string]*yaml.Node{
+			"resources": mappingNode(map[string]*yaml.Node{
+				"limits": mappingNode(map[string]*yaml.Node{
+					"cpus":   stringNode(strconv.Itoa(guardrails.CPUCores)),
+					"memory": stringNode(strconv.Itoa(guardrails.MemoryMiB) + "M"),
+					"pids":   intNode(guardrails.PIDs),
+				}),
+			}),
+		}))
+		setMapping(service, "storage_opt", mappingNode(map[string]*yaml.Node{
+			"size": stringNode(strconv.Itoa(guardrails.DiskMiB) + "M"),
+		}))
+	}
+	return nil
+}
+
+func rawMapping(node *yaml.Node) map[string]*yaml.Node {
+	fields := map[string]*yaml.Node{}
+	if node == nil || node.Kind != yaml.MappingNode {
+		return fields
+	}
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		if key := node.Content[index]; isString(key) {
+			fields[key.Value] = node.Content[index+1]
+		}
+	}
+	return fields
+}
+
+func setMapping(node *yaml.Node, key string, value *yaml.Node) {
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		if node.Content[index].Value == key {
+			node.Content[index+1] = value
+			return
+		}
+	}
+	node.Content = append(node.Content, stringNode(key), value)
+}
+
+func mappingNode(fields map[string]*yaml.Node) *yaml.Node {
+	node := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	for _, key := range sortedKeys(fields) {
+		node.Content = append(node.Content, stringNode(key), fields[key])
+	}
+	return node
+}
+
+func sequenceNode(values ...*yaml.Node) *yaml.Node {
+	return &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq", Content: values}
+}
+
+func stringNode(value string) *yaml.Node {
+	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: value}
+}
+
+func intNode(value int) *yaml.Node {
+	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!int", Value: strconv.Itoa(value)}
+}
+
+func boolNode(value bool) *yaml.Node {
+	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: strconv.FormatBool(value)}
 }
 
 func sortedKeys(values map[string]*yaml.Node) []string {

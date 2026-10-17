@@ -218,6 +218,9 @@ func validateManifest(definition manifest, requestedLabID string) error {
 	if definition.Spec.Runtime.Platform != "linux/amd64" && definition.Spec.Runtime.Platform != "linux/arm64" {
 		return fmt.Errorf("unsupported runtime platform %q", definition.Spec.Runtime.Platform)
 	}
+	if err := definition.Spec.Runtime.Guardrails.Validate(); err != nil {
+		return fmt.Errorf("invalid runtime guardrails: %w", err)
+	}
 	return nil
 }
 

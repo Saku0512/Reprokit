@@ -5,8 +5,10 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/jphacks/sd_2601/internal/network"
+	"github.com/jphacks/sd_2601/internal/security"
 )
 
 func TestPrepareDoesNotStartAndStartRechecksCompose(t *testing.T) {
@@ -72,6 +74,62 @@ func TestStartFailureCleansUp(t *testing.T) {
 	result, err := manager.Start(context.Background(), session.ID)
 	if err == nil || !strings.Contains(err.Error(), "daemon unavailable") || result.State != Failed || provider.deletes != 1 {
 		t.Fatalf("start = %#v, %v, deletes=%d", result, err, provider.deletes)
+	}
+}
+
+func TestExpirationStopsTheLabAndReportsTheReason(t *testing.T) {
+	provider := &fakeProvider{stopSignal: make(chan struct{})}
+	store := NewMemoryStore()
+	manager, err := NewManager(store, provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := manager.Prepare(context.Background(), validLab())
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err = manager.Start(context.Background(), session.ID)
+	if err != nil || session.ExpiresAt == nil {
+		t.Fatalf("Start = %#v, %v", session, err)
+	}
+	expired := time.Now().UTC().Add(-time.Second)
+	session.ExpiresAt = &expired
+	if err := store.Save(context.Background(), session); err != nil {
+		t.Fatal(err)
+	}
+	manager.scheduleExpiration(session)
+	select {
+	case <-provider.stopSignal:
+	case <-time.After(time.Second):
+		t.Fatal("expiration did not stop the Lab")
+	}
+	stopped, err := manager.Status(context.Background(), session.ID)
+	if err != nil || stopped.State != Stopped || stopped.StopReason != "expired" {
+		t.Fatalf("Status = %#v, %v", stopped, err)
+	}
+}
+
+func TestRecoverCleansUpRunningLabAfterRunnerRestart(t *testing.T) {
+	provider := &fakeProvider{resources: Resources{Networks: []string{"reprokit_old"}}}
+	store := NewMemoryStore()
+	manager, err := NewManager(store, provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := manager.Prepare(context.Background(), validLab())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Start(context.Background(), session.ID); err != nil {
+		t.Fatal(err)
+	}
+	provider.resources = Resources{Volumes: []string{"reprokit_retained"}}
+	if err := manager.Recover(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	recovered, err := manager.Status(context.Background(), session.ID)
+	if err != nil || recovered.State != Stopped || recovered.StopReason != "runner_restarted" || len(recovered.RetainedVolumes) != 1 || provider.deletes != 1 {
+		t.Fatalf("Recover = %#v, %v, deletes=%d", recovered, err, provider.deletes)
 	}
 }
 
@@ -162,7 +220,8 @@ func validLab() PreparedLab {
 			RuntimeFile:        "reprokit.compose.yml",
 			Platform:           "linux/amd64",
 		},
-		Compose: []byte("services:\n  app:\n    image: example/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n    ports:\n      - \"8080:80\"\n"),
+		Compose:    []byte("services:\n  app:\n    image: example/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n    ports:\n      - \"8080:80\"\n"),
+		Guardrails: security.Guardrails{MaxRuntimeSeconds: 1800, CPUCores: 1, MemoryMiB: 512, PIDs: 128, DiskMiB: 1024, Egress: "none"},
 	}
 }
 
@@ -202,6 +261,7 @@ type fakeProvider struct {
 	resources              Resources
 	marker                 string
 	markerReads            int
+	stopSignal             chan struct{}
 }
 
 func (provider *fakeProvider) Start(context.Context, string, []byte) error {
@@ -210,6 +270,13 @@ func (provider *fakeProvider) Start(context.Context, string, []byte) error {
 }
 func (provider *fakeProvider) Stop(context.Context, string, []byte) error {
 	provider.stops++
+	if provider.stopSignal != nil {
+		select {
+		case <-provider.stopSignal:
+		default:
+			close(provider.stopSignal)
+		}
+	}
 	return nil
 }
 func (provider *fakeProvider) Delete(context.Context, string, []byte, bool) error {

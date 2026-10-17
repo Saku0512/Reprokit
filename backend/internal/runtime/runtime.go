@@ -61,28 +61,31 @@ type MarkerObservation struct {
 }
 
 type Session struct {
-	ID                 string     `json:"labSessionId"`
-	LabID              string     `json:"labId"`
-	SourceRevision     string     `json:"sourceRevision"`
-	RegistryRevision   string     `json:"registryRevision"`
-	Project            string     `json:"-"`
-	State              State      `json:"state"`
-	SafetyChecked      bool       `json:"safetyChecked"`
-	ExternalExpose     bool       `json:"externalExposure"`
-	ManifestPath       string     `json:"-"`
-	Manifest           []byte     `json:"-"`
-	SourceURL          string     `json:"-"`
-	SourceSubdirectory string     `json:"-"`
-	RuntimeFile        string     `json:"-"`
-	Platform           string     `json:"-"`
-	SourceCompose      []byte     `json:"-"`
-	Compose            []byte     `json:"-"`
-	Lockfile           []byte     `json:"-"`
-	Endpoints          []Endpoint `json:"endpoints"`
-	Resources          Resources  `json:"resources"`
-	RetainedVolumes    []string   `json:"retainedVolumes"`
-	Failure            *Failure   `json:"failure"`
-	UpdatedAt          time.Time  `json:"updatedAt"`
+	ID                 string              `json:"labSessionId"`
+	LabID              string              `json:"labId"`
+	SourceRevision     string              `json:"sourceRevision"`
+	RegistryRevision   string              `json:"registryRevision"`
+	Project            string              `json:"-"`
+	State              State               `json:"state"`
+	SafetyChecked      bool                `json:"safetyChecked"`
+	ExternalExpose     bool                `json:"externalExposure"`
+	Guardrails         security.Guardrails `json:"guardrails"`
+	ExpiresAt          *time.Time          `json:"expiresAt,omitempty"`
+	StopReason         string              `json:"stopReason,omitempty"`
+	ManifestPath       string              `json:"-"`
+	Manifest           []byte              `json:"-"`
+	SourceURL          string              `json:"-"`
+	SourceSubdirectory string              `json:"-"`
+	RuntimeFile        string              `json:"-"`
+	Platform           string              `json:"-"`
+	SourceCompose      []byte              `json:"-"`
+	Compose            []byte              `json:"-"`
+	Lockfile           []byte              `json:"-"`
+	Endpoints          []Endpoint          `json:"endpoints"`
+	Resources          Resources           `json:"resources"`
+	RetainedVolumes    []string            `json:"retainedVolumes"`
+	Failure            *Failure            `json:"failure"`
+	UpdatedAt          time.Time           `json:"updatedAt"`
 }
 
 type PreparedLab struct {
@@ -90,6 +93,7 @@ type PreparedLab struct {
 	SourceRevision string
 	Artifact       Artifact
 	Compose        []byte
+	Guardrails     security.Guardrails
 }
 
 // Provider はRunnerが所有するCompose Projectだけを操作する境界である。
@@ -108,6 +112,7 @@ type MarkerReader interface {
 
 type Store interface {
 	Load(context.Context, string) (Session, error)
+	List(context.Context) ([]Session, error)
 	Save(context.Context, Session) error
 }
 
@@ -128,6 +133,16 @@ func (store *MemoryStore) Load(_ context.Context, id string) (Session, error) {
 	return copySession(session), nil
 }
 
+func (store *MemoryStore) List(_ context.Context) ([]Session, error) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	sessions := make([]Session, 0, len(store.m))
+	for _, session := range store.m {
+		sessions = append(sessions, copySession(session))
+	}
+	return sessions, nil
+}
+
 func (store *MemoryStore) Save(_ context.Context, session Session) error {
 	store.mu.Lock()
 	defer store.mu.Unlock()
@@ -139,6 +154,7 @@ type Manager struct {
 	store    Store
 	provider Provider
 	locks    sync.Map
+	timers   sync.Map
 }
 
 func NewManager(store Store, provider Provider) (*Manager, error) {
@@ -153,7 +169,7 @@ func (manager *Manager) Prepare(ctx context.Context, lab PreparedLab) (Session, 
 	if lab.LabID != "vulhub/filebrowser-cve-2026-54088" || !shaPattern.MatchString(lab.SourceRevision) {
 		return Session{}, errors.New("only the fixed File Browser Lab revision may be prepared")
 	}
-	inspection, err := security.InspectCompose(lab.Compose)
+	inspection, err := security.InspectComposeWithGuardrails(lab.Compose, lab.Guardrails)
 	if err != nil {
 		return Session{}, fmt.Errorf("inspect Compose: %w", err)
 	}
@@ -169,7 +185,7 @@ func (manager *Manager) Prepare(ctx context.Context, lab PreparedLab) (Session, 
 	if err != nil {
 		return Session{}, err
 	}
-	session := Session{ID: id, LabID: lab.LabID, SourceRevision: lab.SourceRevision, RegistryRevision: lab.Artifact.RegistryRevision, Project: "reprokit_" + strings.ReplaceAll(id[:13], "-", ""), State: Prepared, SafetyChecked: true, ManifestPath: lab.Artifact.ManifestPath, Manifest: append([]byte(nil), lab.Artifact.Manifest...), SourceURL: lab.Artifact.SourceURL, SourceSubdirectory: lab.Artifact.SourceSubdirectory, RuntimeFile: lab.Artifact.RuntimeFile, Platform: lab.Artifact.Platform, SourceCompose: append([]byte(nil), lab.Compose...), Compose: inspection.Normalized, Lockfile: lockfile, Endpoints: endpoints, UpdatedAt: time.Now().UTC()}
+	session := Session{ID: id, LabID: lab.LabID, SourceRevision: lab.SourceRevision, RegistryRevision: lab.Artifact.RegistryRevision, Project: "reprokit_" + strings.ReplaceAll(id[:13], "-", ""), State: Prepared, SafetyChecked: true, Guardrails: lab.Guardrails, ManifestPath: lab.Artifact.ManifestPath, Manifest: append([]byte(nil), lab.Artifact.Manifest...), SourceURL: lab.Artifact.SourceURL, SourceSubdirectory: lab.Artifact.SourceSubdirectory, RuntimeFile: lab.Artifact.RuntimeFile, Platform: lab.Artifact.Platform, SourceCompose: append([]byte(nil), lab.Compose...), Compose: inspection.Normalized, Lockfile: lockfile, Endpoints: endpoints, UpdatedAt: time.Now().UTC()}
 	if err := manager.store.Save(ctx, session); err != nil {
 		return Session{}, err
 	}
@@ -177,7 +193,7 @@ func (manager *Manager) Prepare(ctx context.Context, lab PreparedLab) (Session, 
 }
 
 func (manager *Manager) Start(ctx context.Context, id string) (Session, error) {
-	return manager.change(ctx, id, func(session *Session) error {
+	session, err := manager.change(ctx, id, func(session *Session) error {
 		if session.State != Prepared && session.State != Stopped {
 			return ErrInvalidState
 		}
@@ -195,13 +211,22 @@ func (manager *Manager) Start(ctx context.Context, id string) (Session, error) {
 		if err != nil {
 			return manager.startFailure(ctx, session, err)
 		}
-		session.State, session.Resources, session.Failure = Running, resources, nil
+		expiresAt := time.Now().UTC().Add(time.Duration(session.Guardrails.MaxRuntimeSeconds) * time.Second)
+		session.State, session.Resources, session.Failure, session.ExpiresAt, session.StopReason = Running, resources, nil, &expiresAt, ""
 		return nil
 	})
+	if err == nil && session.State == Running {
+		manager.scheduleExpiration(session)
+	}
+	return session, err
 }
 
 func (manager *Manager) Stop(ctx context.Context, id string) (Session, error) {
-	return manager.change(ctx, id, func(session *Session) error {
+	return manager.stop(ctx, id, "manual")
+}
+
+func (manager *Manager) stop(ctx context.Context, id, reason string) (Session, error) {
+	session, err := manager.change(ctx, id, func(session *Session) error {
 		if session.State == Deleted || session.State == Prepared || session.State == Stopped {
 			return nil
 		}
@@ -213,13 +238,17 @@ func (manager *Manager) Stop(ctx context.Context, id string) (Session, error) {
 		if err != nil {
 			return err
 		}
-		session.State, session.Resources, session.Failure = Stopped, resources, nil
+		session.State, session.Resources, session.Failure, session.StopReason = Stopped, resources, nil, reason
 		return nil
 	})
+	if session.State != Running {
+		manager.cancelExpiration(id)
+	}
+	return session, err
 }
 
 func (manager *Manager) Delete(ctx context.Context, id string, removeVolumes bool) (Session, error) {
-	return manager.change(ctx, id, func(session *Session) error {
+	session, err := manager.change(ctx, id, func(session *Session) error {
 		if session.State == Deleted {
 			return nil
 		}
@@ -241,6 +270,67 @@ func (manager *Manager) Delete(ctx context.Context, id string, removeVolumes boo
 		session.State, session.Resources, session.Failure = Deleted, Resources{}, nil
 		return nil
 	})
+	if session.State != Running {
+		manager.cancelExpiration(id)
+	}
+	return session, err
+}
+
+// Recover は前回のRunnerが終了して残した実行中・失敗中のLabを回収する。
+// 期限タイマーはプロセスに紐付くため、再起動後に継続実行させない。
+func (manager *Manager) Recover(ctx context.Context) error {
+	sessions, err := manager.store.List(ctx)
+	if err != nil {
+		return err
+	}
+	var cleanupErrors []error
+	for _, candidate := range sessions {
+		if candidate.State != Running && candidate.State != Failed {
+			continue
+		}
+		_, err := manager.change(ctx, candidate.ID, func(session *Session) error {
+			if err := manager.provider.Delete(ctx, session.Project, session.Compose, false); err != nil {
+				session.State, session.Failure = Failed, &Failure{Operation: "recovery", Message: err.Error()}
+				return err
+			}
+			resources, inspectErr := manager.provider.Inspect(ctx, session.Project, session.Compose)
+			if inspectErr != nil {
+				session.State, session.Failure = Failed, &Failure{Operation: "recovery", Message: inspectErr.Error()}
+				return inspectErr
+			}
+			if len(resources.Containers) != 0 || len(resources.Networks) != 0 {
+				session.State, session.Resources, session.Failure = Failed, resources, &Failure{Operation: "recovery", Message: "resources remain after recovery cleanup"}
+				return errors.New("resources remain after recovery cleanup")
+			}
+			session.State, session.Resources, session.RetainedVolumes, session.Failure, session.StopReason = Stopped, Resources{}, append([]string(nil), resources.Volumes...), nil, "runner_restarted"
+			return nil
+		})
+		if err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("recover Lab session %s: %w", candidate.ID, err))
+		}
+	}
+	return errors.Join(cleanupErrors...)
+}
+
+func (manager *Manager) scheduleExpiration(session Session) {
+	if session.ExpiresAt == nil {
+		return
+	}
+	manager.cancelExpiration(session.ID)
+	delay := time.Until(*session.ExpiresAt)
+	if delay < 0 {
+		delay = 0
+	}
+	timer := time.AfterFunc(delay, func() {
+		_, _ = manager.stop(context.Background(), session.ID, "expired")
+	})
+	manager.timers.Store(session.ID, timer)
+}
+
+func (manager *Manager) cancelExpiration(id string) {
+	if value, loaded := manager.timers.LoadAndDelete(id); loaded {
+		value.(*time.Timer).Stop()
+	}
 }
 
 func (manager *Manager) Status(ctx context.Context, id string) (Session, error) {

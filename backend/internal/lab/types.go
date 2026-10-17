@@ -1,5 +1,7 @@
 package lab
 
+import "github.com/jphacks/sd_2601/internal/security"
+
 // Source identifies an immutable directory in a Git repository.
 type Source struct {
 	Type         string `yaml:"type"`
@@ -10,9 +12,10 @@ type Source struct {
 
 // Runtime identifies the Compose file that belongs to a resolved Lab.
 type Runtime struct {
-	Type     string `yaml:"type"`
-	File     string `yaml:"file"`
-	Platform string `yaml:"platform"`
+	Type       string              `yaml:"type"`
+	File       string              `yaml:"file"`
+	Platform   string              `yaml:"platform"`
+	Guardrails security.Guardrails `yaml:"guardrails"`
 }
 
 // RegistryReference records where the Lab manifest was resolved from.

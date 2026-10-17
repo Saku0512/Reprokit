@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jphacks/sd_2601/internal/runtime"
+	"github.com/jphacks/sd_2601/internal/security"
 )
 
 func TestToPreparedLabBuildsFixedFileBrowserArtifact(t *testing.T) {
@@ -21,9 +22,11 @@ func TestToPreparedLabBuildsFixedFileBrowserArtifact(t *testing.T) {
 `)
 	composeDigest := sha256.Sum256(compose)
 	resolved := ResolvedLab{
-		ID:       "vulhub/filebrowser-cve-2026-54088",
-		Source:   Source{URL: "https://github.com/Saku0512/vulhub.git", Revision: strings.Repeat("a", 40), Subdirectory: "filebrowser/CVE-2026-54088"},
-		Runtime:  Runtime{File: "docker-compose.yml", Platform: "linux/amd64"},
+		ID:     "vulhub/filebrowser-cve-2026-54088",
+		Source: Source{URL: "https://github.com/Saku0512/vulhub.git", Revision: strings.Repeat("a", 40), Subdirectory: "filebrowser/CVE-2026-54088"},
+		Runtime: Runtime{File: "docker-compose.yml", Platform: "linux/amd64", Guardrails: security.Guardrails{
+			MaxRuntimeSeconds: 1800, CPUCores: 1, MemoryMiB: 512, PIDs: 128, DiskMiB: 1024, Egress: "none",
+		}},
 		Registry: RegistryReference{Revision: strings.Repeat("b", 40), ManifestPath: "manifests/vulhub/filebrowser-cve-2026-54088.yaml"},
 		Manifest: ManifestReference{SHA256: hex.EncodeToString(manifestDigest[:]), Bytes: manifest},
 	}
