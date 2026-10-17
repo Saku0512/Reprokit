@@ -55,6 +55,13 @@ func (runner *recordingRunner) ReadLogs(_ context.Context, id, reference string)
 	runner.calls = append(runner.calls, "logs:"+reference)
 	return runtime.LogSnapshot{Service: reference}, nil
 }
+func (runner *recordingRunner) RunAction(_ context.Context, id, reference string, action runtime.ObservationAction) (runtime.ActionObservation, error) {
+	if id != runnerID || (reference != "vulnerable" && reference != "fixed") || action != runtime.ListTmpAction {
+		return runtime.ActionObservation{}, runtime.ErrNotFound
+	}
+	runner.calls = append(runner.calls, "action:"+reference+":"+string(action))
+	return runtime.ActionObservation{Service: reference, Action: action}, nil
+}
 func (runner *recordingRunner) operation(operation, id string, state runtime.State) (runtime.Session, error) {
 	if id != runnerID {
 		return runtime.Session{}, runtime.ErrNotFound
@@ -188,12 +195,13 @@ func TestHTTPRunnerOperationsUseExistingHandler(t *testing.T) {
 		{"GET", "/api/labs/" + runnerID, ""},
 		{"GET", "/api/labs/" + runnerID + "/markers/vulnerable", ""},
 		{"GET", "/api/labs/" + runnerID + "/logs/vulnerable", ""},
+		{"POST", "/api/labs/" + runnerID + "/actions/vulnerable/list_tmp", ""},
 		{"POST", "/api/labs/" + runnerID + "/stop", ""},
 		{"DELETE", "/api/labs/" + runnerID + "?volumePolicy=retain", ""},
 	} {
 		requireStatus(t, requestAPI(t, handler, op.method, op.path, op.body), 200)
 	}
-	if strings.Join(runner.calls, ",") != "prepare,start,status,marker:vulnerable,logs:vulnerable,stop,delete" || runner.removeVolumes {
+	if strings.Join(runner.calls, ",") != "prepare,start,status,marker:vulnerable,logs:vulnerable,action:vulnerable:list_tmp,stop,delete" || runner.removeVolumes {
 		t.Fatalf("wrong lifecycle: %v", runner.calls)
 	}
 	requireStatus(t, requestAPI(t, handler, "DELETE", "/api/labs/"+runnerID+"?volumePolicy=delete", ""), 200)

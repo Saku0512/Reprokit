@@ -155,6 +155,22 @@ func TestTruncateLogsKeepsTheMostRecentOutputWithinLimit(t *testing.T) {
 	}
 }
 
+func TestDockerComposeProviderRunsOnlyFixedListTmpAction(t *testing.T) {
+	runner := &recordingDockerRunner{outputs: [][]byte{[]byte("drwxrwxrwt /tmp\n")}}
+	provider := newDockerComposeProviderForTest(runner)
+	result, err := provider.RunAction(context.Background(), "reprokit_0123456789ab", []byte("services: {}\n"), "vulnerable", ListTmpAction)
+	if err != nil || result.Output != "drwxrwxrwt /tmp\n" || result.Action != ListTmpAction {
+		t.Fatalf("result=%#v err=%v", result, err)
+	}
+	call := runner.calls[0]
+	if !slices.Contains(call, "exec") || !slices.Contains(call, "--no-TTY") || !slices.Contains(call, "vulnerable") || !slices.Contains(call, "ls") || !slices.Contains(call, "-la") || !slices.Contains(call, "/tmp") || slices.Contains(call, "/bin/sh") {
+		t.Fatalf("unexpected action command: %#v", call)
+	}
+	if _, err := provider.RunAction(context.Background(), "reprokit_0123456789ab", nil, "vulnerable", "shell"); err == nil {
+		t.Fatal("unknown action was accepted")
+	}
+}
+
 type recordingDockerRunner struct {
 	calls   [][]string
 	outputs [][]byte

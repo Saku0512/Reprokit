@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/jphacks/sd_2601/internal/runnerapi"
+	"github.com/jphacks/sd_2601/internal/runtime"
 )
 
 const maxRequestBytes = 6*maxAnswerBytes + 4096
@@ -282,6 +283,11 @@ func (handler *apiHandler) lab(writer http.ResponseWriter, request *http.Request
 			}
 		} else if len(parts) == 3 && (parts[1] == "markers" || parts[1] == "logs") && (parts[2] == "vulnerable" || parts[2] == "fixed") {
 			if !method(writer, request, http.MethodGet) || !query(request) {
+				return
+			}
+		} else if len(parts) == 4 && parts[1] == "actions" && (parts[2] == "vulnerable" || parts[2] == "fixed") && parts[3] == string(runtime.ListTmpAction) {
+			if !method(writer, request, http.MethodPost) || !query(request) || !bodyJSON(request, &struct{}{}, true) {
+				badRequest(writer)
 				return
 			}
 		} else {

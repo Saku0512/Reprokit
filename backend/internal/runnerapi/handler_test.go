@@ -99,11 +99,33 @@ func TestHandlerReadsOnlyDeclaredComparisonLogs(t *testing.T) {
 	}
 }
 
+func TestHandlerRunsOnlyDeclaredObservationAction(t *testing.T) {
+	service := &fakeService{}
+	handler := NewHandler(service, "token")
+	request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/labs/12345678-1234-4234-8234-123456789abc/actions/vulnerable/list_tmp", nil)
+	request.Host = "127.0.0.1"
+	request.Header.Set("X-Reprokit-Session", "token")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || service.action != "vulnerable:list_tmp" {
+		t.Fatalf("status=%d action=%q", response.Code, service.action)
+	}
+	request = httptest.NewRequest(http.MethodPost, "http://127.0.0.1/api/labs/12345678-1234-4234-8234-123456789abc/actions/vulnerable/shell", nil)
+	request.Host = "127.0.0.1"
+	request.Header.Set("X-Reprokit-Session", "token")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound || service.action != "vulnerable:list_tmp" {
+		t.Fatalf("status=%d action=%q", response.Code, service.action)
+	}
+}
+
 type fakeService struct {
 	starts    int
 	reference LessonReference
 	marker    string
 	logs      string
+	action    string
 }
 
 func (service *fakeService) Prepare(_ context.Context, reference LessonReference) (runtime.Session, error) {
@@ -130,4 +152,8 @@ func (service *fakeService) ObserveMarker(_ context.Context, _ string, reference
 func (service *fakeService) ReadLogs(_ context.Context, _ string, reference string) (runtime.LogSnapshot, error) {
 	service.logs = reference
 	return runtime.LogSnapshot{Service: reference}, nil
+}
+func (service *fakeService) RunAction(_ context.Context, _ string, reference string, action runtime.ObservationAction) (runtime.ActionObservation, error) {
+	service.action = reference + ":" + string(action)
+	return runtime.ActionObservation{Service: reference, Action: action}, nil
 }
