@@ -60,6 +60,14 @@ type MarkerObservation struct {
 	Content string `json:"content,omitempty"`
 }
 
+// LogSnapshot は固定された比較対象サービスのログを容量制限付きで返す。
+// 任意のコンテナ、コマンド、追従ストリームを公開する用途には使わない。
+type LogSnapshot struct {
+	Service   string `json:"service"`
+	Content   string `json:"content"`
+	Truncated bool   `json:"truncated"`
+}
+
 type Session struct {
 	ID                 string              `json:"labSessionId"`
 	LabID              string              `json:"labId"`
@@ -115,6 +123,12 @@ type EndpointChecker interface {
 // Lifecycleの基本Providerに読取り権限を要求しないため、無害なテストProviderを保てる。
 type MarkerReader interface {
 	ReadMarker(context.Context, string, []byte, string) (string, error)
+}
+
+// LogReader は承認済み比較Labの固定サービスから、制限済みのログだけを読む追加機能である。
+// Lifecycleの基本Providerにログ閲覧権限を要求しないため、無害なテストProviderを保てる。
+type LogReader interface {
+	ReadLogs(context.Context, string, []byte, string) (LogSnapshot, error)
 }
 
 type Store interface {
@@ -438,6 +452,32 @@ func (manager *Manager) ObserveMarker(ctx context.Context, id, service string) (
 		return MarkerObservation{}, err
 	}
 	return MarkerObservation{Service: service, Exists: content != "", Content: content}, nil
+}
+
+// ReadLogs は実行中のFile Browser比較Labの固定サービスのログだけを返す。
+func (manager *Manager) ReadLogs(ctx context.Context, id, service string) (LogSnapshot, error) {
+	if !idPattern.MatchString(id) {
+		return LogSnapshot{}, errors.New("invalid Lab session ID")
+	}
+	if service != "vulnerable" && service != "fixed" {
+		return LogSnapshot{}, errors.New("unknown File Browser comparison service")
+	}
+	lockValue, _ := manager.locks.LoadOrStore(id, &sync.Mutex{})
+	lock := lockValue.(*sync.Mutex)
+	lock.Lock()
+	defer lock.Unlock()
+	session, err := manager.store.Load(ctx, id)
+	if err != nil {
+		return LogSnapshot{}, err
+	}
+	if session.LabID != "vulhub/filebrowser-cve-2026-54088" || session.State != Running {
+		return LogSnapshot{}, ErrInvalidState
+	}
+	reader, ok := manager.provider.(LogReader)
+	if !ok {
+		return LogSnapshot{}, errors.New("the configured Lab provider cannot read logs")
+	}
+	return reader.ReadLogs(ctx, session.Project, session.Compose, service)
 }
 
 func (manager *Manager) startFailure(ctx context.Context, session *Session, startErr error) error {

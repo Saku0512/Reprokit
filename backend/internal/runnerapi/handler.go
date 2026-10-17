@@ -28,6 +28,7 @@ type Service interface {
 	Delete(context.Context, string, bool) (runtime.Session, error)
 	Status(context.Context, string) (runtime.Session, error)
 	ObserveMarker(context.Context, string, string) (runtime.MarkerObservation, error)
+	ReadLogs(context.Context, string, string) (runtime.LogSnapshot, error)
 }
 
 func NewHandler(service Service, sessionToken string) http.Handler {
@@ -40,7 +41,7 @@ func NewHandler(service Service, sessionToken string) http.Handler {
 			http.Error(writer, "invalid Origin", http.StatusForbidden)
 			return
 		}
-		if request.Method != http.MethodGet && subtle.ConstantTimeCompare([]byte(request.Header.Get("X-Reprokit-Session")), []byte(sessionToken)) != 1 {
+		if subtle.ConstantTimeCompare([]byte(request.Header.Get("X-Reprokit-Session")), []byte(sessionToken)) != 1 {
 			http.Error(writer, "invalid local session", http.StatusUnauthorized)
 			return
 		}
@@ -82,6 +83,24 @@ func NewHandler(service Service, sessionToken string) http.Handler {
 			}
 			writer.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(writer).Encode(observation)
+			return
+		}
+		if request.Method == http.MethodGet && len(parts) == 3 && parts[1] == "logs" && (parts[2] == "vulnerable" || parts[2] == "fixed") {
+			logs, err := service.ReadLogs(request.Context(), id, parts[2])
+			if err != nil {
+				status := http.StatusInternalServerError
+				if errors.Is(err, runtime.ErrNotFound) {
+					status = http.StatusNotFound
+				} else if errors.Is(err, runtime.ErrInvalidState) {
+					status = http.StatusConflict
+				}
+				writer.Header().Set("Content-Type", "application/json")
+				writer.WriteHeader(status)
+				_ = json.NewEncoder(writer).Encode(map[string]string{"failure": err.Error()})
+				return
+			}
+			writer.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(writer).Encode(logs)
 			return
 		}
 		if request.Method == http.MethodPost && len(parts) == 2 && parts[1] == "start" {

@@ -21,6 +21,11 @@ import (
 var projectPattern = regexp.MustCompile(`^reprokit_[0-9a-f]{12}$`)
 var containerIDPattern = regexp.MustCompile(`^[0-9a-f]{12,64}$`)
 
+const (
+	logTailLines = 200
+	maxLogBytes  = 64 * 1024
+)
+
 type dockerCommandRunner interface {
 	Run(context.Context, []string, ...string) ([]byte, error)
 }
@@ -131,6 +136,28 @@ func (provider *DockerComposeProvider) ReadMarker(ctx context.Context, project s
 		return "", err
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+// ReadLogs は固定された比較対象サービスの直近ログだけを追従せずに読む。
+// コンテナ名やDockerオプションはHTTP入力から受け取らず、入口プロキシも対象にしない。
+func (provider *DockerComposeProvider) ReadLogs(ctx context.Context, project string, compose []byte, service string) (LogSnapshot, error) {
+	if service != "vulnerable" && service != "fixed" {
+		return LogSnapshot{}, errors.New("unknown File Browser comparison service")
+	}
+	output, err := provider.withCompose(ctx, project, compose, "logs", "--no-color", "--no-log-prefix", "--tail", strconv.Itoa(logTailLines), service)
+	if err != nil {
+		return LogSnapshot{}, err
+	}
+	return truncateLogs(output, service), nil
+}
+
+func truncateLogs(output []byte, service string) LogSnapshot {
+	if len(output) <= maxLogBytes {
+		return LogSnapshot{Service: service, Content: string(output)}
+	}
+	prefix := "[ログの先頭を省略しました。直近64 KiBを表示しています。]\n"
+	limit := maxLogBytes - len(prefix)
+	return LogSnapshot{Service: service, Content: prefix + string(output[len(output)-limit:]), Truncated: true}
 }
 
 func (provider *DockerComposeProvider) Inspect(ctx context.Context, project string, _ []byte) (Resources, error) {

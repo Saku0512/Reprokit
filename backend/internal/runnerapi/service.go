@@ -58,3 +58,7 @@ func (service *LifecycleService) Status(ctx context.Context, id string) (runtime
 func (service *LifecycleService) ObserveMarker(ctx context.Context, id, reference string) (runtime.MarkerObservation, error) {
 	return service.manager.ObserveMarker(ctx, id, reference)
 }
+
+func (service *LifecycleService) ReadLogs(ctx context.Context, id, reference string) (runtime.LogSnapshot, error) {
+	return service.manager.ReadLogs(ctx, id, reference)
+}

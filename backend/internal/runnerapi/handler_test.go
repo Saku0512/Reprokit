@@ -71,10 +71,39 @@ func TestHandlerReadsOnlyDeclaredComparisonMarker(t *testing.T) {
 	}
 }
 
+func TestHandlerReadsOnlyDeclaredComparisonLogs(t *testing.T) {
+	service := &fakeService{}
+	handler := NewHandler(service, "token")
+	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/labs/12345678-1234-4234-8234-123456789abc/logs/fixed", nil)
+	request.Host = "127.0.0.1"
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized || service.logs != "" {
+		t.Fatalf("status=%d logs=%q", response.Code, service.logs)
+	}
+	request = httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/labs/12345678-1234-4234-8234-123456789abc/logs/fixed", nil)
+	request.Host = "127.0.0.1"
+	request.Header.Set("X-Reprokit-Session", "token")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || service.logs != "fixed" {
+		t.Fatalf("status=%d logs=%q", response.Code, service.logs)
+	}
+	request = httptest.NewRequest(http.MethodGet, "http://127.0.0.1/api/labs/12345678-1234-4234-8234-123456789abc/logs/reprokit_proxy_fixed_1", nil)
+	request.Host = "127.0.0.1"
+	request.Header.Set("X-Reprokit-Session", "token")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound || service.logs != "fixed" {
+		t.Fatalf("status=%d logs=%q", response.Code, service.logs)
+	}
+}
+
 type fakeService struct {
 	starts    int
 	reference LessonReference
 	marker    string
+	logs      string
 }
 
 func (service *fakeService) Prepare(_ context.Context, reference LessonReference) (runtime.Session, error) {
@@ -97,4 +126,8 @@ func (service *fakeService) Status(context.Context, string) (runtime.Session, er
 func (service *fakeService) ObserveMarker(_ context.Context, _ string, reference string) (runtime.MarkerObservation, error) {
 	service.marker = reference
 	return runtime.MarkerObservation{Service: reference}, nil
+}
+func (service *fakeService) ReadLogs(_ context.Context, _ string, reference string) (runtime.LogSnapshot, error) {
+	service.logs = reference
+	return runtime.LogSnapshot{Service: reference}, nil
 }
