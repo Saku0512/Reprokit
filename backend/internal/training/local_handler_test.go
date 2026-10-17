@@ -2,13 +2,16 @@ package training
 
 import (
 	"bytes"
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/jphacks/sd_2601/internal/identity"
 	"github.com/jphacks/sd_2601/internal/lesson"
 )
 
@@ -38,7 +41,29 @@ func TestLocalHandlerSeparatesManagementAndLearnerAuthorization(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	handler, err := NewLocalHandler(service, study, http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) { writer.WriteHeader(http.StatusTeapot) }), LocalConfig{SessionToken: "learner-session-token", ManagementToken: "management-session-token", OrganizationID: "local", AdministratorID: "admin", LearnerID: "learner", AssignmentID: assignments[0].ID})
+	identityStore, err := identity.NewStore(filepath.Join(t.TempDir(), "identity"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	identities, err := identity.NewService(identityStore)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = identities.Bootstrap(identity.BootstrapInput{OrganizationID: "local", OrganizationName: "Local", UserID: "admin", Subject: "local-admin", Email: "admin@local.test", DisplayName: "管理者"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	admin := identity.Principal{OrganizationID: "local", UserID: "admin"}
+	if _, err := identities.CreateUser(admin, identity.CreateUserInput{ID: "learner", Subject: "local-learner", Email: "learner@local.test", DisplayName: "受講者", Roles: []identity.Role{identity.RoleLearner}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := identities.CreateUser(admin, identity.CreateUserInput{ID: "reviewer", Subject: "local-reviewer", Email: "reviewer@local.test", DisplayName: "レビュー担当", Roles: []identity.Role{identity.RoleReviewer}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := identities.Bootstrap(identity.BootstrapInput{OrganizationID: "other", OrganizationName: "Other", UserID: "admin", Subject: "other-admin", Email: "admin@other.test", DisplayName: "別組織管理者"}); err != nil {
+		t.Fatal(err)
+	}
+	handler, err := NewLocalHandler(service, study, http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) { writer.WriteHeader(http.StatusTeapot) }), LocalConfig{SessionToken: "learner-session-token", ManagementToken: "management-session-token", OrganizationID: "local", AdministratorID: "admin", LearnerID: "learner", AssignmentID: assignments[0].ID, Identity: identities, OIDC: fakeOIDCAuthenticator{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,6 +80,19 @@ func TestLocalHandlerSeparatesManagementAndLearnerAuthorization(t *testing.T) {
 		handler.ServeHTTP(writer, request)
 		return writer
 	}
+	callAs := func(method, path, body, organizationID, userID string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(method, "http://127.0.0.1"+path, bytes.NewBufferString(body))
+		if body != "" {
+			request.Header.Set("Content-Type", "application/json")
+		}
+		request.Header.Set("X-Reprokit-Management-Session", "management-session-token")
+		request.Header.Set(managementOrganizationHeader, organizationID)
+		request.Header.Set(managementUserHeader, userID)
+		writer := httptest.NewRecorder()
+		handler.ServeHTTP(writer, request)
+		return writer
+	}
 	if status := call(http.MethodGet, "/api/training/courses", "", "", "").Code; status != http.StatusUnauthorized {
 		t.Fatalf("unprotected management status = %d", status)
 	}
@@ -66,6 +104,49 @@ func TestLocalHandlerSeparatesManagementAndLearnerAuthorization(t *testing.T) {
 	}
 	if status := call(http.MethodGet, "/api/training/courses", "", "X-Reprokit-Management-Session", "management-session-token").Code; status != http.StatusOK {
 		t.Fatalf("management status = %d", status)
+	}
+	if status := callAs(http.MethodGet, "/api/training/courses", "", "local", "reviewer").Code; status != http.StatusForbidden {
+		t.Fatalf("reviewer course access status = %d", status)
+	}
+	if status := callAs(http.MethodGet, "/api/training/assignments/"+assignments[0].ID+"/submissions", "", "local", "reviewer").Code; status != http.StatusOK {
+		t.Fatalf("reviewer submission access status = %d", status)
+	}
+	if status := callAs(http.MethodGet, "/api/training/courses?organizationId=local", "", "other", "admin").Code; status != http.StatusForbidden {
+		t.Fatalf("cross-organization principal status = %d", status)
+	}
+	localUsers := decodeResponse[[]identity.User](t, callAs(http.MethodGet, "/api/identity/users", "", "local", "admin"), http.StatusOK)
+	if len(localUsers) != 3 {
+		t.Fatalf("unexpected local users: %#v", localUsers)
+	}
+	otherUsers := decodeResponse[[]identity.User](t, callAs(http.MethodGet, "/api/identity/users", "", "other", "admin"), http.StatusOK)
+	if len(otherUsers) != 1 || otherUsers[0].OrganizationID != "other" {
+		t.Fatalf("identity API crossed organization boundary: %#v", otherUsers)
+	}
+	if status := callAs(http.MethodGet, "/api/identity/users", "", "local", "reviewer").Code; status != http.StatusForbidden {
+		t.Fatalf("reviewer user-management status = %d", status)
+	}
+	createdUser := decodeResponse[identity.User](t, callAs(http.MethodPost, "/api/identity/users", `{"id":"manager","subject":"idp-manager","email":"manager@local.test","displayName":"研修担当","roles":["training_manager"]}`, "local", "admin"), http.StatusCreated)
+	if createdUser.OrganizationID != "local" || len(createdUser.Roles) != 1 || createdUser.Roles[0] != identity.RoleTrainingManager {
+		t.Fatalf("unexpected created identity: %#v", createdUser)
+	}
+	start := decodeResponse[struct {
+		AuthorizationURL string `json:"authorizationUrl"`
+	}](t, call(http.MethodPost, "/api/auth/oidc/start", `{}`, "X-Reprokit-Management-Session", "management-session-token"), http.StatusOK)
+	authorizationURL, err := url.Parse(start.AuthorizationURL)
+	if err != nil || authorizationURL.Query().Get("state") == "" {
+		t.Fatalf("unexpected authorization URL: %#v %v", start, err)
+	}
+	state := authorizationURL.Query().Get("state")
+	callbackBody := `{"state":"` + state + `","code":"valid-code"}`
+	principal := decodeResponse[struct {
+		OrganizationID string `json:"organizationId"`
+		UserID         string `json:"userId"`
+	}](t, call(http.MethodPost, "/api/auth/oidc/callback", callbackBody, "X-Reprokit-Management-Session", "management-session-token"), http.StatusOK)
+	if principal.OrganizationID != "local" || principal.UserID != "reviewer" {
+		t.Fatalf("unexpected OIDC principal: %#v", principal)
+	}
+	if status := call(http.MethodPost, "/api/auth/oidc/callback", callbackBody, "X-Reprokit-Management-Session", "management-session-token").Code; status != http.StatusUnauthorized {
+		t.Fatalf("replayed OIDC callback status = %d", status)
 	}
 	context := decodeResponse[struct {
 		Assignment Assignment `json:"assignment"`
@@ -91,4 +172,18 @@ func TestLocalHandlerSeparatesManagementAndLearnerAuthorization(t *testing.T) {
 	if err != nil || len(submissions) != 1 || submissions[0].Answers["trace-boundary"] != "保存済み回答" {
 		t.Fatalf("unexpected submissions: %#v %v", submissions, err)
 	}
+}
+
+type fakeOIDCAuthenticator struct{}
+
+func (fakeOIDCAuthenticator) Begin(_ context.Context, organizationID string) (string, identity.OIDCFlow, error) {
+	flow := identity.OIDCFlow{OrganizationID: organizationID, State: "opaque-state", Nonce: "nonce", CodeVerifier: "verifier", ExpiresAt: time.Now().UTC().Add(time.Minute)}
+	return "https://idp.example.test/authorize?state=" + flow.State, flow, nil
+}
+
+func (fakeOIDCAuthenticator) Complete(_ context.Context, flow identity.OIDCFlow, state, code string) (identity.Principal, error) {
+	if flow.State != state || code != "valid-code" {
+		return identity.Principal{}, identity.ErrAuthentication
+	}
+	return identity.Principal{OrganizationID: flow.OrganizationID, UserID: "reviewer"}, nil
 }

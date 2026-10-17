@@ -2,6 +2,7 @@ package training
 
 import (
 	"bytes"
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -10,9 +11,23 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
+	"time"
 
+	"github.com/jphacks/sd_2601/internal/identity"
 	"github.com/jphacks/sd_2601/internal/lesson"
 )
+
+const (
+	managementOrganizationHeader = "X-Reprokit-Organization-ID"
+	managementUserHeader         = "X-Reprokit-User-ID"
+)
+
+// OIDCAuthenticatorはWebシェルが中継するOIDCフローの境界である。
+type OIDCAuthenticator interface {
+	Begin(context.Context, string) (string, identity.OIDCFlow, error)
+	Complete(context.Context, identity.OIDCFlow, string, string) (identity.Principal, error)
+}
 
 // LocalConfigはWebシェルから渡す管理主体と、この端末の固定受講者を定義する。
 type LocalConfig struct {
@@ -22,6 +37,8 @@ type LocalConfig struct {
 	AdministratorID string
 	LearnerID       string
 	AssignmentID    string
+	Identity        *identity.Service
+	OIDC            OIDCAuthenticator
 }
 
 type localHandler struct {
@@ -30,23 +47,28 @@ type localHandler struct {
 	management http.Handler
 	next       http.Handler
 	config     LocalConfig
+	flowsMu    sync.Mutex
+	flows      map[string]identity.OIDCFlow
 }
 
 // NewLocalHandlerは管理APIと受講APIを、用途別の認証情報でローカルRunnerへ接続する。
 func NewLocalHandler(service *Service, study *lesson.SessionStore, next http.Handler, config LocalConfig) (http.Handler, error) {
-	if service == nil || study == nil || next == nil || config.SessionToken == "" || config.ManagementToken == "" || !validID(config.OrganizationID) || !validID(config.AdministratorID) || !validID(config.LearnerID) || !validID(config.AssignmentID) {
+	if service == nil || study == nil || next == nil || config.Identity == nil || config.SessionToken == "" || config.ManagementToken == "" || !validID(config.OrganizationID) || !validID(config.AdministratorID) || !validID(config.LearnerID) || !validID(config.AssignmentID) {
 		return nil, errors.New("training service, study store, local handlers and identities are required")
 	}
 	management, err := NewHandler(service)
 	if err != nil {
 		return nil, err
 	}
-	handler := &localHandler{service: service, study: study, management: management, next: next, config: config}
+	handler := &localHandler{service: service, study: study, management: management, next: next, config: config, flows: map[string]identity.OIDCFlow{}}
 	return http.HandlerFunc(handler.serveHTTP), nil
 }
 
 func (handler *localHandler) serveHTTP(writer http.ResponseWriter, request *http.Request) {
-	if !strings.HasPrefix(request.URL.Path, "/api/training/") {
+	isTraining := strings.HasPrefix(request.URL.Path, "/api/training/")
+	isOIDC := request.URL.Path == "/api/auth/oidc/start" || request.URL.Path == "/api/auth/oidc/callback"
+	isIdentity := strings.HasPrefix(request.URL.Path, "/api/identity/")
+	if !isTraining && !isOIDC && !isIdentity {
 		handler.next.ServeHTTP(writer, request)
 		return
 	}
@@ -56,9 +78,34 @@ func (handler *localHandler) serveHTTP(writer http.ResponseWriter, request *http
 		http.Error(writer, "invalid local origin", http.StatusForbidden)
 		return
 	}
+	if isOIDC {
+		if !constantToken(request.Header.Get("X-Reprokit-Management-Session"), handler.config.ManagementToken) {
+			http.Error(writer, "invalid management session", http.StatusUnauthorized)
+			return
+		}
+		handler.serveOIDC(writer, request)
+		return
+	}
+	if isIdentity {
+		if !constantToken(request.Header.Get("X-Reprokit-Management-Session"), handler.config.ManagementToken) {
+			http.Error(writer, "invalid management session", http.StatusUnauthorized)
+			return
+		}
+		principal, ok := handler.managementPrincipal(request)
+		if !ok {
+			http.Error(writer, "invalid management principal", http.StatusForbidden)
+			return
+		}
+		handler.serveIdentity(writer, request, principal)
+		return
+	}
 	if strings.HasPrefix(request.URL.Path, "/api/training/learner/") {
 		if !constantToken(request.Header.Get("X-Reprokit-Session"), handler.config.SessionToken) {
 			http.Error(writer, "invalid local session", http.StatusUnauthorized)
+			return
+		}
+		if err := handler.config.Identity.Authorize(identity.Principal{OrganizationID: handler.config.OrganizationID, UserID: handler.config.LearnerID}, identity.PermissionAccessLearning); err != nil {
+			http.Error(writer, "learner access forbidden", http.StatusForbidden)
 			return
 		}
 		handler.serveLearner(writer, request)
@@ -68,20 +115,246 @@ func (handler *localHandler) serveHTTP(writer http.ResponseWriter, request *http
 		http.Error(writer, "invalid management session", http.StatusUnauthorized)
 		return
 	}
-	if !handler.applyPrincipal(request) {
+	principal, ok := handler.managementPrincipal(request)
+	if !ok {
+		http.Error(writer, "invalid management principal", http.StatusForbidden)
+		return
+	}
+	permission, ok := managementPermission(request)
+	if !ok {
+		http.NotFound(writer, request)
+		return
+	}
+	if err := handler.config.Identity.Authorize(principal, permission); err != nil {
+		http.Error(writer, "management permission denied", http.StatusForbidden)
+		return
+	}
+	if !handler.applyPrincipal(request, principal) {
 		http.Error(writer, "management scope does not match the authenticated principal", http.StatusForbidden)
 		return
 	}
 	handler.management.ServeHTTP(writer, request)
 }
 
-func (handler *localHandler) applyPrincipal(request *http.Request) bool {
+func (handler *localHandler) serveIdentity(writer http.ResponseWriter, request *http.Request, principal identity.Principal) {
+	path := request.URL.Path
+	if path == "/api/identity/users" {
+		if request.Method == http.MethodGet {
+			if request.URL.RawQuery != "" {
+				badRequest(writer)
+				return
+			}
+			users, err := handler.config.Identity.ListUsers(principal)
+			identityResult(writer, users, err, http.StatusOK)
+			return
+		}
+		if !onlyMethod(writer, request, http.MethodPost) {
+			return
+		}
+		var body identity.CreateUserInput
+		if request.URL.RawQuery != "" || !decodeRequest(request, &body) {
+			badRequest(writer)
+			return
+		}
+		user, err := handler.config.Identity.CreateUser(principal, body)
+		identityResult(writer, user, err, http.StatusCreated)
+		return
+	}
+	if path == "/api/identity/audit-events" {
+		if !onlyMethod(writer, request, http.MethodGet) {
+			return
+		}
+		if request.URL.RawQuery != "" {
+			badRequest(writer)
+			return
+		}
+		events, err := handler.config.Identity.ListAuditEvents(principal)
+		identityResult(writer, events, err, http.StatusOK)
+		return
+	}
+	parts := strings.Split(strings.TrimPrefix(path, "/api/identity/users/"), "/")
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "roles" {
+		if !onlyMethod(writer, request, http.MethodPut) {
+			return
+		}
+		var body struct {
+			Roles []identity.Role `json:"roles"`
+		}
+		if request.URL.RawQuery != "" || !decodeRequest(request, &body) {
+			badRequest(writer)
+			return
+		}
+		user, err := handler.config.Identity.SetRoles(principal, parts[0], body.Roles)
+		identityResult(writer, user, err, http.StatusOK)
+		return
+	}
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "disable" {
+		if !onlyMethod(writer, request, http.MethodPost) {
+			return
+		}
+		if request.URL.RawQuery != "" || !decodeRequest(request, &struct{}{}) {
+			badRequest(writer)
+			return
+		}
+		user, err := handler.config.Identity.DisableUser(principal, parts[0])
+		identityResult(writer, user, err, http.StatusOK)
+		return
+	}
+	http.NotFound(writer, request)
+}
+
+func identityResult(writer http.ResponseWriter, value any, err error, status int) {
+	if err == nil {
+		writeJSON(writer, status, value)
+		return
+	}
+	switch {
+	case errors.Is(err, identity.ErrForbidden):
+		http.Error(writer, "identity permission denied", http.StatusForbidden)
+	case errors.Is(err, identity.ErrNotFound):
+		http.Error(writer, "identity resource not found", http.StatusNotFound)
+	case errors.Is(err, identity.ErrInvalid):
+		badRequest(writer)
+	default:
+		http.Error(writer, "could not access identity state", http.StatusInternalServerError)
+	}
+}
+
+func (handler *localHandler) serveOIDC(writer http.ResponseWriter, request *http.Request) {
+	if handler.config.OIDC == nil {
+		http.Error(writer, "OIDC login is unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	switch request.URL.Path {
+	case "/api/auth/oidc/start":
+		if !onlyMethod(writer, request, http.MethodPost) {
+			return
+		}
+		if request.URL.RawQuery != "" || !decodeRequest(request, &struct{}{}) {
+			badRequest(writer)
+			return
+		}
+		authorizationURL, flow, err := handler.config.OIDC.Begin(request.Context(), handler.config.OrganizationID)
+		if err != nil || !handler.storeOIDCFlow(flow) {
+			http.Error(writer, "could not start OIDC login", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(writer, http.StatusOK, struct {
+			AuthorizationURL string `json:"authorizationUrl"`
+		}{AuthorizationURL: authorizationURL})
+	case "/api/auth/oidc/callback":
+		if !onlyMethod(writer, request, http.MethodPost) {
+			return
+		}
+		if request.URL.RawQuery != "" {
+			badRequest(writer)
+			return
+		}
+		var body struct {
+			State string `json:"state"`
+			Code  string `json:"code"`
+		}
+		if !decodeRequest(request, &body) || body.State == "" || body.Code == "" {
+			badRequest(writer)
+			return
+		}
+		flow, exists := handler.takeOIDCFlow(body.State)
+		if !exists {
+			_ = handler.config.Identity.RecordAuthentication(handler.config.OrganizationID, "", false)
+			http.Error(writer, "OIDC authentication failed", http.StatusUnauthorized)
+			return
+		}
+		principal, err := handler.config.OIDC.Complete(request.Context(), flow, body.State, body.Code)
+		if err != nil || principal.OrganizationID != handler.config.OrganizationID || !validID(principal.UserID) {
+			if err == nil {
+				_ = handler.config.Identity.RecordAuthentication(handler.config.OrganizationID, "", false)
+			}
+			http.Error(writer, "OIDC authentication failed", http.StatusUnauthorized)
+			return
+		}
+		writeJSON(writer, http.StatusOK, struct {
+			OrganizationID string `json:"organizationId"`
+			UserID         string `json:"userId"`
+		}{OrganizationID: principal.OrganizationID, UserID: principal.UserID})
+	default:
+		http.NotFound(writer, request)
+	}
+}
+
+func (handler *localHandler) storeOIDCFlow(flow identity.OIDCFlow) bool {
+	if flow.OrganizationID != handler.config.OrganizationID || flow.State == "" || flow.ExpiresAt.IsZero() {
+		return false
+	}
+	handler.flowsMu.Lock()
+	defer handler.flowsMu.Unlock()
+	now := time.Now().UTC()
+	for state, existing := range handler.flows {
+		if !existing.ExpiresAt.After(now) {
+			delete(handler.flows, state)
+		}
+	}
+	if len(handler.flows) >= 64 {
+		return false
+	}
+	handler.flows[flow.State] = flow
+	return true
+}
+
+func (handler *localHandler) takeOIDCFlow(state string) (identity.OIDCFlow, bool) {
+	handler.flowsMu.Lock()
+	defer handler.flowsMu.Unlock()
+	flow, exists := handler.flows[state]
+	delete(handler.flows, state)
+	return flow, exists
+}
+
+func (handler *localHandler) managementPrincipal(request *http.Request) (identity.Principal, bool) {
+	organizationID := request.Header.Get(managementOrganizationHeader)
+	userID := request.Header.Get(managementUserHeader)
+	if organizationID == "" && userID == "" {
+		organizationID = handler.config.OrganizationID
+		userID = handler.config.AdministratorID
+	}
+	if !validID(organizationID) || !validID(userID) {
+		return identity.Principal{}, false
+	}
+	return identity.Principal{OrganizationID: organizationID, UserID: userID}, true
+}
+
+func managementPermission(request *http.Request) (identity.Permission, bool) {
+	path := request.URL.Path
+	switch {
+	case path == "/api/training/courses" && (request.Method == http.MethodGet || request.Method == http.MethodPost):
+		return identity.PermissionManageCourses, true
+	case path == "/api/training/cohorts" && request.Method == http.MethodPost:
+		return identity.PermissionManageAssignments, true
+	case path == "/api/training/assignments" && (request.Method == http.MethodGet || request.Method == http.MethodPost):
+		return identity.PermissionManageAssignments, true
+	case path == "/api/training/audit-events" && request.Method == http.MethodGet:
+		return identity.PermissionReadAudit, true
+	case path == "/api/training/exports/results.csv" && request.Method == http.MethodGet:
+		return identity.PermissionReadAudit, true
+	}
+	parts := strings.Split(strings.TrimPrefix(path, "/api/training/"), "/")
+	if len(parts) == 2 && parts[0] == "assignments" && request.Method == http.MethodGet {
+		return identity.PermissionManageAssignments, true
+	}
+	if len(parts) == 3 && parts[0] == "assignments" && parts[2] == "submissions" && request.Method == http.MethodGet {
+		return identity.PermissionReviewSubmissions, true
+	}
+	if len(parts) == 3 && parts[0] == "submissions" && parts[2] == "review" && request.Method == http.MethodPost {
+		return identity.PermissionReviewSubmissions, true
+	}
+	return "", false
+}
+
+func (handler *localHandler) applyPrincipal(request *http.Request, principal identity.Principal) bool {
 	if request.Method == http.MethodGet {
 		values := request.URL.Query()
-		if organization := values.Get("organizationId"); organization != "" && organization != handler.config.OrganizationID {
+		if organization := values.Get("organizationId"); organization != "" && organization != principal.OrganizationID {
 			return false
 		}
-		values.Set("organizationId", handler.config.OrganizationID)
+		values.Set("organizationId", principal.OrganizationID)
 		request.URL.RawQuery = values.Encode()
 		return true
 	}
@@ -96,21 +369,21 @@ func (handler *localHandler) applyPrincipal(request *http.Request) bool {
 	if err := json.Unmarshal(data, &body); err != nil || body == nil {
 		return false
 	}
-	if organization, exists := body["organizationId"]; exists && organization != handler.config.OrganizationID {
+	if organization, exists := body["organizationId"]; exists && organization != principal.OrganizationID {
 		return false
 	}
-	body["organizationId"] = handler.config.OrganizationID
+	body["organizationId"] = principal.OrganizationID
 	if request.URL.Path == "/api/training/courses" || request.URL.Path == "/api/training/assignments" {
-		if actor, exists := body["actorId"]; exists && actor != handler.config.AdministratorID {
+		if actor, exists := body["actorId"]; exists && actor != principal.UserID {
 			return false
 		}
-		body["actorId"] = handler.config.AdministratorID
+		body["actorId"] = principal.UserID
 	}
 	if strings.HasSuffix(request.URL.Path, "/review") {
-		if evaluator, exists := body["evaluatorId"]; exists && evaluator != handler.config.AdministratorID {
+		if evaluator, exists := body["evaluatorId"]; exists && evaluator != principal.UserID {
 			return false
 		}
-		body["evaluatorId"] = handler.config.AdministratorID
+		body["evaluatorId"] = principal.UserID
 	}
 	data, err = json.Marshal(body)
 	if err != nil {

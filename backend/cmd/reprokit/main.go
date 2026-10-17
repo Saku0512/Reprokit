@@ -37,7 +37,7 @@ func run(ctx context.Context) error {
 		return errors.New("a private Web bootstrap pipe is required")
 	}
 	defer bootstrap.Close()
-	app, err := newApplication(ctx, configuration{repository: os.Getenv("REPROKIT_REPOSITORY_ROOT"), state: os.Getenv("REPROKIT_STATE_DIR"), organizationID: os.Getenv("REPROKIT_ORGANIZATION_ID"), administratorID: os.Getenv("REPROKIT_ADMINISTRATOR_ID"), learnerID: os.Getenv("REPROKIT_LEARNER_ID")}, runtime.NewDockerComposeProvider(), lab.NewMaterializer().Materialize)
+	app, err := newApplication(ctx, configuration{repository: os.Getenv("REPROKIT_REPOSITORY_ROOT"), state: os.Getenv("REPROKIT_STATE_DIR"), organizationID: os.Getenv("REPROKIT_ORGANIZATION_ID"), administratorID: os.Getenv("REPROKIT_ADMINISTRATOR_ID"), administratorSubject: os.Getenv("REPROKIT_ADMIN_SUBJECT"), learnerID: os.Getenv("REPROKIT_LEARNER_ID"), oidcIssuer: os.Getenv("REPROKIT_OIDC_ISSUER"), oidcClientID: os.Getenv("REPROKIT_OIDC_CLIENT_ID"), oidcClientSecret: os.Getenv("REPROKIT_OIDC_CLIENT_SECRET"), oidcRedirectURL: os.Getenv("REPROKIT_OIDC_REDIRECT_URL")}, runtime.NewDockerComposeProvider(), lab.NewMaterializer().Materialize)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func run(ctx context.Context) error {
 	done := make(chan error, 1)
 	go func() { done <- server.Serve(app.server.Listener) }()
 	// トークンは端末出力やファイルへ出さず、親Webシェルだけが読む専用パイプへ渡す。
-	if err := json.NewEncoder(bootstrap).Encode(map[string]string{"origin": "http://" + app.server.Listener.Addr().String(), "token": app.server.SessionToken, "managementToken": app.managementToken, "organizationId": app.organizationID, "administratorId": app.administratorID}); err != nil {
+	if err := json.NewEncoder(bootstrap).Encode(map[string]any{"origin": "http://" + app.server.Listener.Addr().String(), "token": app.server.SessionToken, "managementToken": app.managementToken, "organizationId": app.organizationID, "administratorId": app.administratorID, "oidcEnabled": app.oidcEnabled}); err != nil {
 		_ = server.Close()
 		return errors.New("could not initialize the parent Web shell")
 	}

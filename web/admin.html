@@ -28,6 +28,10 @@
           <input id="password" name="password" type="password" autocomplete="current-password" required />
           <button class="primary" type="submit">ログイン</button>
         </form>
+        <div id="sso-login" class="sso-login" hidden>
+          <span>または</span>
+          <a class="primary" href="/api/admin/oidc/start">SSOでログイン</a>
+        </div>
       </section>
       <section id="dashboard" hidden>
         <div class="admin-heading">

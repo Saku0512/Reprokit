@@ -1,4 +1,4 @@
-# 受講UI（Issue #11）
+# 受講・研修管理UI
 
 File Browserの認証フック教材を、背景、予想、手動再現、観察メモ、原因と修正、確認課題、後片付けまで進めるローカルWeb UI。
 受講UIと、実Go Runnerへ接続するローカル起動処理を含む。
@@ -27,7 +27,24 @@ URLやトークンの手入力は不要。
 同じ起動処理で研修管理APIも接続し、`/admin` に管理画面を公開する。
 管理ユーザー名は `REPROKIT_ADMIN_USERNAME`（既定 `admin`）、パスワードは `REPROKIT_ADMIN_PASSWORD` で指定する。
 パスワード未指定時は起動ごとに一時パスワードを生成して端末へ表示し、再起動時に失効する。
-ログイン後はHttpOnlyかつSameSite=StrictのCookieを使い、Runnerの管理トークン自体はHTML、JavaScript、Cookieへ渡さない。
+ログイン後はHttpOnly Cookieを使い、Runnerの管理トークン自体はHTML、JavaScript、Cookieへ渡さない。
+
+OIDCを使う場合は、IdPへ `http://127.0.0.1:4173/api/admin/oidc/callback` をRedirect URIとして登録し、次の値をすべて指定する。
+
+```sh
+REPROKIT_OIDC_ISSUER=https://idp.example.com
+REPROKIT_OIDC_CLIENT_ID=reprokit
+REPROKIT_OIDC_CLIENT_SECRET=...
+REPROKIT_OIDC_REDIRECT_URL=http://127.0.0.1:4173/api/admin/oidc/callback
+REPROKIT_ADMIN_SUBJECT=<初期組織管理者のOIDC sub>
+npm run web:start
+```
+
+認可コード、PKCE、state、nonceを使い、ID Tokenの署名、issuer、audience、有効期限をRunnerで検証する。
+Client SecretとPKCE verifierはRunner外へ出さず、認証後のWebセッションには組織IDとユーザーIDだけを保持する。
+OIDCから返る `sub` は、あらかじめ組織ユーザーへ登録されたSubjectと完全一致する必要がある。
+新しい状態保存先では `REPROKIT_ADMIN_SUBJECT` を初期組織管理者へ設定する。
+既存の状態保存先では、パスワードでログインして `POST /api/identity/users` からIdPのSubjectを持つ組織管理者を追加してからOIDCを有効にする。
 
 起動時にはコミット済みのRegistryとFile Browser教材を同じHEADのスナップショットから検証する。
 作業ツリーの未コミット教材や設定変更は公開対象へ混ぜない。
@@ -36,7 +53,7 @@ URLやトークンの手入力は不要。
 準備もコンテナを起動しない。
 
 保存先は `REPROKIT_STATE_DIR`、未指定なら `$XDG_STATE_HOME/reprokit`、XDG未指定なら `~/.local/state/reprokit`。
-保存先とその `study/`、`labs/`、`training/` は実ディレクトリかつ権限0700に限定する。
+保存先とその `study/`、`labs/`、`training/`、`identity/` は実ディレクトリかつ権限0700に限定する。
 受講状態、研修の割り当て・提出、Labの検証情報を保存し、プロセスを再起動しても復元する。
 Ctrl+CでWebとRunnerを終了する。
 親Webシェルのパイプが切れた場合もRunnerを終了する。
@@ -81,6 +98,8 @@ Host、同一Origin、ローカルセッショントークンを検証し、転�
   学習記録を理解度の合格判定として表示しない。
 - 管理画面は、保存済みコース、組織内の割り当て、割り当てごとの提出回答を取得する。
   認証済みの組織IDと管理者IDはRunner側で固定し、ブラウザ入力による別組織への切り替えを拒否する。
+- 組織管理APIは `GET/POST /api/identity/users`、`PUT /api/identity/users/{id}/roles`、`POST /api/identity/users/{id}/disable`、`GET /api/identity/audit-events` を提供する。
+  組織IDは認証セッションから確定し、別組織のIDを受け取らない。ユーザー作成・権限変更・無効化は組織管理者だけに許可し、認証成功・失敗とともに監査ログへ記録する。
 
 ## 検証
 
