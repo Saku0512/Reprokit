@@ -16,19 +16,19 @@ bash .codex/skills/reprokit-verify/scripts/format.sh check
 echo "verify: whitespace"
 git diff --check
 
-if [[ -f go.mod ]]; then
+if [[ -f backend/go.mod ]]; then
   echo "verify: go vet"
-  go vet ./...
+  go -C backend vet ./...
 
   echo "verify: go test"
-  go test ./...
+  go -C backend test ./...
 
   if [[ "$mode" == "full" ]]; then
     echo "verify: go race test"
-    go test -race ./...
+    go -C backend test -race ./...
   fi
 else
-  echo "verify: no go.mod; skipping Go checks"
+  echo "verify: no backend/go.mod; skipping Go checks"
 fi
 
 if [[ -f web/package.json ]]; then
@@ -47,12 +47,12 @@ fi
 
 if [[ "$mode" == "full" ]]; then
   if [[ "${REPROKIT_RUN_DOCKER_TESTS:-0}" == "1" ]]; then
-    if [[ ! -f go.mod ]]; then
-      echo "verify: Docker integration tests requested but go.mod is missing" >&2
+    if [[ ! -f backend/go.mod ]]; then
+      echo "verify: Docker integration tests requested but backend/go.mod is missing" >&2
       exit 1
     fi
     echo "verify: harmless Docker integration tests"
-    go test -tags=integration ./...
+    go -C backend test -tags=integration ./...
   else
     echo "verify: Docker integration tests skipped; set REPROKIT_RUN_DOCKER_TESTS=1 to opt in"
   fi

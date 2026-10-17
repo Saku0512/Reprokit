@@ -20,8 +20,8 @@ mapfile -t go_files < <(
 
 if ((${#go_files[@]} > 0)); then
   gofmt_command=(gofmt)
-  if [[ -f go.mod ]]; then
-    gofmt_command=(go tool gofmt)
+  if [[ -f backend/go.mod ]]; then
+    gofmt_command=("$(go -C backend env GOROOT)/bin/gofmt")
   fi
 
   if [[ "$mode" == "write" ]]; then
