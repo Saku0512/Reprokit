@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jphacks/sd_2601/internal/runtime"
+	"github.com/jphacks/sd_2601/internal/security"
 )
 
 func TestLifecycleServicePreparesOnlyConfiguredLessonReference(t *testing.T) {
@@ -33,6 +34,7 @@ func TestLifecycleServicePreparesOnlyConfiguredLessonReference(t *testing.T) {
     ports:
       - "8080:80"
 `),
+			Guardrails: security.Guardrails{MaxRuntimeSeconds: 1800, CPUCores: 1, MemoryMiB: 512, PIDs: 128, DiskMiB: 1024, Egress: "none"},
 		},
 	}
 	service, err := NewLifecycleService(manager, fixed)

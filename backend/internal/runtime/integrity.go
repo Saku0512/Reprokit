@@ -43,9 +43,10 @@ type lockDocument struct {
 		} `yaml:"files"`
 	} `yaml:"source"`
 	Runtime struct {
-		Type                  string `yaml:"type"`
-		Platform              string `yaml:"platform"`
-		ResolvedComposeSHA256 string `yaml:"resolvedComposeSha256"`
+		Type                  string              `yaml:"type"`
+		Platform              string              `yaml:"platform"`
+		ResolvedComposeSHA256 string              `yaml:"resolvedComposeSha256"`
+		Guardrails            security.Guardrails `yaml:"guardrails"`
 	} `yaml:"runtime"`
 	Images map[string]lockedImage `yaml:"images"`
 }
@@ -71,6 +72,9 @@ func createLock(lab PreparedLab, normalized []byte) ([]byte, error) {
 	if !shaPattern.MatchString(lab.Artifact.RegistryRevision) || !validRelativePath(lab.Artifact.ManifestPath) || !validRelativePath(lab.Artifact.RuntimeFile) || len(lab.Artifact.Manifest) == 0 || lab.Artifact.SourceURL != "https://github.com/Saku0512/vulhub.git" || lab.Artifact.SourceSubdirectory != "filebrowser/CVE-2026-54088" || lab.Artifact.Platform != "linux/amd64" {
 		return nil, errors.New("fixed Lab artifact is incomplete")
 	}
+	if err := lab.Guardrails.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid Lab guardrails: %w", err)
+	}
 	images, err := composeImages(normalized, lab.Artifact.Platform)
 	if err != nil {
 		return nil, err
@@ -90,6 +94,7 @@ func createLock(lab PreparedLab, normalized []byte) ([]byte, error) {
 	document.Runtime.Type = "docker-compose"
 	document.Runtime.Platform = lab.Artifact.Platform
 	document.Runtime.ResolvedComposeSHA256 = digest(normalized)
+	document.Runtime.Guardrails = lab.Guardrails
 	contents, err := yaml.Marshal(document)
 	if err != nil {
 		return nil, fmt.Errorf("encode lockfile: %w", err)
@@ -104,7 +109,7 @@ func verifyArtifact(session Session) ([]byte, error) {
 	if len(session.Manifest) == 0 || !validRelativePath(session.ManifestPath) || !validRelativePath(session.RuntimeFile) {
 		return nil, errors.New("stored Lab artifact is incomplete")
 	}
-	inspection, err := security.InspectCompose(session.SourceCompose)
+	inspection, err := security.InspectComposeWithGuardrails(session.SourceCompose, session.Guardrails)
 	if err != nil || string(inspection.Normalized) != string(session.Compose) {
 		return nil, errors.New("stored Compose safety check no longer matches")
 	}
@@ -120,7 +125,7 @@ func verifyArtifact(session Session) ([]byte, error) {
 		document.Registry.Revision != session.RegistryRevision || document.Registry.ManifestPath != session.ManifestPath ||
 		document.Manifest.SHA256 != digest(session.Manifest) || document.Source.URL != session.SourceURL || document.Source.Revision != session.SourceRevision || document.Source.Subdirectory != session.SourceSubdirectory ||
 		document.Source.ComposeSHA256 != digest(session.SourceCompose) || document.Runtime.Type != "docker-compose" || document.Runtime.Platform != session.Platform ||
-		document.Runtime.ResolvedComposeSHA256 != digest(inspection.Normalized) || !maps.Equal(document.Images, images) {
+		document.Runtime.ResolvedComposeSHA256 != digest(inspection.Normalized) || document.Runtime.Guardrails != session.Guardrails || !maps.Equal(document.Images, images) {
 		return nil, errors.New("stored lockfile no longer matches the Lab artifact")
 	}
 	if len(document.Source.Files) != 1 || document.Source.Files[0].Path != session.RuntimeFile || document.Source.Files[0].SHA256 != digest(session.SourceCompose) {
