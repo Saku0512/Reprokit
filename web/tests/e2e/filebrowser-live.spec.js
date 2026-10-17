@@ -53,7 +53,7 @@ test("実RunnerとWeb UIでFile Browserの脆弱版・修正版を比較する",
   let app;
   try {
     app = await launch({ port: 0, dist: false, state });
-    await page.goto(app.origin);
+    await page.goto(`${app.origin}/runner`);
     await page.getByRole("button", { name: "学習を始める" }).click();
     await vulnerable(page).getByRole("button", { name: "Labを準備する" }).click();
     await expect(vulnerable(page)).toContainText("準備済み", { timeout: 120000 });

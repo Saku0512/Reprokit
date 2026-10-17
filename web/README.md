@@ -1,4 +1,22 @@
-# 受講UI（Issue #11）
+# 受講UI
+
+## Reactサンプル画面
+
+教材一覧、分野フィルター、5つの学習フェーズ、Lab操作ダイアログ、進捗、表示切替を再現する。
+Lab操作・観察結果は元HTMLと同じデモ表示であり、RunnerやDockerは操作しない。
+実Labに接続する従来の受講画面は `/runner`、管理画面は `/admin` に残している。
+
+RunnerなしでReact画面を確認する場合は `npm --prefix web run dev:external` を実行する。
+開発配信では初回アクセス時にReactをビルドする。ソース変更後はサーバーを再起動する。
+`npm run web:build` はReact、CSS、フォントを `web/dist/generated/` に同梱する。
+フォントはサンプルと同じNoto Sans JP / IBM Plex Monoを使用し、Google Fontsへの通信は不要。
+
+`src/sample-app.jsx` が状態管理、`sample-views.jsx` が一覧と各学習フェーズ、
+`sample-modal.jsx` が確認ダイアログ、`sample-data.js` がサンプルの固定データを担当する。
+`src/sample.css` は元HTMLのスタイルを引き継ぐ。
+HTMLの直接挿入は使わず、JSXで描画する。
+
+## Runner接続画面（Issue #11）
 
 File Browserの認証フック教材を、背景、予想、手動再現、観察メモ、原因と修正、確認課題、後片付けまで進めるローカルWeb UI。
 受講UIと、実Go Runnerへ接続するローカル起動処理を含む。
@@ -46,10 +64,11 @@ portを変える場合は起動元で `REPROKIT_WEB_PORT` を設定する。
 ブラウザからは同じoriginの `/api/` を使い、シェルが起動時に固定したRunnerだけへ転送する。
 Host、同一Origin、ローカルセッショントークンを検証し、転送先OriginもRunner自身のoriginへ固定する。
 転送先のredirectはたどらず、CORSは許可しない。
-接続設定がない場合、APIは503となり、画面は再接続を案内する。
+接続設定がない場合、APIは503となり、`/runner` は再接続を案内する。
 架空の教材やLab成功結果には切り替えない。
 
-`dist/` は認証トークン、教材本文、講師用回答を含まない静的成果物。
+`dist/` は認証トークンや講師用回答を含まない静的成果物。
+React画面には元HTMLのサンプル教材本文とデモ表示データを含む。
 既存のWebシェルへ直接組み込む場合は、同じoriginで学習APIとRunner APIを提供し、信頼済みの初期化経路でHTMLの `meta[name="reprokit-session"]` にSessionTokenを設定する。
 トークンを配布ファイルやlocalStorageへ保存しない。
 

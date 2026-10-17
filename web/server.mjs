@@ -1,3 +1,4 @@
+import { buildFrontend } from "./scripts/frontend.mjs";
 import http from "node:http";
 import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -5,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 const files = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
+  ["/runner", ["runner.html", "text/html; charset=utf-8"]],
+  ["/admin", ["admin.html", "text/html; charset=utf-8"]],
   ["/src/app.js", ["src/app.js", "text/javascript; charset=utf-8"]],
   ["/src/api.js", ["src/api.js", "text/javascript; charset=utf-8"]],
   ["/src/storage.js", ["src/storage.js", "text/javascript; charset=utf-8"]],
@@ -38,6 +41,8 @@ function sameToken(actual, expected) {
 // 同一端末のWebシェルだけが固定Runnerへ転送する。任意の転送先をHTTP入力から受け取らない。
 export function createWebServer({ runner = null, dist = false } = {}) {
   const root = new URL(dist ? "./dist/" : "./", import.meta.url);
+  let frontendBuild;
+
   return http.createServer(async (request, response) => {
     response.setHeader("Cache-Control", "no-store");
     response.setHeader("X-Content-Type-Options", "nosniff");
@@ -111,14 +116,39 @@ export function createWebServer({ runner = null, dist = false } = {}) {
       }
       return;
     }
-    const asset = files.get(url.pathname);
+    const generated = /^\/generated\/[a-zA-Z0-9_.-]+\.(js|css|woff2?)$/.exec(url.pathname);
+    if (generated && !dist) {
+      frontendBuild ??= buildFrontend().catch((error) => {
+        frontendBuild = null;
+        throw error;
+      });
+      try {
+        await frontendBuild;
+      } catch {
+        response.writeHead(500).end("frontend build failed");
+        return;
+      }
+    }
+    const asset =
+      files.get(url.pathname) ??
+      (generated
+        ? [
+            url.pathname.slice(1),
+            {
+              js: "text/javascript; charset=utf-8",
+              css: "text/css; charset=utf-8",
+              woff: "font/woff",
+              woff2: "font/woff2",
+            }[generated[1]],
+          ]
+        : null);
     if (!asset || request.method !== "GET" || url.search) {
       response.writeHead(404).end("not found");
       return;
     }
     try {
       let data = await readFile(new URL(asset[0], root));
-      if (asset[0] === "index.html" && runner)
+      if ((asset[0] === "index.html" || asset[0] === "runner.html") && runner)
         data = Buffer.from(
           data
             .toString()

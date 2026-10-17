@@ -1,3 +1,5 @@
 node_modules/
 docs/**/*.md
 LICENSE
+web/generated/
+web/dist/generated/

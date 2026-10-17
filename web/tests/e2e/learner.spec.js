@@ -21,7 +21,7 @@ test("キーボードで教材・Lab・回答・後片付けまで進み、再�
 }) => {
   test.setTimeout(120000);
   const fixture = await mockRunner(page);
-  await page.goto("/");
+  await page.goto("/runner");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("ログイン入力");
   await expect(page.getByRole("heading", { name: "この教材で身につけること" })).toBeVisible();
   await expect(vulnerable(page).getByRole("button", { name: "Labを準備する" })).toBeDisabled();
@@ -140,7 +140,7 @@ test("キーボードで教材・Lab・回答・後片付けまで進み、再�
 
 test("起動失敗のSessionを保持し、再読み込み後に停止・削除で回復できる", async ({ page }) => {
   const fixture = await mockRunner(page, { failStart: true });
-  await page.goto("/");
+  await page.goto("/runner");
   await page.getByRole("button", { name: "学習を始める" }).click();
   await vulnerable(page).getByRole("button", { name: "Labを準備する" }).click();
   await vulnerable(page).getByRole("button", { name: "安全性を確認して起動する" }).click();
@@ -164,7 +164,7 @@ test("起動失敗のSessionを保持し、再読み込み後に停止・削除�
 
 test("未検査Labを起動できず、準備を連打しても重複しない", async ({ page }) => {
   const fixture = await mockRunner(page, { unsafe: true, delayPrepare: true });
-  await page.goto("/");
+  await page.goto("/runner");
   await page.getByRole("button", { name: "学習を始める" }).click();
   const prepare = vulnerable(page).getByRole("button", { name: "Labを準備する" });
   await prepare.click();
@@ -179,7 +179,7 @@ test("未検査Labを起動できず、準備を連打しても重複しない",
 test("小画面でLabを先に表示し、画面全体が横にはみ出さない", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockRunner(page);
-  await page.goto("/");
+  await page.goto("/runner");
   await expect(page.getByRole("button", { name: "学習を始める" })).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
@@ -191,7 +191,7 @@ test("小画面でLabを先に表示し、画面全体が横にはみ出さな�
 });
 
 test("API不通を成功表示せず、再接続できる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/runner");
   await expect(page.getByRole("heading", { name: "教材に接続できません" })).toBeVisible();
   await mockRunner(page);
   await page.getByRole("button", { name: "接続を再試行する" }).click();
@@ -201,7 +201,7 @@ test("API不通を成功表示せず、再接続できる", async ({ page }) => 
 
 test("受講状態の取得失敗で既存IDを消さず、新しい受講を作らない", async ({ page }) => {
   const fixture = await mockRunner(page, { failResume: true });
-  await page.goto("/");
+  await page.goto("/runner");
   await page.getByRole("button", { name: "学習を始める" }).click();
   await vulnerable(page).getByRole("button", { name: "Labを準備する" }).click();
   await expect(vulnerable(page)).toContainText("準備済み");
@@ -228,7 +228,7 @@ test("遅延した状態取得が起動結果を上書きせず、入力中の�
       await held;
     },
   });
-  await page.goto("/");
+  await page.goto("/runner");
   await page.getByRole("button", { name: "学習を始める" }).click();
   await vulnerable(page).getByRole("button", { name: "Labを準備する" }).click();
   await expect(vulnerable(page)).toContainText("準備済み");
@@ -255,7 +255,7 @@ test("実比較Labの両serviceを一つのSessionで扱い、接続先と後片
   page,
 }) => {
   const fixture = await mockRunner(page, { paired: true });
-  await page.goto("/");
+  await page.goto("/runner");
   await page.getByRole("button", { name: "学習を始める" }).click();
   await expect(fixed(page).getByRole("button", { name: "Labを準備する" })).toBeDisabled();
   await vulnerable(page).getByRole("button", { name: "Labを準備する" }).click();
