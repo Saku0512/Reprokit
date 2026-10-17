@@ -1,80 +1,28 @@
-> **2026-10-14 プロダクト方針変更：ReprokitはCVEを使った初学者向けセキュリティ教育ツールへ全面移行した。** 本書のRegistry/Manifest/Lockfile/CLIの仕様は教材を動かす技術基盤の設計であり、製品の主目的を意味しない。現行方針は[プロダクトビジョン](product-vision.md)を参照。学習UIはローカルWebに決定済み。Go CoreをCLIとWebで共通利用する（[UI設計](interface-study.md)）。
+# CLI v0.1 廃止記録
 
-# CLI v0.1.0 仕様
+> **決定：2026-10-17。** ReprokitはLabを操作するユーザー向けCLIを提供しない。以前のCLI設計は採用しないため、本書は移行上の記録として残す。
 
-> コマンド例は**採用設計**であり、まだ実行可能とは限らない。
+## 置き換え先
 
-## 教育MVPにおける位置付け（2026-10-15）
+Labの取得、準備、起動、状態確認、停止、削除は、ローカルWeb UIからRunner APIを通じて行う。ブラウザはDockerを直接操作せず、Runnerが同じGo CoreのManifest、Lockfile、Compose安全性検査を必ず実行する。
 
-Reprokitは**Vulhubの既存Labを活用するWeb教材**を中心に開発する。CLIは教材が使うローカル環境を安全に取得・起動・停止する補助の入口として残す。既存の多機能なCLI一覧は技術構想として維持するが、MVPでの最優先実装は`reprokit ui`と最初の教材に必要な`create/start/stop/delete`。詳細：[Vulhub連携・教育MVP](vulhub-learning-mvp.md)。
-
-## サブコマンド
-
-| コマンド | 主な用途 |
+| 旧CLIの責務 | 置き換え先 |
 | --- | --- |
-| `reprokit ui` | ローカルWeb学習画面を起動（Labの自動起動はしない） |
-| `reprokit search <CVE-ID>` | Registryから候補Labを探す |
-| `reprokit create <CVE-ID> [--lab <lab-id>] [--name <name>]` | ソース取得・解決・固定。**起動しない** |
-| `reprokit create <lab-id> [--name <name>]` | Lab IDの直接指定 |
-| `reprokit info <instance-name>` | ローカル環境の取得元・ポート・権限・lock情報を表示 |
-| `reprokit start <instance-name>` | lock整合性と安全性検査後に起動 |
-| `reprokit stop <instance-name>` | 対象のCompose projectを停止 |
-| `reprokit delete <instance-name> [--volumes]` | インスタンスを削除。Volumeは既定で維持 |
-| `reprokit list` | 管理中のインスタンス一覧と状態 |
-| `reprokit registry update` | Registryのキャッシュを手動更新 |
+| 検索・教材選択 | Web UIのLessonカタログ |
+| `create`相当の取得・検査 | Runner APIのPrepareLab |
+| `start` | Runner APIのStartLab |
+| `info`・`list` | Runner APIのGetLabStatusとWeb表示 |
+| `stop` | Runner APIのStopLab |
+| `delete` | Runner APIのDeleteLab |
 
-### 選択規則
+## 禁止事項
 
-```bash
-reprokit create CVE-2021-44228
-reprokit create CVE-2021-44228 --lab vulhub/log4j-solr --name log4shell-test
-reprokit create vulhub/log4j-solr --name another-lab
-reprokit start log4shell-test
-reprokit stop log4shell-test
-reprokit delete log4shell-test
-reprokit delete another-lab --volumes
-```
+- Labの状態を変更するCLIサブコマンドを実装しない。
+- CLIから任意のCompose、Docker引数、ホストパス、イメージ、Git URL、コマンドを受け付けない。
+- Web UIとは異なる安全性検査・Docker操作経路を作らない。
 
-- CVE候補**0件**なら検索結果なしとしてエラー。
-- 候補**1件**なら自動選択。
-- 候補**複数**なら対話端末で選択。非対話端末ではエラーとし`--lab`を要求する。
-- `--lab`を明示した場合、そのCVEの候補に含まれなければ拒否する。
-- `--name`省略時はLab名部分（例`log4j-solr`）を候補名とする。同名が既に存在すれば**上書きせずエラー**。別名を指定して複数インスタンスを作れる。
-- ローカルインスタンス名：小文字英数字と`-`、先頭は小文字英字、長さ1～40文字。内部のID（UUID）とは分離する。
-- `info`・`start`・`stop`・`delete`は**ローカルインスタンス名**を受け取る。CVE IDやLab IDとの曖昧な照合はしない。
-- 非対話時に確認が必要な場合は非ゼロ終了し、危険な処理を自動承認しない。
-- `delete`時は実行中なら安全に停止してからCompose projectを削除する。Volumeは`--volumes`指定時のみ削除する。
+## ローカル起動
 
-### エラー/終了コード（推奨）
+配布時はReprokitアプリケーションがローカルWeb Runnerを管理プロセスとして起動する。Runnerは`127.0.0.1`だけで待ち受け、Labを自動起動しない。Labの起動はWeb UIで利用者が注意事項を確認した後の明示操作だけに限定する。
 
-| Code | 意味 |
-| --- | --- |
-| 0 | 成功 |
-| 1 | 実行中の処理で失敗（I/O、Docker等） |
-| 2 | CLIの入力・引数が不正 |
-| 3 | CVE/Lab/インスタンスが存在しない、または複数候補で選べない |
-| 4 | Manifest/Lockfile/Registry不正、または整合性不一致 |
-| 5 | 危険な構成や未対応構成のため拒否 |
-
-エラーは標準エラー出力へ、検索結果や一覧は標準出力へ表示。成功していない操作を成功と報告しない。
-
-## v0.1で扱わないコマンド
-
-`reprokit update`、任意スクリプト実行、起動時の無条件`--force`、外部公開を許可するフラグ、複数Registryの動的追加は対象外。
-
-## Registryオフライン操作（追加確定）
-
-`search`と`create`に`--offline`を追加。
-
-```bash
-reprokit search CVE-2021-44228 --offline
-reprokit create CVE-2021-44228 --lab vulhub/log4j-solr --offline
-```
-
-`--offline`は**Registryの通信をしない**指定であり、キャッシュの使用コミットと期限を表示する。キャッシュがなければエラー。またGitソースやイメージが未取得なら`create`は追加の取得を必要とし、ネットワークが利用できない場合は失敗する。`registry update`には`--offline`を認めない。
-
-## ローカルWeb起動（採用済み）
-
-`reprokit ui` は `127.0.0.1` の空きポートでGo製ローカルHTTPサーバーを起動し、学習者向けWeb UIを提供する。ブラウザの自動起動が不可能な場合はアクセス先を表示する。Web UIからの状態変更はGo Coreの共通安全性検査を必ず通す。
-
-このコマンドは**画面を起動するだけ**で、脆弱性LabやDockerコンテナを自動起動しない。Web UIでの環境操作とCLIは同じInstance ID・Registry・Lockfile・Runtimeを共有する。技術詳細は[UI設計](interface-study.md)。
+詳細な安全境界は[学習インターフェース](interface-study.md)と[法人研修ドメイン契約](b2b-domain-contract-v0.1.md)を正本とする。
