@@ -492,9 +492,6 @@ func applyGuardrails(root *yaml.Node, guardrails Guardrails) error {
 				}),
 			}),
 		}))
-		setMapping(service, "storage_opt", mappingNode(map[string]*yaml.Node{
-			"size": stringNode(strconv.Itoa(guardrails.DiskMiB) + "M"),
-		}))
 	}
 	return nil
 }

@@ -37,6 +37,7 @@ func (provider *harmlessProvider) Inspect(context.Context, string, []byte) (runt
 	provider.inspections.Add(1)
 	return runtime.Resources{}, nil
 }
+func (provider *harmlessProvider) DiskUsage(context.Context, string) (int64, error) { return 0, nil }
 
 // 実ファイルのGitオブジェクトだけを共有し、一時リポジトリ内の変更で元worktreeへ触れない。
 func repositoryFixture(t *testing.T) string {

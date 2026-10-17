@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/jphacks/sd_2601/internal/network"
@@ -18,6 +19,7 @@ import (
 )
 
 var projectPattern = regexp.MustCompile(`^reprokit_[0-9a-f]{12}$`)
+var containerIDPattern = regexp.MustCompile(`^[0-9a-f]{12,64}$`)
 
 type dockerCommandRunner interface {
 	Run(context.Context, []string, ...string) ([]byte, error)
@@ -136,6 +138,34 @@ func (provider *DockerComposeProvider) Inspect(ctx context.Context, project stri
 		Networks:   decodeNames(networks),
 		Volumes:    decodeNames(volumes),
 	}, nil
+}
+
+// DiskUsage はRunner自身のCompose Projectに属するコンテナの書込み量だけを合計する。
+func (provider *DockerComposeProvider) DiskUsage(ctx context.Context, project string) (int64, error) {
+	if !projectPattern.MatchString(project) {
+		return 0, errors.New("invalid Runner project name")
+	}
+	filter := "label=com.docker.compose.project=" + project
+	containers, err := provider.runner.Run(ctx, provider.env, "ps", "--all", "--filter", filter, "--format", "{{.ID}}")
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	for _, id := range strings.Fields(string(containers)) {
+		if !containerIDPattern.MatchString(id) {
+			return 0, errors.New("invalid Docker container ID")
+		}
+		output, err := provider.runner.Run(ctx, provider.env, "inspect", "--size", "--format", "{{.SizeRw}}", id)
+		if err != nil {
+			return 0, err
+		}
+		usage, err := strconv.ParseInt(strings.TrimSpace(string(output)), 10, 64)
+		if err != nil || usage < 0 || total > (1<<63-1)-usage {
+			return 0, errors.New("invalid Docker writable layer size")
+		}
+		total += usage
+	}
+	return total, nil
 }
 
 func (provider *DockerComposeProvider) withCompose(ctx context.Context, project string, compose []byte, action ...string) ([]byte, error) {

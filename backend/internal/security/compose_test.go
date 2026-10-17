@@ -82,10 +82,13 @@ func TestInspectComposeWithGuardrailsInjectsLimitsAndIsolatedNetwork(t *testing.
 		t.Fatal(err)
 	}
 	contents := string(inspection.Normalized)
-	for _, expected := range []string{"127.0.0.1:8080:80", "reprokit_isolated", "internal: true", "cpus: \"1\"", "memory: 512M", "pids: 128", "size: 1024M"} {
+	for _, expected := range []string{"127.0.0.1:8080:80", "reprokit_isolated", "internal: true", "cpus: \"1\"", "memory: 512M", "pids: 128"} {
 		if !strings.Contains(contents, expected) {
 			t.Fatalf("normalized Compose does not contain %q:\n%s", expected, contents)
 		}
+	}
+	if strings.Contains(contents, "storage_opt") {
+		t.Fatalf("normalized Compose must not require filesystem-specific storage_opt:\n%s", contents)
 	}
 }
 

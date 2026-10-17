@@ -74,6 +74,30 @@ func TestDockerComposeProviderInspectsProjectLabels(t *testing.T) {
 	}
 }
 
+func TestDockerComposeProviderMeasuresOnlyProjectWritableLayers(t *testing.T) {
+	runner := &recordingDockerRunner{outputs: [][]byte{
+		[]byte("0123456789ab\nabcdef012345\n"),
+		[]byte("1024\n"),
+		[]byte("2048\n"),
+	}}
+	provider := newDockerComposeProviderForTest(runner)
+	usage, err := provider.DiskUsage(context.Background(), "reprokit_0123456789ab")
+	if err != nil || usage != 3072 {
+		t.Fatalf("DiskUsage = %d, %v", usage, err)
+	}
+	if len(runner.calls) != 3 || !slices.Contains(runner.calls[0], "label=com.docker.compose.project=reprokit_0123456789ab") {
+		t.Fatalf("unexpected Docker commands: %#v", runner.calls)
+	}
+}
+
+func TestDockerComposeProviderRejectsInvalidWritableLayerSize(t *testing.T) {
+	runner := &recordingDockerRunner{outputs: [][]byte{[]byte("0123456789ab\n"), []byte("unknown\n")}}
+	provider := newDockerComposeProviderForTest(runner)
+	if _, err := provider.DiskUsage(context.Background(), "reprokit_0123456789ab"); err == nil {
+		t.Fatal("invalid writable layer size was accepted")
+	}
+}
+
 func TestDockerComposeProviderReadsOnlyFixedMarker(t *testing.T) {
 	runner := &recordingDockerRunner{outputs: [][]byte{[]byte("uid=1000(filebrowser)\n")}}
 	provider := newDockerComposeProviderForTest(runner)
