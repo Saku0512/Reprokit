@@ -635,6 +635,33 @@ textarea {
   @apply rounded-[8px];
   @apply bg-canvas py-2 px-[10px] min-h-[70px];
 }
+.patch-workshop {
+  @apply grid min-w-0 gap-[18px];
+}
+.patch-workshop .card {
+  @apply min-w-0;
+}
+.patch-label {
+  @apply block font-medium mb-2;
+}
+.patch-editor {
+  @apply bg-code text-code-ink min-h-[360px];
+  font:
+    13px/1.8 "IBM Plex Mono",
+    monospace;
+  tab-size: 4;
+  white-space: pre;
+  overflow-x: auto;
+}
+.patch-checks {
+  @apply list-none p-0;
+}
+.patch-checks li + li {
+  @apply mt-4;
+}
+.patch-checks p {
+  @apply m-0;
+}
 .ov {
   @apply fixed inset-0 bg-[rgba(10,_24,_30,_0.55)] grid place-items-center z-5;
 }
