@@ -21,6 +21,7 @@ Do not read every design document for a narrow change. Existing implementation a
 - `@yui-szk` owns Learning/Training work: `web/`, `lessons/`, `backend/internal/lesson/`, Lesson schemas, and `docs/training/`.
 - Shared contracts, `backend/go.mod`, `backend/go.sum`, public CLI/API surfaces, `backend/internal/training/`, CI, and root configuration require coordination and a small isolated PR.
 - Keep one Issue per branch and include the Issue number when one exists. Avoid unrelated cleanup in implementation PRs.
+- Split commits into small, purpose-focused units so each commit can be reviewed, tested, and reverted independently.
 - Do not silently change a contract owned by the other development lane. Update the shared contract first and request the other owner's review.
 
 ## Formatting
@@ -30,6 +31,7 @@ The repository formatter contract is deterministic and shared by both developers
 - Go: `gofmt` from the toolchain selected by `backend/go.mod`; do not use `gofumpt` or editor-specific alternatives.
 - JSON, YAML, JavaScript, TypeScript, CSS, and future Web files: the repository-pinned Prettier version.
 - Markdown under `docs/` is intentionally excluded from automatic formatting to avoid broad prose churn. Preserve the surrounding document style.
+- Write source-code comments in Japanese.
 - Editor settings must not override repository output. `.editorconfig` defines whitespace defaults, but `gofmt` and Prettier are authoritative.
 
 Install formatter dependencies with `npm ci`. Use:
