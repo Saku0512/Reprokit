@@ -17,8 +17,14 @@ type FileStore struct {
 
 type storedSession struct {
 	Session
-	Project string `json:"project"`
-	Compose []byte `json:"compose"`
+	Project            string `json:"project"`
+	Manifest           []byte `json:"manifest"`
+	SourceURL          string `json:"sourceUrl"`
+	SourceSubdirectory string `json:"sourceSubdirectory"`
+	SourceCompose      []byte `json:"sourceCompose"`
+	Platform           string `json:"platform"`
+	Compose            []byte `json:"compose"`
+	Lockfile           []byte `json:"lockfile"`
 }
 
 func NewFileStore(directory string) (*FileStore, error) {
@@ -55,7 +61,13 @@ func (store *FileStore) Load(_ context.Context, id string) (Session, error) {
 		return Session{}, errors.New("session contains trailing data")
 	}
 	stored.Session.Project = stored.Project
+	stored.Session.Manifest = stored.Manifest
+	stored.Session.SourceURL = stored.SourceURL
+	stored.Session.SourceSubdirectory = stored.SourceSubdirectory
+	stored.Session.SourceCompose = stored.SourceCompose
+	stored.Session.Platform = stored.Platform
 	stored.Session.Compose = stored.Compose
+	stored.Session.Lockfile = stored.Lockfile
 	if stored.Session.ID != id || !projectPattern.MatchString(stored.Project) {
 		return Session{}, errors.New("stored session identity is invalid")
 	}
@@ -76,7 +88,7 @@ func (store *FileStore) Save(_ context.Context, session Session) error {
 		staging.Close()
 		return fmt.Errorf("set session permissions: %w", err)
 	}
-	stored := storedSession{Session: copySession(session), Project: session.Project, Compose: append([]byte(nil), session.Compose...)}
+	stored := storedSession{Session: copySession(session), Project: session.Project, Manifest: append([]byte(nil), session.Manifest...), SourceURL: session.SourceURL, SourceSubdirectory: session.SourceSubdirectory, SourceCompose: append([]byte(nil), session.SourceCompose...), Platform: session.Platform, Compose: append([]byte(nil), session.Compose...), Lockfile: append([]byte(nil), session.Lockfile...)}
 	if err := json.NewEncoder(staging).Encode(stored); err != nil {
 		staging.Close()
 		return fmt.Errorf("encode session: %w", err)

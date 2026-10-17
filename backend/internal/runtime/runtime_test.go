@@ -73,8 +73,56 @@ func TestStartFailureCleansUp(t *testing.T) {
 	}
 }
 
+func TestStartRejectsTamperedLockArtifact(t *testing.T) {
+	provider := &fakeProvider{}
+	store := NewMemoryStore()
+	manager, _ := NewManager(store, provider)
+	session, err := manager.Prepare(context.Background(), validLab())
+	if err != nil {
+		t.Fatal(err)
+	}
+	session.Manifest = append(session.Manifest, []byte("# changed\n")...)
+	if err := store.Save(context.Background(), session); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Start(context.Background(), session.ID); err == nil {
+		t.Fatal("tampered Manifest started")
+	}
+	if provider.starts != 0 {
+		t.Fatal("provider started a tampered Lab artifact")
+	}
+}
+
+func TestPrepareWritesCompleteLockfile(t *testing.T) {
+	manager, _ := NewManager(NewMemoryStore(), &fakeProvider{})
+	session, err := manager.Prepare(context.Background(), validLab())
+	if err != nil {
+		t.Fatal(err)
+	}
+	lock, err := decodeLock(session.Lockfile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lock.LockVersion != 1 || lock.Lab != session.LabID || lock.Source.URL != "https://github.com/Saku0512/vulhub.git" || lock.Source.Subdirectory != "filebrowser/CVE-2026-54088" || lock.Runtime.Platform != "linux/amd64" || lock.Images["app"].Platform != "linux/amd64" {
+		t.Fatalf("lock = %#v", lock)
+	}
+}
+
 func validLab() PreparedLab {
-	return PreparedLab{LabID: "vulhub/filebrowser-cve-2026-54088", SourceRevision: strings.Repeat("a", 40), Compose: []byte("services:\n  app:\n    image: example/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n    ports:\n      - \"8080:80\"\n")}
+	return PreparedLab{
+		LabID:          "vulhub/filebrowser-cve-2026-54088",
+		SourceRevision: strings.Repeat("a", 40),
+		Artifact: Artifact{
+			RegistryRevision:   strings.Repeat("b", 40),
+			ManifestPath:       "manifests/vulhub/filebrowser-cve-2026-54088.yaml",
+			Manifest:           []byte("apiVersion: reprokit.dev/v1alpha1\nkind: Lab\n"),
+			SourceURL:          "https://github.com/Saku0512/vulhub.git",
+			SourceSubdirectory: "filebrowser/CVE-2026-54088",
+			RuntimeFile:        "reprokit.compose.yml",
+			Platform:           "linux/amd64",
+		},
+		Compose: []byte("services:\n  app:\n    image: example/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n    ports:\n      - \"8080:80\"\n"),
+	}
 }
 
 type fakeProvider struct {

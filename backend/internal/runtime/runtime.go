@@ -53,24 +53,34 @@ type Failure struct {
 }
 
 type Session struct {
-	ID              string     `json:"labSessionId"`
-	LabID           string     `json:"labId"`
-	SourceRevision  string     `json:"sourceRevision"`
-	Project         string     `json:"-"`
-	State           State      `json:"state"`
-	SafetyChecked   bool       `json:"safetyChecked"`
-	ExternalExpose  bool       `json:"externalExposure"`
-	Compose         []byte     `json:"-"`
-	Endpoints       []Endpoint `json:"endpoints"`
-	Resources       Resources  `json:"resources"`
-	RetainedVolumes []string   `json:"retainedVolumes"`
-	Failure         *Failure   `json:"failure"`
-	UpdatedAt       time.Time  `json:"updatedAt"`
+	ID                 string     `json:"labSessionId"`
+	LabID              string     `json:"labId"`
+	SourceRevision     string     `json:"sourceRevision"`
+	RegistryRevision   string     `json:"registryRevision"`
+	Project            string     `json:"-"`
+	State              State      `json:"state"`
+	SafetyChecked      bool       `json:"safetyChecked"`
+	ExternalExpose     bool       `json:"externalExposure"`
+	ManifestPath       string     `json:"-"`
+	Manifest           []byte     `json:"-"`
+	SourceURL          string     `json:"-"`
+	SourceSubdirectory string     `json:"-"`
+	RuntimeFile        string     `json:"-"`
+	Platform           string     `json:"-"`
+	SourceCompose      []byte     `json:"-"`
+	Compose            []byte     `json:"-"`
+	Lockfile           []byte     `json:"-"`
+	Endpoints          []Endpoint `json:"endpoints"`
+	Resources          Resources  `json:"resources"`
+	RetainedVolumes    []string   `json:"retainedVolumes"`
+	Failure            *Failure   `json:"failure"`
+	UpdatedAt          time.Time  `json:"updatedAt"`
 }
 
 type PreparedLab struct {
 	LabID          string
 	SourceRevision string
+	Artifact       Artifact
 	Compose        []byte
 }
 
@@ -126,12 +136,16 @@ func NewManager(store Store, provider Provider) (*Manager, error) {
 
 // Prepare は安全性検査済みの固定Labを登録するだけで、コンテナを起動しない。
 func (manager *Manager) Prepare(ctx context.Context, lab PreparedLab) (Session, error) {
-	if lab.LabID != "vulhub/filebrowser-cve-2026-54088" || !regexp.MustCompile(`^[0-9a-f]{40}$`).MatchString(lab.SourceRevision) {
+	if lab.LabID != "vulhub/filebrowser-cve-2026-54088" || !shaPattern.MatchString(lab.SourceRevision) {
 		return Session{}, errors.New("only the fixed File Browser Lab revision may be prepared")
 	}
 	inspection, err := security.InspectCompose(lab.Compose)
 	if err != nil {
 		return Session{}, fmt.Errorf("inspect Compose: %w", err)
+	}
+	lockfile, err := createLock(lab, inspection.Normalized)
+	if err != nil {
+		return Session{}, err
 	}
 	endpoints, err := endpoints(inspection.Normalized)
 	if err != nil {
@@ -141,7 +155,7 @@ func (manager *Manager) Prepare(ctx context.Context, lab PreparedLab) (Session, 
 	if err != nil {
 		return Session{}, err
 	}
-	session := Session{ID: id, LabID: lab.LabID, SourceRevision: lab.SourceRevision, Project: "reprokit_" + strings.ReplaceAll(id[:13], "-", ""), State: Prepared, SafetyChecked: true, Compose: inspection.Normalized, Endpoints: endpoints, UpdatedAt: time.Now().UTC()}
+	session := Session{ID: id, LabID: lab.LabID, SourceRevision: lab.SourceRevision, RegistryRevision: lab.Artifact.RegistryRevision, Project: "reprokit_" + strings.ReplaceAll(id[:13], "-", ""), State: Prepared, SafetyChecked: true, ManifestPath: lab.Artifact.ManifestPath, Manifest: append([]byte(nil), lab.Artifact.Manifest...), SourceURL: lab.Artifact.SourceURL, SourceSubdirectory: lab.Artifact.SourceSubdirectory, RuntimeFile: lab.Artifact.RuntimeFile, Platform: lab.Artifact.Platform, SourceCompose: append([]byte(nil), lab.Compose...), Compose: inspection.Normalized, Lockfile: lockfile, Endpoints: endpoints, UpdatedAt: time.Now().UTC()}
 	if err := manager.store.Save(ctx, session); err != nil {
 		return Session{}, err
 	}
@@ -153,11 +167,14 @@ func (manager *Manager) Start(ctx context.Context, id string) (Session, error) {
 		if session.State != Prepared && session.State != Stopped {
 			return ErrInvalidState
 		}
-		inspection, err := security.InspectCompose(session.Compose)
-		if err != nil || !session.SafetyChecked || string(inspection.Normalized) != string(session.Compose) {
+		if !session.SafetyChecked {
 			return errors.New("prepared Compose safety check no longer matches")
 		}
-		if err := manager.provider.Start(ctx, session.Project, session.Compose); err != nil {
+		compose, err := verifyArtifact(*session)
+		if err != nil {
+			return err
+		}
+		if err := manager.provider.Start(ctx, session.Project, compose); err != nil {
 			return manager.startFailure(ctx, session, err)
 		}
 		resources, err := manager.provider.Inspect(ctx, session.Project, session.Compose)
@@ -291,6 +308,9 @@ func newID() (string, error) {
 
 func copySession(session Session) Session {
 	session.Compose = append([]byte(nil), session.Compose...)
+	session.Manifest = append([]byte(nil), session.Manifest...)
+	session.SourceCompose = append([]byte(nil), session.SourceCompose...)
+	session.Lockfile = append([]byte(nil), session.Lockfile...)
 	session.Endpoints = append([]Endpoint(nil), session.Endpoints...)
 	session.Resources.Containers = append([]Container(nil), session.Resources.Containers...)
 	session.Resources.Networks = append([]string(nil), session.Resources.Networks...)
