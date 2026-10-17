@@ -131,6 +131,46 @@ func TestDockerComposeProviderReadsOnlyFixedMarker(t *testing.T) {
 	}
 }
 
+func TestDockerComposeProviderReadsBoundedComparisonLogs(t *testing.T) {
+	runner := &recordingDockerRunner{outputs: [][]byte{[]byte("first\nlast\n")}}
+	provider := newDockerComposeProviderForTest(runner)
+	logs, err := provider.ReadLogs(context.Background(), "reprokit_0123456789ab", []byte("services: {}\n"), "vulnerable")
+	if err != nil || logs != (LogSnapshot{Service: "vulnerable", Content: "first\nlast\n"}) {
+		t.Fatalf("logs=%#v err=%v", logs, err)
+	}
+	call := runner.calls[0]
+	if !slices.Contains(call, "logs") || !slices.Contains(call, "--no-color") || !slices.Contains(call, "--no-log-prefix") || !slices.Contains(call, "--tail") || !slices.Contains(call, "200") || !slices.Contains(call, "vulnerable") || slices.Contains(call, "--follow") {
+		t.Fatalf("unexpected logs command: %#v", call)
+	}
+	if _, err := provider.ReadLogs(context.Background(), "reprokit_0123456789ab", nil, "reprokit_proxy_vulnerable_1"); err == nil {
+		t.Fatal("internal proxy service was accepted")
+	}
+}
+
+func TestTruncateLogsKeepsTheMostRecentOutputWithinLimit(t *testing.T) {
+	output := []byte(strings.Repeat("a", maxLogBytes) + "last")
+	logs := truncateLogs(output, "fixed")
+	if !logs.Truncated || len(logs.Content) > maxLogBytes || !strings.HasSuffix(logs.Content, "last") {
+		t.Fatalf("logs=%#v", logs)
+	}
+}
+
+func TestDockerComposeProviderRunsOnlyFixedListTmpAction(t *testing.T) {
+	runner := &recordingDockerRunner{outputs: [][]byte{[]byte("drwxrwxrwt /tmp\n")}}
+	provider := newDockerComposeProviderForTest(runner)
+	result, err := provider.RunAction(context.Background(), "reprokit_0123456789ab", []byte("services: {}\n"), "vulnerable", ListTmpAction)
+	if err != nil || result.Output != "drwxrwxrwt /tmp\n" || result.Action != ListTmpAction {
+		t.Fatalf("result=%#v err=%v", result, err)
+	}
+	call := runner.calls[0]
+	if !slices.Contains(call, "exec") || !slices.Contains(call, "--no-TTY") || !slices.Contains(call, "vulnerable") || !slices.Contains(call, "ls") || !slices.Contains(call, "-la") || !slices.Contains(call, "/tmp") || slices.Contains(call, "/bin/sh") {
+		t.Fatalf("unexpected action command: %#v", call)
+	}
+	if _, err := provider.RunAction(context.Background(), "reprokit_0123456789ab", nil, "vulnerable", "shell"); err == nil {
+		t.Fatal("unknown action was accepted")
+	}
+}
+
 type recordingDockerRunner struct {
 	calls   [][]string
 	outputs [][]byte

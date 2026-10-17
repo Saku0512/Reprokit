@@ -21,6 +21,11 @@ import (
 var projectPattern = regexp.MustCompile(`^reprokit_[0-9a-f]{12}$`)
 var containerIDPattern = regexp.MustCompile(`^[0-9a-f]{12,64}$`)
 
+const (
+	logTailLines = 200
+	maxLogBytes  = 64 * 1024
+)
+
 type dockerCommandRunner interface {
 	Run(context.Context, []string, ...string) ([]byte, error)
 }
@@ -131,6 +136,50 @@ func (provider *DockerComposeProvider) ReadMarker(ctx context.Context, project s
 		return "", err
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+// ReadLogs は固定された比較対象サービスの直近ログだけを追従せずに読む。
+// コンテナ名やDockerオプションはHTTP入力から受け取らず、入口プロキシも対象にしない。
+func (provider *DockerComposeProvider) ReadLogs(ctx context.Context, project string, compose []byte, service string) (LogSnapshot, error) {
+	if service != "vulnerable" && service != "fixed" {
+		return LogSnapshot{}, errors.New("unknown File Browser comparison service")
+	}
+	output, err := provider.withCompose(ctx, project, compose, "logs", "--no-color", "--no-log-prefix", "--tail", strconv.Itoa(logTailLines), service)
+	if err != nil {
+		return LogSnapshot{}, err
+	}
+	return truncateLogs(output, service), nil
+}
+
+func truncateLogs(output []byte, service string) LogSnapshot {
+	content, truncated := truncateOutput(output)
+	return LogSnapshot{Service: service, Content: content, Truncated: truncated}
+}
+
+// RunAction はFile Browser比較Labでレビュー済みの観察だけを引数配列で実行する。
+// シェルや利用者指定のコマンド・引数・パスは使わない。
+func (provider *DockerComposeProvider) RunAction(ctx context.Context, project string, compose []byte, service string, action ObservationAction) (ActionObservation, error) {
+	if service != "vulnerable" && service != "fixed" {
+		return ActionObservation{}, errors.New("unknown File Browser comparison service")
+	}
+	if action != ListTmpAction {
+		return ActionObservation{}, errors.New("unknown File Browser observation action")
+	}
+	output, err := provider.withCompose(ctx, project, compose, "exec", "--no-TTY", service, "ls", "-la", "/tmp")
+	if err != nil {
+		return ActionObservation{}, err
+	}
+	content, truncated := truncateOutput(output)
+	return ActionObservation{Service: service, Action: action, Output: content, Truncated: truncated}, nil
+}
+
+func truncateOutput(output []byte) (string, bool) {
+	if len(output) <= maxLogBytes {
+		return string(output), false
+	}
+	prefix := "[ログの先頭を省略しました。直近64 KiBを表示しています。]\n"
+	limit := maxLogBytes - len(prefix)
+	return prefix + string(output[len(output)-limit:]), true
 }
 
 func (provider *DockerComposeProvider) Inspect(ctx context.Context, project string, _ []byte) (Resources, error) {

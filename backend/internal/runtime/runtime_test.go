@@ -332,6 +332,66 @@ func TestObserveMarkerReadsOnlyRunningComparisonService(t *testing.T) {
 	}
 }
 
+func TestReadLogsReadsOnlyRunningComparisonService(t *testing.T) {
+	provider := &fakeProvider{logs: LogSnapshot{Service: "vulnerable", Content: "login failed\n"}}
+	manager, err := NewManager(NewMemoryStore(), provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lab := validLab()
+	lab.Compose = []byte("services:\n  vulnerable:\n    image: example/vulnerable@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n    ports:\n      - \"18080:80\"\n  fixed:\n    image: example/fixed@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n    ports:\n      - \"18081:80\"\n")
+	session, err := manager.Prepare(context.Background(), lab)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.ReadLogs(context.Background(), session.ID, "vulnerable"); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("prepared log error = %v", err)
+	}
+	if _, err := manager.Start(context.Background(), session.ID); err != nil {
+		t.Fatal(err)
+	}
+	logs, err := manager.ReadLogs(context.Background(), session.ID, "vulnerable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if logs != provider.logs || provider.logReads != 1 {
+		t.Fatalf("logs = %#v, reads = %d", logs, provider.logReads)
+	}
+	if _, err := manager.ReadLogs(context.Background(), session.ID, "reprokit_proxy_vulnerable_1"); err == nil {
+		t.Fatal("internal proxy service was accepted")
+	}
+}
+
+func TestRunActionExecutesOnlyFixedActionInRunningComparisonService(t *testing.T) {
+	provider := &fakeProvider{action: ActionObservation{Service: "vulnerable", Action: ListTmpAction, Output: "success\n"}}
+	manager, err := NewManager(NewMemoryStore(), provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lab := validLab()
+	lab.Compose = []byte("services:\n  vulnerable:\n    image: example/vulnerable@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n    ports:\n      - \"18080:80\"\n  fixed:\n    image: example/fixed@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n    ports:\n      - \"18081:80\"\n")
+	session, err := manager.Prepare(context.Background(), lab)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.RunAction(context.Background(), session.ID, "vulnerable", ListTmpAction); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("prepared action error = %v", err)
+	}
+	if _, err := manager.Start(context.Background(), session.ID); err != nil {
+		t.Fatal(err)
+	}
+	result, err := manager.RunAction(context.Background(), session.ID, "vulnerable", ListTmpAction)
+	if err != nil || result != provider.action || provider.actionRuns != 1 {
+		t.Fatalf("result=%#v err=%v runs=%d", result, err, provider.actionRuns)
+	}
+	if _, err := manager.RunAction(context.Background(), session.ID, "vulnerable", "shell"); err == nil {
+		t.Fatal("unknown action was accepted")
+	}
+	if _, err := manager.RunAction(context.Background(), session.ID, "reprokit_proxy_vulnerable_1", ListTmpAction); err == nil {
+		t.Fatal("internal proxy service was accepted")
+	}
+}
+
 type fakeProvider struct {
 	starts, stops, deletes int
 	startErr               error
@@ -340,6 +400,10 @@ type fakeProvider struct {
 	diskUsageErr           error
 	marker                 string
 	markerReads            int
+	logs                   LogSnapshot
+	logReads               int
+	action                 ActionObservation
+	actionRuns             int
 	stopSignal             chan struct{}
 }
 
@@ -371,4 +435,12 @@ func (provider *fakeProvider) DiskUsage(context.Context, string) (int64, error) 
 func (provider *fakeProvider) ReadMarker(context.Context, string, []byte, string) (string, error) {
 	provider.markerReads++
 	return provider.marker, nil
+}
+func (provider *fakeProvider) ReadLogs(context.Context, string, []byte, string) (LogSnapshot, error) {
+	provider.logReads++
+	return provider.logs, nil
+}
+func (provider *fakeProvider) RunAction(context.Context, string, []byte, string, ObservationAction) (ActionObservation, error) {
+	provider.actionRuns++
+	return provider.action, nil
 }

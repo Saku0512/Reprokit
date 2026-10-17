@@ -371,3 +371,11 @@ func (service *lazyService) Status(ctx context.Context, id string) (runtime.Sess
 func (service *lazyService) ObserveMarker(ctx context.Context, id, reference string) (runtime.MarkerObservation, error) {
 	return service.manager.ObserveMarker(ctx, id, reference)
 }
+
+func (service *lazyService) ReadLogs(ctx context.Context, id, reference string) (runtime.LogSnapshot, error) {
+	return service.manager.ReadLogs(ctx, id, reference)
+}
+
+func (service *lazyService) RunAction(ctx context.Context, id, reference string, action runtime.ObservationAction) (runtime.ActionObservation, error) {
+	return service.manager.RunAction(ctx, id, reference, action)
+}

@@ -344,7 +344,7 @@ export function createWebServer({
         return;
       }
       const studyOperation =
-        /^\/api\/(?:lessons(?:\/detail)?|study-sessions(?:\/[a-f0-9]{32}(?:\/advance|\/(?:hints|answers|labs)\/[a-z0-9-]+)?)?|labs(?:\/[a-f0-9-]{36}(?:\/(?:start|stop|markers\/(?:vulnerable|fixed)))?)?)$/.test(
+        /^\/api\/(?:lessons(?:\/detail)?|study-sessions(?:\/[a-f0-9]{32}(?:\/advance|\/(?:hints|answers|labs)\/[a-z0-9-]+)?)?|labs(?:\/[a-f0-9-]{36}(?:\/(?:start|stop|markers\/(?:vulnerable|fixed)|logs\/(?:vulnerable|fixed)|actions\/(?:vulnerable|fixed)\/list_tmp))?)?)$/.test(
           url.pathname,
         );
       if (

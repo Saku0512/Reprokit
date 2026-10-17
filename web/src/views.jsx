@@ -226,6 +226,86 @@ function LabBox({ state: S }) {
   );
 }
 
+export function LabConsole({ state: S }) {
+  const services = [
+    ["vulnerable", "脆弱版"],
+    ["fixed", "修正版"],
+  ];
+  return (
+    <div className="console-content">
+      <p className="console-lead">
+        {
+          "実行中のLabだけを観察できます。自由なOSコマンドは実行できず、教材レビュー済みのアクションだけが利用できます。"
+        }
+      </p>
+      {services.map(([service, title]) => {
+        const logs = S.logs?.[service];
+        const action = S.actions?.[`${service}:list_tmp`];
+        return (
+          <section key={service} className="console-service" aria-labelledby={`console-${service}`}>
+            <h3 id={`console-${service}`}>{title}</h3>
+            <div className="console-section">
+              <div className="console-section-heading">
+                <div>
+                  <b>{"コンテナログ"}</b>
+                  <p>{"最大200行・64 KiBのスナップショットです。"}</p>
+                </div>
+                <button
+                  className="btn sm"
+                  data-a="logs"
+                  data-v={service}
+                  disabled={S.logLoading !== null}
+                >
+                  {S.logLoading === service ? "取得中…" : "更新"}
+                </button>
+              </div>
+              {logs && (
+                <>
+                  {logs.truncated && <span className="pill amber">{"先頭を省略"}</span>}
+                  <pre className="log">{logs.content || "（出力はまだありません）"}</pre>
+                </>
+              )}
+            </div>
+            <div className="console-section">
+              <div className="console-section-heading">
+                <div>
+                  <b>{"規定アクション"}</b>
+                  <p>
+                    <code>{"ls -la /tmp"}</code>
+                    {" — マーカー作成を確認"}
+                  </p>
+                </div>
+                <button
+                  className="btn sm"
+                  data-a="list-tmp"
+                  data-v={service}
+                  disabled={S.actionLoading !== null}
+                >
+                  {S.actionLoading === `${service}:list_tmp` ? "実行中…" : "/tmp を一覧"}
+                </button>
+              </div>
+              {action && (
+                <>
+                  {action.truncated && <span className="pill amber">{"先頭を省略"}</span>}
+                  <pre className="log">{action.output || "（出力はありません）"}</pre>
+                </>
+              )}
+            </div>
+          </section>
+        );
+      })}
+      {(S.logFailure || S.actionFailure) && (
+        <p className="lab-failure" role="alert">
+          {S.logFailure || S.actionFailure}
+        </p>
+      )}
+      <p className="console-notice">
+        {"ログや出力にはLabへ入力した値が含まれる場合があります。共有しないでください。"}
+      </p>
+    </div>
+  );
+}
+
 function NormalUsage({ lesson: l, state: S }) {
   return (
     <>
