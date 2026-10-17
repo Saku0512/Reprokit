@@ -42,7 +42,7 @@ Reprokitは、脆弱性の説明を読むだけでなく、管理されたロー
 - Runtime: Docker Compose
 - Lab catalog: [`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)（`vulhub/vulhub`のfork）
 - Metadata: YAML / JSON Schema
-- Frontend: ローカルWeb UI（詳細技術は選定中）
+- Frontend: React, TypeScript
 
 ## ドキュメント
 

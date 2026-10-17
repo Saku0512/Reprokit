@@ -1,0 +1,8 @@
+services:
+  app:
+    image: registry.example/reprokit/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    ports:
+      - "8080:80"
+    environment:
+      MODE: training
+    restart: "no"

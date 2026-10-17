@@ -36,6 +36,12 @@ WebはPoC操作例、ヒント、観察結果を表示するが**任意のPoC/OS
 
 未知のCompose機能や未知のサービスオプションは誤解釈せず、解析不能なら実行しない（fail-closed）。危険な権限がなければ安全である、と評価するものではない。
 
+### 検査インターフェース
+
+`backend/internal/security.InspectCompose` は、単一のCompose YAMLを厳格に解析し、上記の許可リスト外・YAMLアンカー/エイリアス・重複キーを拒否する。拒否エラーは対象サービス、設定名、拒否理由、修正方法を含む。`ports` の `"HOST:CONTAINER"` は検査成功時に `"127.0.0.1:HOST:CONTAINER"` へ正規化され、Runtimeは**元のComposeではなく**この正規化済みバイト列だけを `resolved.compose.yaml` として保存・起動する。
+
+`ValidateCompose` は判定専用である。起動経路は `InspectCompose` の成功結果、Manifest・Lockfile・ファイルハッシュ・イメージdigestの再照合をすべて満たさなければならない。検査結果がない、または検査後に対象バイト列が変わったLabは起動しない。
+
 ## 取得時の安全性
 
 - Git URLはHTTPSのみ。接続先・リダイレクト・資格情報・プライベートアドレスへのアクセスなどを検証してSSRFを防ぐ。

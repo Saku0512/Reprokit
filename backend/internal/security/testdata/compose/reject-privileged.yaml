@@ -1,0 +1,4 @@
+services:
+  app:
+    image: registry.example/reprokit/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    privileged: true

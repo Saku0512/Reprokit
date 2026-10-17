@@ -8,7 +8,7 @@
 | --- | --- |
 | 言語 | Go |
 | Goの初期基準 | **Go 1.27.2**（2026-10-08リリース、セキュリティ修正を含む） |
-| `go.mod` | `go 1.27`、`toolchain go1.27.2`（コード作成時に設定） |
+| `backend/go.mod` | `go 1.27`、`toolchain go1.27.2` |
 | 正式対応OS | Linux |
 | CIの標準ランナー | Ubuntu 24.04 / amd64 |
 | Docker Engine | **28.0.0以上** |
@@ -24,7 +24,7 @@ PR時とmainへのPush時に以下を実行する。
 1. YAML厳格パース、Manifest JSON Schema、CVE ID・Lab ID・固定Git SHAの検証。
 2. ManifestからRegistryを決定的に生成し、`registry/index.json`と一致することを確認。
 3. Registry/Lockfile JSON Schema、参照ファイル一覧・digest/ハッシュ不一致・不正パスの否定テスト。
-4. `gofmt`、`go vet ./...`、`go test ./...`、必要に応じ`go test -race ./...`。
+4. `gofmt`、`go -C backend vet ./...`、`go -C backend test ./...`、必要に応じ`go -C backend test -race ./...`。
 5. CLIの候補0/1/複数、非対話エラー、`--offline`、同名インスタンス、失敗時ロールバックの統合テスト。
 6. **無害な専用イメージと環境**によるDocker Compose起動・TCPチェック・停止・Volume保持・削除の検証。
 7. 危険なCompose設定（`build`、privileged、Hostネットワーク、Bind Mount、未固定変数、外部ポート公開等）を拒否するテスト。
