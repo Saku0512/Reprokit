@@ -245,6 +245,12 @@ test("同一Originとトークンを検証して既存APIだけをRunnerへ転�
   assert.equal(received[1].url, `/api/labs/${actionID}/actions/vulnerable/list_tmp`);
   assert.equal(received.length, 2);
   assert.equal(
+    (await fetch(`${origin}/api/labs/${actionID}/logs/vulnerable`, { headers })).status,
+    200,
+  );
+  assert.equal(received[2].url, `/api/labs/${actionID}/logs/vulnerable`);
+  assert.equal(received.length, 3);
+  assert.equal(
     (await fetch(`${origin}/api/lessons`, { headers: { Origin: "https://evil.test" } })).status,
     403,
   );
@@ -260,7 +266,7 @@ test("同一Originとトークンを検証して既存APIだけをRunnerへ転�
       .on("error", reject);
   });
   assert.equal(rejectedHost, 403);
-  assert.equal(received.length, 2);
+  assert.equal(received.length, 3);
   const page = await (await fetch(origin)).text();
   assert.ok(page.includes(`name="reprokit-session" content="${token}"`));
 });
