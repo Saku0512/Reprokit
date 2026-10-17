@@ -227,14 +227,7 @@ function LabBox({ state: S }) {
 }
 
 export function LabConsole({ state: S, idPrefix = "console", showLead = true }) {
-  const services = [
-    ["vulnerable", "脆弱コンテナ"],
-    ["fixed", "修正版コンテナ"],
-  ];
-  const activeService = services.some(([service]) => service === S.consoleService)
-    ? S.consoleService
-    : "vulnerable";
-  const activeTitle = services.find(([service]) => service === activeService)?.[1];
+  const activeService = "vulnerable";
   const logs = S.logs?.[activeService];
   const action = S.actions?.[`${activeService}:list_tmp`];
   const panelID = `${idPrefix}-${activeService}-panel`;
@@ -247,22 +240,7 @@ export function LabConsole({ state: S, idPrefix = "console", showLead = true }) 
           }
         </p>
       )}
-      <div className="console-switch" role="tablist" aria-label="観察するコンテナ">
-        {services.map(([service, title]) => (
-          <button
-            key={service}
-            className="btn"
-            role="tab"
-            aria-selected={activeService === service}
-            aria-controls={`${idPrefix}-${service}-panel`}
-            data-a="console-service"
-            data-v={service}
-          >
-            {title}
-          </button>
-        ))}
-      </div>
-      <section id={panelID} className="console-service" role="tabpanel" aria-label={activeTitle}>
+      <section id={panelID} className="console-service" aria-label="脆弱コンテナ">
         <div className="console-section">
           <div className="console-section-heading">
             <div>
@@ -389,7 +367,7 @@ function Reproduction({ state: S }) {
             <ol className="step">
               <li>{"上のLabカードから脆弱版を別タブで開く"}</li>
               <li>{"次の値をログインフォームへ入力して、ログインを試す"}</li>
-              <li>{"ログインが拒否された後、脆弱コンテナを選んで「観察結果を取得」を押す"}</li>
+              <li>{"ログインが拒否された後、「観察結果を取得」を押す"}</li>
             </ol>
             {"\n            "}
             <div className="log" style={{ marginTop: "10px" }}>

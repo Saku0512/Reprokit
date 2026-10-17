@@ -689,15 +689,6 @@ textarea {
 .console-notice {
   @apply mt-4 pt-3 [border-top:1px_solid_var(--line)];
 }
-.console-switch {
-  @apply grid grid-cols-2 gap-1 mt-4 p-1 bg-canvas rounded-[8px] [border:1px_solid_var(--line)];
-}
-.console-switch .btn {
-  @apply w-full py-[6px] px-2 [border-color:transparent] text-[12.5px];
-}
-.console-switch .btn[aria-selected="true"] {
-  @apply bg-brand text-white border-brand;
-}
 .console-service {
   @apply mt-3;
 }

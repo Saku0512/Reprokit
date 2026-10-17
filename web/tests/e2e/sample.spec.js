@@ -108,9 +108,9 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await expect(consoleDialog.locator(".console-service .log")).toContainText("vulnerable log");
   await consoleDialog.getByRole("button", { name: "実行", exact: true }).click();
   await expect(consoleDialog.locator(".console-service .log").last()).toContainText("success");
-  await consoleDialog.getByRole("tab", { name: "修正版コンテナ" }).click();
-  await consoleDialog.getByRole("button", { name: "ログを更新", exact: true }).click();
-  await expect(consoleDialog.locator(".console-service .log")).toContainText("fixed log");
+  await expect(consoleDialog.getByRole("tab")).toHaveCount(0);
+  await expect(consoleDialog.getByRole("region", { name: "脆弱コンテナ" })).toBeVisible();
+  await expect(consoleDialog).not.toContainText("修正版コンテナ");
   await consoleDialog.getByRole("button", { name: "検証コンソールを閉じる" }).click();
   await expect(consoleDialog).toBeHidden();
   await page.locator('#phase-0 [data-a="next"]').click();
@@ -125,17 +125,22 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   const observation = page.locator("#phase-1 .card").filter({
     has: page.getByRole("heading", { name: "観察結果（隔離コンテナ内）" }),
   });
-  await expect(observation.getByRole("tab", { name: "修正版コンテナ" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await expect(observation.locator(".console-service .log").first()).toContainText("fixed log");
-  await observation.getByRole("tab", { name: "脆弱コンテナ" }).click();
-  await page.getByRole("button", { name: "観察結果を取得" }).click();
+  await expect(observation.getByRole("tab")).toHaveCount(0);
+  await expect(observation.getByRole("region", { name: "脆弱コンテナ" })).toBeVisible();
+  await expect(observation).not.toContainText("修正版コンテナ");
   await expect(observation.locator(".console-service .log").first()).toContainText(
     "vulnerable log",
   );
   await expect(observation.locator(".console-service .log").last()).toContainText("success");
+  const consoleCalls = fixture.calls.filter(
+    (call) => call.path.includes("/logs/") || call.path.includes("/actions/"),
+  );
+  expect(consoleCalls.map((call) => call.path.split("/").slice(4).join("/")).sort()).toEqual([
+    "actions/vulnerable/list_tmp",
+    "actions/vulnerable/list_tmp",
+    "logs/vulnerable",
+    "logs/vulnerable",
+  ]);
   await expect(page.locator("#phase-1 .data")).toContainText("dummy-report.txt");
   await page.locator('#phase-1 [data-a="next"]').click();
   await atNextBoundary(page, 1);
