@@ -22,6 +22,7 @@ Do not read every design document for a narrow change. Existing implementation a
 - Shared contracts, `backend/go.mod`, `backend/go.sum`, public CLI/API surfaces, `backend/internal/training/`, CI, and root configuration require coordination and a small isolated PR.
 - Keep one Issue per branch and include the Issue number when one exists. Avoid unrelated cleanup in implementation PRs.
 - Split commits into small, purpose-focused units so each commit can be reviewed, tested, and reverted independently.
+- Never merge a pull request automatically. After creating a PR and reporting its verification results, wait for the user's explicit merge instruction.
 - Do not silently change a contract owned by the other development lane. Update the shared contract first and request the other owner's review.
 
 ## Formatting
