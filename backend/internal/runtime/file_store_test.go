@@ -45,3 +45,33 @@ func TestFileStoreRejectsUnsafeSessionID(t *testing.T) {
 		t.Fatalf("Load error = %v", err)
 	}
 }
+
+func TestFileStoreRestoresArtifactForRestartedManager(t *testing.T) {
+	ctx := context.Background()
+	directory := t.TempDir()
+	store, err := NewFileStore(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	provider := &fakeProvider{}
+	manager, err := NewManager(store, provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := manager.Prepare(ctx, validLab())
+	if err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := NewFileStore(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restarted, err := NewManager(reopened, provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := restarted.Start(ctx, session.ID)
+	if err != nil || result.State != Running || provider.starts != 1 {
+		t.Fatalf("restart Start: state=%s, err=%v, starts=%d", result.State, err, provider.starts)
+	}
+}

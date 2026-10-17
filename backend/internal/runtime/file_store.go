@@ -18,6 +18,8 @@ type FileStore struct {
 type storedSession struct {
 	Session
 	Project            string `json:"project"`
+	ManifestPath       string `json:"manifestPath"`
+	RuntimeFile        string `json:"runtimeFile"`
 	Manifest           []byte `json:"manifest"`
 	SourceURL          string `json:"sourceUrl"`
 	SourceSubdirectory string `json:"sourceSubdirectory"`
@@ -61,6 +63,8 @@ func (store *FileStore) Load(_ context.Context, id string) (Session, error) {
 		return Session{}, errors.New("session contains trailing data")
 	}
 	stored.Session.Project = stored.Project
+	stored.Session.ManifestPath = stored.ManifestPath
+	stored.Session.RuntimeFile = stored.RuntimeFile
 	stored.Session.Manifest = stored.Manifest
 	stored.Session.SourceURL = stored.SourceURL
 	stored.Session.SourceSubdirectory = stored.SourceSubdirectory
@@ -88,7 +92,7 @@ func (store *FileStore) Save(_ context.Context, session Session) error {
 		staging.Close()
 		return fmt.Errorf("set session permissions: %w", err)
 	}
-	stored := storedSession{Session: copySession(session), Project: session.Project, Manifest: append([]byte(nil), session.Manifest...), SourceURL: session.SourceURL, SourceSubdirectory: session.SourceSubdirectory, SourceCompose: append([]byte(nil), session.SourceCompose...), Platform: session.Platform, Compose: append([]byte(nil), session.Compose...), Lockfile: append([]byte(nil), session.Lockfile...)}
+	stored := storedSession{Session: copySession(session), Project: session.Project, ManifestPath: session.ManifestPath, RuntimeFile: session.RuntimeFile, Manifest: append([]byte(nil), session.Manifest...), SourceURL: session.SourceURL, SourceSubdirectory: session.SourceSubdirectory, SourceCompose: append([]byte(nil), session.SourceCompose...), Platform: session.Platform, Compose: append([]byte(nil), session.Compose...), Lockfile: append([]byte(nil), session.Lockfile...)}
 	if err := json.NewEncoder(staging).Encode(stored); err != nil {
 		staging.Close()
 		return fmt.Errorf("encode session: %w", err)
