@@ -39,6 +39,9 @@ test("静的ファイルを限定し、API未設定を成功表示しない", as
   assert.equal(page.status, 200);
   assert.match(await page.text(), /<html lang="ja">/);
   assert.match(page.headers.get("content-security-policy"), /connect-src 'self'/);
+  const logo = await fetch(`${origin}/assets/reprokit-logo.png`);
+  assert.equal(logo.status, 200);
+  assert.equal(logo.headers.get("content-type"), "image/png");
   assert.equal((await fetch(`${origin}/api/lessons`)).status, 503);
   assert.equal((await fetch(`${origin}/package.json`)).status, 404);
   assert.equal((await fetch(`${origin}/src/../server.mjs`)).status, 404);
