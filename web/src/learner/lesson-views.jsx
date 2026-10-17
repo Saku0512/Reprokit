@@ -214,7 +214,7 @@ function LabBox({ state: S }) {
     <>
       <div className="tm">
         <div className="r1">
-          <b>{"◎ ターゲットマシン"}</b>
+          <b>{"演習環境"}</b>
           <div className="act" style={{ margin: "0" }}>
             {r1}
           </div>
@@ -313,7 +313,8 @@ function NormalUsage() {
           <div className="card">
             <h3>{"やってみること"}</h3>
             <ol className="step">
-              <li>{"右の「別タブで開く」で、脆弱版または修正版のログイン画面を開く"}</li>
+              <li>{"演習環境を起動する"}</li>
+              <li>{"「別タブで開く」で、脆弱版または修正版のログイン画面を開く"}</li>
               <li>{"任意のユーザー名・パスワードでログインを試す"}</li>
               <li>{"どちらの画面でもログインが拒否されることを確認する"}</li>
               <li>{"戻ってきて、拒否される前のサーバー側の処理を確認する"}</li>
