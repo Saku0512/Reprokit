@@ -327,7 +327,7 @@ export function LabConsole({ state: S, idPrefix = "console", showLead = true }) 
   );
 }
 
-function NormalUsage({ lesson: l, state: S }) {
+function NormalUsage() {
   return (
     <>
       <div className="stage">
@@ -335,60 +335,36 @@ function NormalUsage({ lesson: l, state: S }) {
           <div className="card">
             <h3>{"やってみること"}</h3>
             <ol className="step">
-              <li>{"右の「別タブで開く」で、Labのログイン画面を開く"}</li>
-              <li>{"正しいユーザー名・パスワードでログインする"}</li>
-              <li>{"わざと間違えて、ログインに失敗する様子も見る"}</li>
-              <li>{"戻ってきて、サーバー側のログを確認する"}</li>
+              <li>{"右の「別タブで開く」で、脆弱版または修正版のログイン画面を開く"}</li>
+              <li>{"任意のユーザー名・パスワードでログインを試す"}</li>
+              <li>{"どちらの画面でもログインが拒否されることを確認する"}</li>
+              <li>{"戻ってきて、拒否される前のサーバー側の処理を確認する"}</li>
             </ol>
             {"\n            "}
             <div className="note">
-              {"Labの画面は別タブで動きます。このタブは、観察と解説に使います。"}
+              {
+                "このLabには有効な認証情報を用意していません。脆弱版・修正版ともログインが拒否されることが、演習では正常な動作です。"
+              }
             </div>
           </div>
         </div>
         {"\n            "}
         <div className="card">
-          <h3>{"サーバー側で起きたこと（Runnerが取得）"}</h3>
-          <div className="sw">
-            <button data-a="lg" data-v="ok" aria-pressed={S.login === "ok"}>
-              {"成功したログイン"}
-            </button>
-            <button data-a="lg" data-v="ng" aria-pressed={S.login === "ng"}>
-              {"失敗したログイン"}
-            </button>
-          </div>
-          {"\n            "}
+          <h3>{"ログインが拒否されるまでの処理"}</h3>
           <div className="log">
-            {S.login === null ? (
-              "（上のボタンで、Labで試した結果の流れを表示）"
-            ) : S.login === "ok" ? (
-              <>
-                <span className="ok">{"1 受信"}</span>
-                {" POST /api/login\n"}
-                <span className="ok">{"2 フック認証"}</span>
-                {" 設定済みコマンドへ資格情報を渡す\n"}
-                <span className="ok">{"3 判定"}</span>
-                {" 終了コード0 → 許可\n"}
-                <span className="ok">{"4 応答"}</span>
-                {" 200 / セッション発行"}
-              </>
-            ) : (
-              <>
-                <span className="ok">{"1 受信"}</span>
-                {" POST /api/login\n"}
-                <span className="ok">{"2 フック認証"}</span>
-                {" 設定済みコマンドへ資格情報を渡す\n"}
-                <span className="t">{"3 判定"}</span>
-                {" 終了コード1 → 拒否\n"}
-                <span className="t">{"4 応答"}</span>
-                {" 403 Forbidden"}
-              </>
-            )}
+            <span className="ok">{"1 受信"}</span>
+            {" POST /api/login\n"}
+            <span className="ok">{"2 フック認証"}</span>
+            {" 設定済みコマンドへ資格情報を渡す\n"}
+            <span className="t">{"3 判定"}</span>
+            {" hook.action=block → 拒否\n"}
+            <span className="t">{"4 応答"}</span>
+            {" 403 Forbidden"}
           </div>
           {"\n            "}
           <div className="reveal">
             {
-              "ログインは「入力を受け取る → 外部コマンドで判定 → 結果を返す」の順に動きます。次で、この途中に何が起きるかを確かめます。"
+              "両版とも最終的にはログインを拒否します。次は、拒否される前に入力がどのように扱われるかを確かめます。"
             }
           </div>
         </div>
@@ -703,7 +679,7 @@ function PatchComparison({ state: S }) {
   );
 }
 
-function Remediation({ lesson: l, state: S }) {
+function Remediation({ state: S }) {
   const none = (
     <>
       <span style={{ color: "var(--sub)" }}>{"未実行"}</span>
@@ -714,7 +690,9 @@ function Remediation({ lesson: l, state: S }) {
       <div className="card">
         <h3>{"同じ操作を、修正版（2.63.6・8081）で再実行"}</h3>
         <p style={{ margin: "0", fontSize: "14px" }}>
-          {"フェーズ2と同じ入力で、攻撃は防がれ、普通のログインは成功することを確かめます。"}
+          {
+            "フェーズ2と同じ入力を使い、両版でログインが拒否される一方、脆弱版だけに副作用が残ることを確かめます。"
+          }
         </p>
         {"\n            "}
         <div className="cmp" style={{ marginTop: "12px" }}>
@@ -725,7 +703,7 @@ function Remediation({ lesson: l, state: S }) {
                 <>
                   <span className="pill red">{"マーカーが作られた"}</span>
                   <br />
-                  {"入力が危険な実行経路に届きました。"}
+                  {"ログインは拒否されますが、入力が危険な実行経路に届きました。"}
                 </>
               ) : (
                 none
@@ -733,7 +711,7 @@ function Remediation({ lesson: l, state: S }) {
             </div>
             <div className="act">
               <button className="btn" data-a="runV" disabled={S.lab === "running" ? false : true}>
-                {"検証用入力を送る"}
+                {"脆弱版の結果を確認"}
               </button>
             </div>
           </div>
@@ -745,20 +723,10 @@ function Remediation({ lesson: l, state: S }) {
                 <>
                   <span className="pill green">{"防がれた"}</span>
                   <br />
-                  {"マーカーは作られません。"}
+                  {"ログインは拒否され、マーカーも作られません。"}
                 </>
               ) : (
                 none
-              )}
-              {S.normF ? (
-                <>
-                  <hr style={{ border: "0", borderTop: "1px solid var(--line)" }} />
-                  <span className="pill green">{"通常利用は成功"}</span>
-                  <br />
-                  {"demo-user は通常どおりログインできました。"}
-                </>
-              ) : (
-                ""
               )}
             </div>
             <div className="act">
@@ -767,22 +735,19 @@ function Remediation({ lesson: l, state: S }) {
                 data-a="runF"
                 disabled={S.lab === "running" ? false : true}
               >
-                {"同じ入力を送る"}
-              </button>
-              <button className="btn" data-a="normF" disabled={S.lab === "running" ? false : true}>
-                {"通常のログインを試す"}
+                {"修正版の結果を確認"}
               </button>
             </div>
           </div>
         </div>
         {"\n            "}
-        {S.runF && S.normF ? (
+        {S.runV && S.runF ? (
           <>
             <div className="reveal">
               <b>{"確認できました。"}</b>
               <br />
               {
-                "防ぐべきものは防ぎ、必要な使い方は壊していません。最後にDESTROYでLabを片付けましょう。"
+                "両版ともログインは拒否されます。違いは、拒否される前に脆弱版だけでマーカーが作られることです。最後にDESTROYでLabを片付けましょう。"
               }
             </div>
           </>
@@ -807,11 +772,11 @@ function Remediation({ lesson: l, state: S }) {
 
 const phases = [NormalUsage, Reproduction, RequestTrace, PatchComparison, Remediation];
 const phaseLeads = [
-  "まず、このプロダクトが本来どう動くかを確認します。",
+  "このLabではログインが拒否されることが正常な動作です。拒否される前の処理を確認します。",
   "ガイドに沿って検証し、観察結果と、影響を受ける架空データを確認します。",
   "結果から処理をたどり、入力値がコマンドとして扱われる流れを確認します。",
   "実際の修正差分と、自分が見つけた原因との対応を確認します。",
-  "修正版で同じ操作をもう一度行い、防がれることと通常利用の成功を確認します。",
+  "修正版で同じ操作をもう一度行い、両版のログイン拒否と副作用の違いを確認します。",
 ];
 
 export function LessonOutline({ state: S, id = "lesson-outline" }) {

@@ -356,9 +356,6 @@ function App() {
         pendingPhase.current = { phase: Math.max(0, Number(i) - 1) };
         update({ p: Math.max(0, Number(i) - 1) });
         break;
-      case "lg":
-        update({ login: v });
-        break;
       case "hint":
         update({ hint: Math.min(3, state.hint + 1) });
         break;
@@ -382,7 +379,6 @@ function App() {
         break;
       case "runV":
       case "runF":
-      case "normF":
         update({ [a]: true });
         break;
       case "deploy":
@@ -540,7 +536,6 @@ function resetLabState() {
     repro: false,
     runV: false,
     runF: false,
-    normF: false,
     logs: {},
     logLoading: null,
     logFailure: null,

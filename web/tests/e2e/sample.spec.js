@@ -92,10 +92,8 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await page.getByRole("button", { name: "すべて 2", exact: true }).click();
   await page.locator('[data-a="open"]').first().click();
   await startLesson(page);
-  await page.getByRole("button", { name: "成功したログイン" }).click();
-  await expect(page.locator(".log")).toContainText("200 / セッション発行");
-  await page.getByRole("button", { name: "失敗したログイン" }).click();
-  await expect(page.locator(".log")).toContainText("403 Forbidden");
+  await expect(page.locator("#phase-0 .note")).toContainText("有効な認証情報を用意していません");
+  await expect(page.locator("#phase-0 .log")).toContainText("403 Forbidden");
   await page.locator('[data-a="deploy"]').click();
   await expect(page.getByRole("button", { name: "起動する", exact: true })).toBeDisabled();
   await page.getByRole("checkbox").check();
@@ -149,8 +147,7 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await expect(page.locator(".diff .hl")).toHaveCount(2);
   await page.locator('#phase-3 [data-a="next"]').click();
   await atNextBoundary(page, 3);
-  for (const action of ["runV", "runF", "normF"])
-    await page.locator(`[data-a="${action}"]`).click();
+  for (const action of ["runV", "runF"]) await page.locator(`[data-a="${action}"]`).click();
   await expect(page.locator("#phase-4 .reveal")).toContainText("確認できました。");
   await page.locator('#phase-4 [data-a="next"]').click();
   await page.locator('[data-a="stop"]').click();
@@ -240,13 +237,12 @@ for (const width of [1440, 390]) {
     await expect(outline).toContainText("0 / 5 ステップ完了");
     await expect(steps.nth(1)).toBeDisabled();
     await expect(page.locator(".lesson-phase")).toHaveCount(1);
-    await page.getByRole("button", { name: "成功したログイン", exact: true }).click();
     await page.locator('#phase-0 [data-a="next"]').focus();
     await page.keyboard.press("Enter");
     await expect(page.locator(".lesson-phase")).toHaveCount(2);
     await expect(page.locator("#phase-title-1")).toBeFocused();
     await expect(steps.nth(1)).toHaveAttribute("aria-current", "step");
-    await expect(page.locator("#phase-0 .log")).toContainText("200 / セッション発行");
+    await expect(page.locator("#phase-0 .log")).toContainText("403 Forbidden");
     await atNextBoundary(page, 0);
     await page.locator('#phase-1 [data-a="next"]').click();
     await expect(page.locator(".lesson-phase")).toHaveCount(3);
@@ -290,7 +286,7 @@ for (const width of [1440, 390]) {
     await expect(page.locator("#phase-title-0")).toBeFocused();
     await expect(page.locator(".lesson-phase")).toHaveCount(3);
     await expect(outline).toContainText("2 / 5 ステップ完了");
-    await expect(page.locator("#phase-0 .log")).toContainText("200 / セッション発行");
+    await expect(page.locator("#phase-0 .log")).toContainText("403 Forbidden");
   });
 }
 

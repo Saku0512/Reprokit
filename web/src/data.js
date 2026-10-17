@@ -25,7 +25,7 @@ export const L = [
   },
 ];
 export const PH = [
-  ["普通に使ってみる", "通常の動きを知る"],
+  ["ログイン拒否を確認する", "認証前の処理を観察する"],
   ["脆弱性を再現する", "ガイドに沿って検証"],
   ["処理を巻き戻す", "判断が抜けた地点を探す"],
   ["公式パッチと照らす", "修正差分と見比べる"],
@@ -70,7 +70,6 @@ export const initialState = {
   consoleService: "vulnerable",
   ok: false,
   vol: "keep",
-  login: null,
   repro: false,
   hint: 0,
   pos: 5,
@@ -79,6 +78,5 @@ export const initialState = {
   diffHl: null,
   runV: false,
   runF: false,
-  normF: false,
   note: "",
 };
