@@ -1,0 +1,11 @@
+{
+  "name": "reprokit-learner-web",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}
