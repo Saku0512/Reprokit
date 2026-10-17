@@ -1,0 +1,30 @@
+/* 既存の要素スタイルを保つため、Preflightは読み込まない。 */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@source "../*.html";
+@source "./";
+/* 既存の進捗表示クラスと同名のユーティリティを生成しない。 */
+@source not inline("ring");
+
+@theme inline {
+  --color-canvas: var(--bg);
+  --color-panel: var(--panel);
+  --color-ink: var(--ink);
+  --color-subtle: var(--sub);
+  --color-line: var(--line);
+  --color-brand: var(--teal);
+  --color-brand-strong: var(--teal-d);
+  --color-brand-soft: var(--tealbg);
+  --color-warning: var(--amber);
+  --color-warning-soft: var(--amberbg);
+  --color-danger: var(--red);
+  --color-danger-soft: var(--redbg);
+  --color-success: var(--green);
+  --color-success-soft: var(--greenbg);
+  --color-code: var(--code);
+  --color-code-ink: var(--codeink);
+  --color-muted: var(--muted);
+  --color-divider: var(--border);
+  --color-action: var(--blue);
+}
