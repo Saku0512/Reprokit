@@ -7,9 +7,9 @@ import tailwindcss from "@tailwindcss/postcss";
 export async function buildFrontend({ write = true, logLevel } = {}) {
   await build({
     entryPoints: {
-      app: new URL("../src/learner/main.jsx", import.meta.url).pathname,
-      runner: new URL("../src/shared/base.css", import.meta.url).pathname,
-      admin: new URL("../src/admin/admin.css", import.meta.url).pathname,
+      app: new URL("../src/learner/main.tsx", import.meta.url).pathname,
+      runner: new URL("../src/runner/main.ts", import.meta.url).pathname,
+      admin: new URL("../src/admin/main.ts", import.meta.url).pathname,
     },
     outdir: new URL("../generated/", import.meta.url).pathname,
     write,

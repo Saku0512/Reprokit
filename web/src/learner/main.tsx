@@ -1,9 +1,13 @@
+import type { MouseEvent } from "react";
+import type { LearnerState } from "./lesson-data.ts";
+import type { LabSession, LabRef } from "../shared/types.ts";
+import { requiredElement } from "../shared/dom.ts";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { initialState } from "./lesson-data.js";
-import { LabConsole, LessonList, LessonDetail, LessonOutline } from "./lesson-views.jsx";
-import { LabModal } from "./lab-modal.jsx";
-import { StudyApi, canStart } from "../shared/study-api.js";
+import { initialState } from "./lesson-data.ts";
+import { LabConsole, LessonList, LessonDetail, LessonOutline } from "./lesson-views.tsx";
+import { LabModal } from "./lab-modal.tsx";
+import { ApiError, StudyApi, canStart } from "../shared/study-api.ts";
 import "@fontsource/noto-sans-jp/400.css";
 import "@fontsource/noto-sans-jp/500.css";
 import "@fontsource/noto-sans-jp/700.css";
@@ -11,17 +15,19 @@ import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
 import "./learner.css";
 
-const api = new StudyApi(document.querySelector('meta[name="reprokit-session"]')?.content ?? "");
+const api = new StudyApi(
+  document.querySelector<HTMLMetaElement>('meta[name="reprokit-session"]')?.content ?? "",
+);
 const labSessionStorageKey = "reprokit:sample:filebrowser:lab-session";
 
-function labState(session) {
+function labState(session: LabSession | null): LearnerState["lab"] {
   if (session?.state === "running") return "running";
   if (session?.state === "stopped") return "stopped";
   if (session?.state === "error") return "failed";
   return "ready";
 }
 
-function rememberLabSession(session) {
+function rememberLabSession(session: LabSession) {
   if (!session?.labSessionId) return;
   try {
     window.localStorage.setItem(labSessionStorageKey, session.labSessionId);
@@ -44,14 +50,15 @@ function App() {
   const [message, setMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [consoleOpen, setConsoleOpen] = useState(false);
-  const menu = useRef(null);
-  const consoleDialog = useRef(null);
-  const view = useRef(null);
-  const pendingPhase = useRef(null);
-  const deployProgressTimer = useRef(null);
+  const menu = useRef<HTMLDialogElement>(null);
+  const consoleDialog = useRef<HTMLDialogElement>(null);
+  const view = useRef<HTMLDivElement>(null);
+  const pendingPhase = useRef<{ phase: number; previous?: number } | null>(null);
+  const deployProgressTimer = useRef<number | null>(null);
   const deployProgressValue = useRef(0);
-  const update = (patch) => setState((previous) => ({ ...previous, ...patch }));
-  const trackPhase = useCallback((phase) => {
+  const update = (patch: Partial<LearnerState>) =>
+    setState((previous) => ({ ...previous, ...patch }));
+  const trackPhase = useCallback((phase: number) => {
     setState((previous) => (previous.p === phase ? previous : { ...previous, p: phase }));
   }, []);
 
@@ -81,7 +88,7 @@ function App() {
   useLayoutEffect(() => {
     if (pendingPhase.current === null) return;
     const { phase, previous } = pendingPhase.current;
-    const heading = view.current?.querySelector(`#phase-title-${phase}`);
+    const heading = view.current?.querySelector<HTMLElement>(`#phase-title-${phase}`);
     pendingPhase.current = null;
     if (!heading) return;
     heading.focus({ preventScroll: true });
@@ -89,10 +96,12 @@ function App() {
       ? "instant"
       : "smooth";
     const previousBlock =
-      previous === undefined ? null : view.current.querySelector(`#phase-${previous}`);
+      previous === undefined
+        ? null
+        : view.current?.querySelector<HTMLElement>(`#phase-${previous}`);
     if (previousBlock) {
       // 「次へ」は読み終えた章の下端を基準にし、次章の余白と導入を残す。
-      const detail = previousBlock.closest(".detail");
+      const detail = previousBlock.closest<HTMLElement>(".detail")!;
       detail.scrollTo({
         top:
           detail.scrollTop +
@@ -121,7 +130,7 @@ function App() {
   }, [message]);
   useEffect(() => {
     if (!state.modal) return;
-    const escape = (event) => {
+    const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape") update({ modal: null });
     };
     document.addEventListener("keydown", escape);
@@ -156,13 +165,13 @@ function App() {
     };
   }, []);
 
-  function advanceDeployProgress(target) {
+  function advanceDeployProgress(target: number): Promise<void> {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       deployProgressValue.current = target;
       update({ seg: target });
       return Promise.resolve();
     }
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve) => {
       if (deployProgressTimer.current) window.clearInterval(deployProgressTimer.current);
       const timer = window.setInterval(() => {
         const seg = Math.min(target, deployProgressValue.current + 1);
@@ -178,16 +187,16 @@ function App() {
     });
   }
 
-  async function withDeployProgress(operation, target) {
+  async function withDeployProgress<T>(operation: Promise<T>, target: number): Promise<T> {
     // 通信失敗も直ちに捕捉し、進捗表示の完了後に同じエラーとして扱う。
     const result = operation.then(
-      (value) => ({ value }),
-      (error) => ({ error }),
+      (value) => ({ value, error: undefined }),
+      (error: unknown) => ({ value: undefined, error }),
     );
     await advanceDeployProgress(target);
     const { value, error } = await result;
     if (error) throw error;
-    return value;
+    return value as T;
   }
 
   async function deployLab() {
@@ -218,7 +227,7 @@ function App() {
       update({ lab: "running", runtime, seg: 20 });
       setMessage("Labが起動しました。「別タブで開く」から画面を開けます");
     } catch (error) {
-      const runtime = error?.session;
+      const runtime = error instanceof ApiError ? error.session : undefined;
       if (runtime?.labSessionId) rememberLabSession(runtime);
       update({
         lab: runtime ? labState(runtime) : "ready",
@@ -245,7 +254,7 @@ function App() {
       });
       setMessage("Labを停止しました");
     } catch (error) {
-      const runtime = error?.session;
+      const runtime = error instanceof ApiError ? error.session : undefined;
       if (runtime?.labSessionId) rememberLabSession(runtime);
       update({
         lab: runtime ? labState(runtime) : "running",
@@ -269,7 +278,7 @@ function App() {
       update({ ...resetLabState(), lab: "ready", runtime: null });
       setMessage(`削除しました（Volume：${state.vol === "keep" ? "保持" : "削除"}）`);
     } catch (error) {
-      const runtime = error?.session;
+      const runtime = error instanceof ApiError ? error.session : undefined;
       if (runtime?.labSessionId) rememberLabSession(runtime);
       update({
         lab: runtime ? labState(runtime) : "failed",
@@ -280,7 +289,7 @@ function App() {
     }
   }
 
-  async function showLogs(service) {
+  async function showLogs(service: LabRef) {
     if (!state.runtime?.labSessionId || state.lab !== "running") return;
     update({ logLoading: service, logFailure: null });
     try {
@@ -298,7 +307,7 @@ function App() {
     }
   }
 
-  async function listTmp(service) {
+  async function listTmp(service: LabRef) {
     if (!state.runtime?.labSessionId || state.lab !== "running") return;
     const key = `${service}:list_tmp`;
     update({ actionLoading: key, actionFailure: null });
@@ -318,7 +327,7 @@ function App() {
     }
   }
 
-  async function observeService(service) {
+  async function observeService(service: LabRef) {
     if (!state.runtime?.labSessionId || state.lab !== "running") return;
     const key = `${service}:list_tmp`;
     update({
@@ -359,9 +368,10 @@ function App() {
     }));
   }
 
-  async function action(event) {
-    const target = event.target.closest("[data-a]");
-    if (!target || target.disabled) return;
+  async function action(event: MouseEvent<HTMLDivElement>) {
+    const target =
+      event.target instanceof Element ? event.target.closest<HTMLElement>("[data-a]") : null;
+    if (!target || (target instanceof HTMLButtonElement && target.disabled)) return;
     const { a, v, i } = target.dataset;
     switch (a) {
       case "home":
@@ -375,7 +385,7 @@ function App() {
         setState((previous) => ({ ...previous, p: 0, revealed: Math.max(0, previous.revealed) }));
         break;
       case "cat":
-        update({ cat: v });
+        update({ cat: v ?? "all" });
         break;
       case "go":
         if (Number(i) > state.revealed) break;
@@ -420,7 +430,7 @@ function App() {
         update({ pos: Math.min(5, state.pos + 1), pick: Math.min(5, state.pos + 1) });
         break;
       case "hl":
-        update({ diffHl: v });
+        update({ diffHl: v ?? null });
         break;
       case "runV":
       case "runF":
@@ -446,7 +456,7 @@ function App() {
         break;
       case "copy":
         try {
-          await navigator.clipboard.writeText(v);
+          await navigator.clipboard.writeText(v ?? "");
           setMessage("コピーしました");
         } catch {
           setMessage("コピーできませんでした");
@@ -459,10 +469,10 @@ function App() {
         setConsoleOpen(false);
         break;
       case "logs":
-        await showLogs(v);
+        if (v === "vulnerable" || v === "fixed") await showLogs(v);
         break;
       case "list-tmp":
-        await listTmp(v);
+        if (v === "vulnerable" || v === "fixed") await listTmp(v);
         break;
     }
   }
@@ -573,7 +583,7 @@ function App() {
   );
 }
 
-function resetLabState() {
+function resetLabState(): Partial<LearnerState> {
   return {
     repro: false,
     runV: false,
@@ -587,4 +597,4 @@ function resetLabState() {
   };
 }
 
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(requiredElement("#root")).render(<App />);

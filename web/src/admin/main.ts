@@ -1,3 +1,6 @@
+import type { Assignment, AssignmentStatus, Material, Submission } from "../shared/types.ts";
+import { requiredElement, errorMessage } from "../shared/dom.ts";
+import "./admin.css";
 import {
   STATUS_META,
   answerPresentation,
@@ -6,23 +9,23 @@ import {
   filterAssignments,
   materialForAssignment,
   parseLearnerIDs,
-} from "./assignment-model.js";
+} from "./assignment-model.ts";
 
-const loginPanel = document.querySelector("#login-panel");
-const dashboard = document.querySelector("#dashboard");
-const notice = document.querySelector("#admin-notice");
-const assignmentToast = document.querySelector("#assignment-toast");
-let assignmentToastTimer;
-const assignmentForm = document.querySelector("#assignment-form");
-const materialSelect = document.querySelector("#material");
-const dueInput = document.querySelector("#due");
-const statusFilter = document.querySelector("#status-filter");
-const assignmentSearch = document.querySelector("#assignment-search");
-let materials = [];
-let assignments = [];
+const loginPanel = requiredElement("#login-panel");
+const dashboard = requiredElement("#dashboard");
+const notice = requiredElement("#admin-notice");
+const assignmentToast = requiredElement("#assignment-toast");
+let assignmentToastTimer: ReturnType<typeof setTimeout> | undefined;
+const assignmentForm = requiredElement<HTMLFormElement>("#assignment-form");
+const materialSelect = requiredElement<HTMLSelectElement>("#material");
+const dueInput = requiredElement<HTMLInputElement>("#due");
+const statusFilter = requiredElement<HTMLSelectElement>("#status-filter");
+const assignmentSearch = requiredElement<HTMLInputElement>("#assignment-search");
+let materials: Material[] = [];
+let assignments: Assignment[] = [];
 let selectedAssignmentID = "";
 
-async function call(path, options = {}) {
+async function call<T = void>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
     credentials: "same-origin",
     cache: "no-store",
@@ -34,26 +37,30 @@ async function call(path, options = {}) {
     },
   });
   if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`);
-  if (response.status === 204) return null;
+  if (response.status === 204) return null as T;
   return response.json();
 }
 
-async function run(task) {
+async function run(task: () => Promise<void>) {
   try {
     await task();
   } catch (error) {
-    notice.textContent = `操作に失敗しました: ${error.message}`;
+    notice.textContent = `操作に失敗しました: ${errorMessage(error)}`;
   }
 }
 
-function textElement(name, className, value) {
+function textElement<K extends keyof HTMLElementTagNameMap>(
+  name: K,
+  className: string,
+  value: string,
+) {
   const element = document.createElement(name);
   if (className) element.className = className;
-  element.textContent = value;
+  element.textContent = String(value);
   return element;
 }
 
-function cell(row, value, className = "", label = "") {
+function cell(row: HTMLTableRowElement, value: string, className = "", label = "") {
   const item = textElement("td", className, value);
   if (label) item.dataset.label = label;
   row.append(item);
@@ -64,36 +71,36 @@ function selectedMaterial() {
   return materials[Number(materialSelect.value)];
 }
 
-function materialName(material) {
+function materialName(material?: Material) {
   if (!material) return "教材情報なし";
   const evidence = material.cves?.join("、") || material.lessonId.split("/").at(-1);
   return `${material.product} / ${evidence}`;
 }
 
-function formatDate(value) {
+function formatDate(value: string) {
   const date = new Date(value);
   return Number.isFinite(date.getTime())
     ? date.toLocaleString("ja-JP", { dateStyle: "medium", timeStyle: "short" })
     : "日時不明";
 }
 
-function localDateTimeValue(date) {
+function localDateTimeValue(date: Date) {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 }
 
 function renderMaterials() {
-  const list = document.querySelector("#materials");
+  const list = requiredElement("#materials");
   list.replaceChildren();
   materialSelect.replaceChildren();
   if (materials.length === 0) {
     list.append(textElement("p", "empty-state", "割り当て可能な教材がありません。"));
     materialSelect.disabled = true;
-    assignmentForm.querySelector("button[type='submit']").disabled = true;
+    requiredElement<HTMLButtonElement>("button[type='submit']", assignmentForm).disabled = true;
     updateCompletionRule();
     return;
   }
   materialSelect.disabled = false;
-  assignmentForm.querySelector("button[type='submit']").disabled = false;
+  requiredElement<HTMLButtonElement>("button[type='submit']", assignmentForm).disabled = false;
   for (const [index, material] of materials.entries()) {
     const article = document.createElement("article");
     article.className = "material-item";
@@ -116,8 +123,7 @@ function renderMaterials() {
 }
 
 function updateCompletionRule() {
-  document.querySelector("#completion-rule").textContent =
-    completionDescription(selectedMaterial());
+  requiredElement("#completion-rule").textContent = completionDescription(selectedMaterial());
 }
 
 function renderSummary() {
@@ -131,22 +137,22 @@ function renderSummary() {
     "metric-needs-retry": summary.counts.needs_retry,
   };
   for (const [id, value] of Object.entries(metrics))
-    document.querySelector(`#${id}`).textContent = value;
-  document.querySelector("#completion-rate").textContent = `完了率 ${summary.completionRate}%`;
-  document.querySelector("#completion-meter-value").style.width = `${summary.completionRate}%`;
-  document.querySelector("#overdue-count").textContent = `期限超過 ${summary.overdue}件`;
-  document.querySelector("#summary-description").textContent = summary.total
+    requiredElement(`#${id}`).textContent = String(value);
+  requiredElement("#completion-rate").textContent = `完了率 ${summary.completionRate}%`;
+  requiredElement("#completion-meter-value").style.width = `${summary.completionRate}%`;
+  requiredElement("#overdue-count").textContent = `期限超過 ${summary.overdue}件`;
+  requiredElement("#summary-description").textContent = summary.total
     ? `${summary.total}件の割り当てを状態別に集計しています。`
     : "割り当てを作成すると、ここに進捗が表示されます。";
 }
 
-function statusBadge(status) {
+function statusBadge(status: AssignmentStatus) {
   const meta = STATUS_META[status] ?? { label: status, tone: "neutral" };
   return textElement("span", `status-badge status-${meta.tone}`, meta.label);
 }
 
 function renderAssignments() {
-  const body = document.querySelector("#assignments");
+  const body = requiredElement("#assignments");
   body.replaceChildren();
   const visible = filterAssignments(
     assignments,
@@ -154,7 +160,7 @@ function renderAssignments() {
     assignmentSearch.value,
     materials,
   ).sort((left, right) => Date.parse(left.dueAt) - Date.parse(right.dueAt));
-  document.querySelector("#assignment-count").textContent =
+  requiredElement("#assignment-count").textContent =
     `${visible.length}件 / 全${assignments.length}件`;
   if (visible.length === 0) {
     const row = document.createElement("tr");
@@ -195,12 +201,12 @@ function renderAssignments() {
 }
 
 async function refreshAssignments() {
-  assignments = await call("/api/training/assignments");
+  assignments = await call<Assignment[]>("/api/training/assignments");
   renderSummary();
   renderAssignments();
 }
 
-function renderAnswer(questionID, answer) {
+function renderAnswer(questionID: string, answer: string) {
   const meta = answerPresentation(questionID);
   const wrapper = document.createElement("div");
   wrapper.className = "submission-answer";
@@ -215,17 +221,17 @@ function renderAnswer(questionID, answer) {
   return wrapper;
 }
 
-async function showSubmissions(assignmentID) {
+async function showSubmissions(assignmentID: string) {
   selectedAssignmentID = assignmentID;
   renderAssignments();
   const assignment = assignments.find((item) => item.id === assignmentID);
   const material = assignment ? materialForAssignment(assignment, materials) : undefined;
-  const values = await call(`/api/training/assignments/${assignmentID}/submissions`);
-  const root = document.querySelector("#submissions");
-  const context = document.querySelector("#submission-context");
+  const values = await call<Submission[]>(`/api/training/assignments/${assignmentID}/submissions`);
+  const root = requiredElement("#submissions");
+  const context = requiredElement("#submission-context");
   root.replaceChildren();
   context.textContent = assignment ? `${assignment.learnerId} / ${materialName(material)}` : "";
-  document.querySelector("#submission-help").textContent = values.length
+  requiredElement("#submission-help").textContent = values.length
     ? `${values.length}件の提出を新しい順に表示しています。`
     : "この割り当ての提出はまだありません。";
   if (values.length === 0) {
@@ -287,7 +293,7 @@ async function showSubmissions(assignmentID) {
     }
     root.append(section);
   }
-  document.querySelector("#submission-panel").scrollIntoView({
+  requiredElement("#submission-panel").scrollIntoView({
     behavior: "smooth",
     block: "start",
   });
@@ -295,8 +301,8 @@ async function showSubmissions(assignmentID) {
 
 async function load() {
   const [materialRecords, assignmentRecords] = await Promise.all([
-    call("/api/training/materials"),
-    call("/api/training/assignments"),
+    call<Material[]>("/api/training/materials"),
+    call<Assignment[]>("/api/training/assignments"),
   ]);
   materials = materialRecords;
   assignments = assignmentRecords;
@@ -305,14 +311,14 @@ async function load() {
   renderAssignments();
 }
 
-document.querySelector("#login-form").addEventListener("submit", async (event) => {
+requiredElement("#login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
     await call("/api/admin/login", {
       method: "POST",
       body: JSON.stringify({
-        username: document.querySelector("#username").value,
-        password: document.querySelector("#password").value,
+        username: requiredElement<HTMLInputElement>("#username").value,
+        password: requiredElement<HTMLInputElement>("#password").value,
       }),
     });
     loginPanel.hidden = true;
@@ -329,11 +335,11 @@ assignmentForm.addEventListener("submit", async (event) => {
   await run(async () => {
     const material = selectedMaterial();
     if (!material) throw new Error("教材を選択してください。");
-    const learnerIDs = parseLearnerIDs(document.querySelector("#learners").value);
+    const learnerIDs = parseLearnerIDs(requiredElement<HTMLTextAreaElement>("#learners").value);
     const dueAt = new Date(dueInput.value);
     if (!Number.isFinite(dueAt.getTime()) || dueAt <= new Date())
       throw new Error("受講期限は現在より後に設定してください。");
-    const created = await call("/api/training/assignments", {
+    const created = await call<Assignment[]>("/api/training/assignments", {
       method: "POST",
       body: JSON.stringify({
         lessonId: material.lessonId,
@@ -341,10 +347,10 @@ assignmentForm.addEventListener("submit", async (event) => {
         learnerIds: learnerIDs,
         cohortId: "",
         dueAt: dueAt.toISOString(),
-        allowRetry: document.querySelector("#retry").checked,
+        allowRetry: requiredElement<HTMLInputElement>("#retry").checked,
       }),
     });
-    document.querySelector("#learners").value = "";
+    requiredElement<HTMLTextAreaElement>("#learners").value = "";
     clearTimeout(assignmentToastTimer);
     assignmentToast.textContent = `${created.length}名に「${materialName(material)}」を割り当てました。`;
     assignmentToast.classList.add("is-visible");
@@ -360,14 +366,14 @@ materialSelect.addEventListener("change", updateCompletionRule);
 statusFilter.addEventListener("change", renderAssignments);
 assignmentSearch.addEventListener("input", renderAssignments);
 
-document.querySelector("#logout").addEventListener("click", () => {
+requiredElement("#logout").addEventListener("click", () => {
   void run(async () => {
     await call("/api/admin/logout", { method: "POST" });
     location.reload();
   });
 });
 
-document.querySelector("#download").addEventListener("click", () => {
+requiredElement("#download").addEventListener("click", () => {
   void run(async () => {
     const response = await fetch("/api/training/exports/results.csv", {
       credentials: "same-origin",
@@ -387,8 +393,10 @@ defaultDue.setHours(18, 0, 0, 0);
 dueInput.min = localDateTimeValue(new Date());
 dueInput.value = localDateTimeValue(defaultDue);
 
-const adminConfig = await call("/api/admin/config").catch(() => ({ oidcEnabled: false }));
-document.querySelector("#sso-login").hidden = !adminConfig.oidcEnabled;
+const adminConfig = await call<{ oidcEnabled: boolean }>("/api/admin/config").catch(() => ({
+  oidcEnabled: false,
+}));
+requiredElement("#sso-login").hidden = !adminConfig.oidcEnabled;
 if ((await fetch("/api/admin/session", { credentials: "same-origin" })).ok) {
   loginPanel.hidden = true;
   dashboard.hidden = false;

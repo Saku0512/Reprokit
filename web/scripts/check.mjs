@@ -16,4 +16,4 @@ for (const file of files.filter(
 console.log("lint: JavaScript syntax checks passed");
 
 await buildFrontend({ write: false, logLevel: "error" });
-console.log("lint: React JSX, imports, and Tailwind CSS passed");
+console.log("lint: TypeScript/TSX bundles, imports, and Tailwind CSS passed");

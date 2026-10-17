@@ -19,11 +19,11 @@ Runnerの接続先がない場合、Lab操作は成功表示に切り替わら�
 
 RunnerなしでReact画面を確認する場合は `npm --prefix web run dev:external` を実行する。
 開発配信では初回アクセス時にReactと全画面のTailwind CSSをビルドする。ソース変更後はサーバーを再起動する。
-`npm run web:build` はReact、CSS、フォントを `web/dist/generated/` に同梱する。
+`npm run web:build` は全画面のJavaScript、CSS、フォントを `web/dist/generated/` に同梱する。
 フォントはサンプルと同じNoto Sans JP / IBM Plex Monoを使用し、Google Fontsへの通信は不要。
 
-`src/learner/main.jsx` が状態管理、`lesson-views.jsx` が一覧と各学習フェーズ、
-`lab-modal.jsx` が確認ダイアログ、`lesson-data.js` がサンプルの固定データを担当する。
+`src/learner/main.tsx` が状態管理、`lesson-views.tsx` が一覧と各学習フェーズ、
+`lab-modal.tsx` が確認ダイアログ、`lesson-data.ts` がサンプルの固定データを担当する。
 「影響を受けるデータ」は各教材の `affectedData` に `{ type, content }` の配列で設定する。
 空配列または未設定なら「-」と表示する。
 `src/learner/learner.css`、`src/shared/base.css`、`src/admin/admin.css` はTailwind CSSの `@apply` で各画面のスタイルを定義する。
@@ -41,20 +41,20 @@ HTMLの直接挿入は使わず、JSXで描画する。
 web/
 ├── src/
 │   ├── learner/              # React受講画面（/）
-│   │   ├── main.jsx          # 入口と状態管理
-│   │   ├── lesson-views.jsx  # 教材一覧・詳細・Lab表示
-│   │   ├── lab-modal.jsx     # Lab操作の確認ダイアログ
-│   │   ├── lesson-data.js    # サンプル教材データ
+│   │   ├── main.tsx          # 入口と状態管理
+│   │   ├── lesson-views.tsx  # 教材一覧・詳細・Lab表示
+│   │   ├── lab-modal.tsx     # Lab操作の確認ダイアログ
+│   │   ├── lesson-data.ts    # サンプル教材データ
 │   │   └── learner.css
 │   ├── runner/              # Runner接続画面（/runner）
-│   │   └── main.js
+│   │   └── main.ts
 │   ├── admin/               # 研修管理画面（/admin）
-│   │   ├── main.js
-│   │   ├── assignment-model.js
+│   │   ├── main.ts
+│   │   ├── assignment-model.ts
 │   │   └── admin.css
 │   └── shared/              # 画面間で使うAPI・保存処理・スタイル
-│       ├── study-api.js
-│       ├── storage.js
+│       ├── study-api.ts
+│       ├── storage.ts
 │       ├── base.css         # Runner・管理画面の共通スタイル
 │       └── tailwind.css
 ├── assets/                  # ロゴなどの静的素材
@@ -68,8 +68,22 @@ web/
 └── launch.mjs               # Go RunnerとWebの起動
 ```
 
-画面ごとの入口は `main.js` / `main.jsx`、その他のファイル名は役割を表すkebab-caseにそろえる。
+画面ごとの入口は `main.ts` / `main.tsx`、その他のファイル名は役割を表すkebab-caseにそろえる。
 `generated/` と `dist/` はビルド生成物で、直接編集しない。
+
+## TypeScriptの型検査と配信
+
+`src/` のブラウザコードはTypeScriptとTSXで記述する。
+`tsconfig.json` の `strict` を有効にし、`npm --prefix web run typecheck` で型を検査する。
+型検査は `lint` にも含まれ、ルートの `npm run verify` と `npm run verify:full` から実行される。
+esbuildは型を検査しないため、バンドル成功だけを型検査の代わりにしない。
+型設定は[TypeScript公式のBundler向け設定](https://www.typescriptlang.org/docs/handbook/modules/guides/choosing-compiler-options)に合わせる。
+
+`src/shared/types.ts` は既存Go APIに対応するブラウザ用の型であり、API契約や実行時検証を変更しない。
+ReactのProps、画面状態、DOM操作にも型を付ける。
+画面は `/generated/app.js`、`/generated/runner.js`、`/generated/admin.js` へバンドルし、開発配信でも同じ成果物を使う。
+配布先へTSソースをコピーせず、ブラウザはJavaScriptだけを実行する。
+Nodeの起動スクリプトとテストはJavaScriptのまま維持し、Nodeテストは `tsx` ローダーでTSモジュールを読み込む。
 
 ## Runner接続画面
 
@@ -191,7 +205,7 @@ npm run web:test:e2e:filebrowser
 npm run verify:full
 ```
 
-lintはJavaScript構文検査。
+lintはTypeScriptのstrict型検査、NodeスクリプトのJavaScript構文検査、全画面のバンドル検査を実行する。
 整形検査はルートの固定Prettierを使う `npm run format:check` が担当する。
 全体検証スクリプトは `mapfile` を使うためBash 4以上が必要。
 macOS標準Bash 3の場合は、Bash 4以上の `bin/` をPATHの先頭に指定して実行する。

@@ -1,49 +1,88 @@
+import type {
+  Assignment,
+  Container,
+  LabRef,
+  LabSession,
+  LabSnapshot,
+  LabState,
+  LearnerLesson,
+  MarkerObservation,
+  StudySession,
+  VolumePolicy,
+} from "../shared/types.ts";
+import { requiredElement, errorMessage } from "../shared/dom.ts";
+import "../shared/base.css";
 import {
+  ApiError,
   StudyApi,
   LESSON_ID,
   canStart,
   endpointURL,
   hasComparisonEndpoints,
   stateLabels,
-} from "../shared/study-api.js";
-import { localRecord, saveLocal } from "../shared/storage.js";
+} from "../shared/study-api.ts";
+import { localRecord, saveLocal } from "../shared/storage.ts";
 
-const api = new StudyApi(document.querySelector('meta[name="reprokit-session"]').content);
-const app = document.querySelector("#app");
-const notice = document.querySelector("#notice");
-const errorBox = document.querySelector("#error");
-const dialog = document.querySelector("#confirmation");
-let lesson,
-  study,
-  training,
-  storageKey,
-  drafts = {},
-  bindings = {},
-  labs = {},
-  labErrors = {},
-  markers = {};
-let resumeId;
+const api = new StudyApi(requiredElement<HTMLMetaElement>('meta[name="reprokit-session"]').content);
+const app = requiredElement("#app");
+const notice = requiredElement("#notice");
+const errorBox = requiredElement("#error");
+const dialog = requiredElement<HTMLDialogElement>("#confirmation");
+type TextDraftKey =
+  `prediction:${string}` | `observation:${string}` | `answer:${string}` | "reflection";
+type Drafts = Partial<Record<TextDraftKey, string>> &
+  Partial<Record<`predicted:${string}`, boolean>>;
+interface SavedRecord {
+  studyId?: string;
+  bindings?: Partial<Record<LabRef, string>>;
+  drafts?: Drafts;
+}
+interface MenuItem {
+  id: string;
+  title: string;
+  index?: number;
+}
+const labRefs: LabRef[] = ["vulnerable", "fixed"];
+let lesson: LearnerLesson;
+let study: StudySession | undefined;
+let training: { assignment: Assignment };
+let storageKey: string;
+let drafts: Drafts = {};
+let bindings: Partial<Record<LabRef, string>> = {};
+let labs: Partial<Record<LabRef, LabSnapshot>> = {};
+let labErrors: Partial<Record<LabRef, string>> = {};
+let markers: Partial<Record<LabRef, MarkerObservation>> = {};
+let resumeId: string | undefined;
+
+function currentStudy(): StudySession {
+  if (!study) throw new Error("受講セッションがありません。");
+  return study;
+}
+
 let generation = 0,
   polling = false;
 let page = "overview",
   busy = false,
   loadFailed = false;
 const titles = { vulnerable: "脆弱版", fixed: "修正版" };
-const escape = (value) =>
+const escape = (value: unknown) =>
   String(value ?? "").replace(
     /[&<>"']/g,
-    (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char],
+    (char) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] ?? char,
   );
-const list = (values) => `<ul>${values.map((value) => `<li>${escape(value)}</li>`).join("")}</ul>`;
-const button = (id, text, attrs = "") => `<button id="${id}" ${attrs}>${text}</button>`;
-const text = (value) => `<p>${escape(value)}</p>`;
+const list = (values: string[]) =>
+  `<ul>${values.map((value) => `<li>${escape(value)}</li>`).join("")}</ul>`;
+const button = (id: string, text: string, attrs = "") =>
+  `<button id="${id}" ${attrs}>${text}</button>`;
+const text = (value: unknown) => `<p>${escape(value)}</p>`;
 
-function announce(message) {
+function announce(message: string) {
   notice.textContent = message;
 }
-function showError(error) {
+function showError(error: unknown) {
   errorBox.hidden = false;
-  errorBox.textContent = `${error.message} 操作結果が不明な場合は「状態を更新する」で確認してください。`;
+  errorBox.textContent = `${errorMessage(error)} 操作結果が不明な場合は「状態を更新する」で確認してください。`;
 }
 function persist() {
   if (!saveLocal(storageKey, { studyId: study?.id ?? resumeId, bindings, drafts })) {
@@ -52,10 +91,10 @@ function persist() {
       "ブラウザに保存できません。このタブを閉じる前に回答を保存してください。Lab Session IDも控えてください。";
   }
 }
-function stepIndex(id) {
+function stepIndex(id: string) {
   return lesson.spec.steps.findIndex((step) => step.id === id);
 }
-function menu() {
+function menu(): MenuItem[] {
   const steps = lesson.spec.steps.filter((step) => step.id !== "cleanup");
   return [
     { id: "overview", title: "教材と学習目標" },
@@ -66,15 +105,15 @@ function menu() {
     { id: "reflection", title: "振り返りを記録する" },
   ];
 }
-function unlocked(item) {
+function unlocked(item: MenuItem) {
   if (item.id === "overview") return true;
   if (!study) return false;
-  if (item.id === "reflection") return study.stepIndex >= lesson.spec.steps.length;
-  if (item.index !== undefined) return item.index <= study.stepIndex;
-  return study.stepIndex >= stepIndex("cleanup");
+  if (item.id === "reflection") return currentStudy().stepIndex >= lesson.spec.steps.length;
+  if (item.index !== undefined) return item.index <= currentStudy().stepIndex;
+  return currentStudy().stepIndex >= stepIndex("cleanup");
 }
 
-function render(focusId) {
+function render(focusId?: string) {
   if (!lesson) return;
   const items = menu();
   const active = items.find((item) => item.id === page);
@@ -119,8 +158,8 @@ function content() {
     <p>観察できたことと未確認のことを分け、原因と対策を自分の言葉で説明してください。回答はこの端末の受講セッションAPIへ保存します。</p>
     ${spec.assessment
       .map((question, index) => {
-        const answer = drafts[`answer:${question.id}`] ?? study.answers[question.id] ?? "";
-        return `<section class="question"><label for="answer-${question.id}"><strong>問${index + 1}</strong> ${escape(question.question)}</label><textarea id="answer-${question.id}" data-draft="answer:${question.id}" rows="5" maxlength="12000">${escape(answer)}</textarea><div class="answer-status">${study.answers[question.id] === answer && answer.trim() ? "API保存済み" : "未保存の回答"}</div></section>`;
+        const answer = drafts[`answer:${question.id}`] ?? currentStudy().answers[question.id] ?? "";
+        return `<section class="question"><label for="answer-${question.id}"><strong>問${index + 1}</strong> ${escape(question.question)}</label><textarea id="answer-${question.id}" data-draft="answer:${question.id}" rows="5" maxlength="12000">${escape(answer)}</textarea><div class="answer-status">${currentStudy().answers[question.id] === answer && answer.trim() ? "API保存済み" : "未保存の回答"}</div></section>`;
       })
       .join("")}
     <div class="actions">${button("save-answers", "回答を保存する", 'class="primary"')}</div>
@@ -128,14 +167,15 @@ function content() {
   if (page === "reflection")
     return `
     <div class="callout"><h3>学習手順を記録しました</h3><p>Labの起動や回答保存だけでは研修修了と判定しません。未確認の観察がある場合は、研修担当者へ共有してください。</p></div>
-    <h3>確認課題の保存</h3>${text(spec.assessment.every((question) => study.answers[question.id]?.trim()) ? "全問の回答がAPIに保存されています。" : "未回答の課題があります。確認課題の画面で保存してください。")}
+    <h3>確認課題の保存</h3>${text(spec.assessment.every((question) => currentStudy().answers[question.id]?.trim()) ? "全問の回答がAPIに保存されています。" : "未回答の課題があります。確認課題の画面で保存してください。")}
     <h3>Labの後片付け</h3>${text(cleanupSummary())}
     <label for="reflection">開発やコードレビューで次に確認すること</label><textarea id="reflection" data-draft="reflection" rows="5">${escape(drafts.reflection ?? "")}</textarea>
     <p class="muted">振り返りはこのブラウザの下書きに保存します。</p>${button("save-reflection", "振り返りを記録する", 'class="primary"')}`;
   const step = spec.steps.find((step) => step.id === page);
+  if (!step) throw new Error("学習ステップが見つかりません。");
   const predicted = drafts[`predicted:${page}`];
   const observed = drafts[`observation:${page}`] ?? "";
-  const revealed = study.hints?.[page] ?? [];
+  const revealed = currentStudy().hints?.[page] ?? [];
   const markerRef =
     page === "observe-marker" ? "vulnerable" : page === "compare-fixed" ? "fixed" : null;
   return `
@@ -157,7 +197,7 @@ function content() {
     <div class="actions">${button("previous", "前の画面へ戻る")}${button("next", "メモを記録して次へ進む", 'class="primary"')}</div>`;
 }
 
-function markerPanel(ref) {
+function markerPanel(ref: LabRef) {
   const marker = markers[ref];
   const lab = labs[ref];
   const ready = lab?.state === "running";
@@ -169,7 +209,7 @@ function markerPanel(ref) {
   return `<div class="callout ${marker?.exists ? "" : "warning"}"><h3>マーカーを観察する</h3><p>${result}</p>${button(`observe-${ref}`, `${titles[ref]}のマーカーを確認する`, `data-lab="${ref}" data-operation="marker" ${ready ? "" : "disabled"}`)}</div>`;
 }
 
-function safeLink(url, title) {
+function safeLink(url: string, title: string) {
   try {
     if (new URL(url).protocol === "https:")
       return `<a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(title)}</a>`;
@@ -178,7 +218,7 @@ function safeLink(url, title) {
   }
   return escape(title);
 }
-function navigation(target, label) {
+function navigation(target: string, label: string) {
   return `<div class="actions">${button("previous", "前の画面へ戻る")}${button(`go-${target}`, label, `class="primary" data-page="${target}"`)}</div>`;
 }
 function cleanupSummary() {
@@ -193,7 +233,7 @@ function cleanupSummary() {
 function labPanel() {
   return `<div class="lab-panel-heading"><p class="eyebrow">LOCAL LAB RUNNER</p><h2>演習環境</h2><p>準備 → 安全性確認 → 明示起動</p></div>${lesson.spec.labs.map((reference) => labCard(reference.ref)).join("")}`;
 }
-function labCard(ref) {
+function labCard(ref: LabRef) {
   const lab = labs[ref],
     state = lab?.state ?? "absent";
   const id = lab?.labSessionId;
@@ -228,10 +268,10 @@ function labCard(ref) {
     ${lab ? resourceView(lab) : ""}
   </section>`;
 }
-function resourceView(lab) {
+function resourceView(lab: LabSnapshot) {
   const resources = lab.resources;
   if (!resources) return '<p class="muted">残存リソースは未取得です。</p>';
-  const names = (values) =>
+  const names = (values?: (string | Container)[]) =>
     values?.length
       ? values
           .map((value) => (typeof value === "string" ? value : `${value.name} (${value.state})`))
@@ -240,14 +280,16 @@ function resourceView(lab) {
   return `<details ${lab.state === "deleted" ? "open" : ""}><summary>残存リソースを確認する</summary><dl class="resources"><dt>コンテナ</dt><dd>${escape(names(resources.containers))}</dd><dt>ネットワーク</dt><dd>${escape(names(resources.networks))}</dd><dt>Volume</dt><dd>${escape(names(resources.volumes))}</dd><dt>保持したVolume</dt><dd>${escape(names(lab.retainedVolumes))}</dd></dl><p class="muted">公開ポートはコンテナに付随します。コンテナが残る場合、ポートの解放は未確認です。</p></details>`;
 }
 
-async function perform(task, focusId, labsOnly = false) {
+async function perform(task: () => Promise<void>, focusId: string, labsOnly = false) {
   if (busy) return;
   busy = true;
   generation++;
   errorBox.hidden = true;
-  const controls = [...app.querySelectorAll(labsOnly ? "button" : "button, textarea")].map(
-    (control) => [control, control.disabled],
-  );
+  const controls = [
+    ...app.querySelectorAll<HTMLButtonElement | HTMLTextAreaElement>(
+      labsOnly ? "button" : "button, textarea",
+    ),
+  ].map((control) => [control, control.disabled] as const);
   controls.forEach(([control]) => {
     control.disabled = true;
   });
@@ -267,29 +309,34 @@ async function perform(task, focusId, labsOnly = false) {
     } else render(focusId);
   }
 }
-function navigate(target) {
-  if (busy || !unlocked(menu().find((item) => item.id === target) ?? {})) return;
+function navigate(target?: string) {
+  if (
+    !target ||
+    busy ||
+    !unlocked(menu().find((item) => item.id === target) ?? { id: "", title: "" })
+  )
+    return;
   page = target;
   render("page-title");
 }
 function bindEvents() {
   app
-    .querySelectorAll("[data-page]")
+    .querySelectorAll<HTMLElement>("[data-page]")
     .forEach((control) => control.addEventListener("click", () => navigate(control.dataset.page)));
-  app.querySelectorAll("[data-draft]").forEach((control) =>
+  app.querySelectorAll<HTMLTextAreaElement>("[data-draft]").forEach((control) =>
     control.addEventListener("input", () => {
-      drafts[control.dataset.draft] = control.value;
+      drafts[control.dataset.draft as TextDraftKey] = control.value;
       persist();
     }),
   );
   app
-    .querySelectorAll("[data-operation]")
+    .querySelectorAll<HTMLElement>("[data-operation]")
     .forEach((control) =>
       control.addEventListener("click", () =>
         labAction(control.dataset.lab, control.dataset.operation),
       ),
     );
-  document.querySelector("#begin")?.addEventListener("click", () =>
+  document.querySelector<HTMLElement>("#begin")?.addEventListener("click", () =>
     perform(async () => {
       if (!study) {
         study = resumeId ? await api.study(resumeId) : await api.create(lesson.metadata.version);
@@ -299,19 +346,19 @@ function bindEvents() {
         persist();
       }
       training.assignment = await api.startTraining();
-      const index = Math.min(study.stepIndex, lesson.spec.steps.length - 1);
+      const index = Math.min(currentStudy().stepIndex, lesson.spec.steps.length - 1);
       page = lesson.spec.steps[index].id;
       announce("受講セッションを読み込みました。");
     }, "page-title"),
   );
-  document.querySelector("#previous")?.addEventListener("click", () => {
+  document.querySelector<HTMLElement>("#previous")?.addEventListener("click", () => {
     const items = menu();
     navigate(items[Math.max(0, items.findIndex((item) => item.id === page) - 1)].id);
   });
-  document.querySelector("#record-prediction")?.addEventListener("click", () => {
+  document.querySelector<HTMLElement>("#record-prediction")?.addEventListener("click", () => {
     if (!drafts[`prediction:${page}`]?.trim()) {
       announce("先に予想を入力してください。");
-      document.querySelector("#prediction").focus();
+      requiredElement("#prediction").focus();
       return;
     }
     drafts[`predicted:${page}`] = true;
@@ -319,69 +366,73 @@ function bindEvents() {
     render("record-prediction");
     announce("予想を記録し、期待結果を開きました。");
   });
-  document.querySelector("#hint")?.addEventListener("click", () =>
+  document.querySelector<HTMLElement>("#hint")?.addEventListener("click", () =>
     perform(async () => {
-      study = await api.hint(study.id, page);
+      study = await api.hint(currentStudy().id, page);
       announce("次のヒントを開きました。");
     }, "hint"),
   );
-  document.querySelector("#next")?.addEventListener("click", () => {
+  document.querySelector<HTMLElement>("#next")?.addEventListener("click", () => {
     if (!drafts[`observation:${page}`]?.trim()) {
       announce("確認した結果または未確認の事項をメモしてください。");
-      document.querySelector("#observation").focus();
+      requiredElement("#observation").focus();
       return;
     }
     perform(async () => {
-      if (stepIndex(page) === study.stepIndex) study = await api.advance(study.id);
+      if (stepIndex(page) === currentStudy().stepIndex)
+        study = await api.advance(currentStudy().id);
       persist();
       const items = menu();
       page = items[items.findIndex((item) => item.id === page) + 1].id;
       announce("メモと進捗を記録しました。");
     }, "page-title");
   });
-  document.querySelector("#save-answers")?.addEventListener("click", () =>
+  document.querySelector<HTMLElement>("#save-answers")?.addEventListener("click", () =>
     perform(async () => {
       for (const question of lesson.spec.assessment) {
-        const answer = drafts[`answer:${question.id}`] ?? study.answers[question.id] ?? "";
+        const answer = drafts[`answer:${question.id}`] ?? currentStudy().answers[question.id] ?? "";
         if (!answer.trim()) throw new Error("全問に回答を入力してください。");
         if (new TextEncoder().encode(answer).length > 16384)
           throw new Error("回答が長すぎます。1問あたりUTF-8で16KB以内にしてください。");
       }
       for (const question of lesson.spec.assessment)
         study = await api.answer(
-          study.id,
+          currentStudy().id,
           question.id,
-          drafts[`answer:${question.id}`] ?? study.answers[question.id],
+          drafts[`answer:${question.id}`] ?? currentStudy().answers[question.id],
         );
       if (["assigned", "needs_retry"].includes(training.assignment.status))
         training.assignment = await api.startTraining();
       if (training.assignment.status === "in_progress") {
-        await api.submitTraining(study.id);
+        await api.submitTraining(currentStudy().id);
         training = await api.trainingAssignment();
       }
       announce("全問の回答を提出しました。理解度の評価は研修担当者が行います。");
     }, "save-answers"),
   );
-  document.querySelector("#save-reflection")?.addEventListener("click", () => {
+  document.querySelector<HTMLElement>("#save-reflection")?.addEventListener("click", () => {
     persist();
     announce("振り返りをこのブラウザに記録しました。");
   });
 }
 
-function confirm(title, body, label) {
-  document.querySelector("#dialog-title").textContent = title;
-  document.querySelector("#dialog-body").innerHTML = body;
-  document.querySelector("#dialog-confirm").textContent = label;
+function confirm(title: string, body: string, label: string): Promise<boolean> {
+  requiredElement("#dialog-title").textContent = title;
+  requiredElement("#dialog-body").innerHTML = body;
+  requiredElement("#dialog-confirm").textContent = label;
   dialog.returnValue = "cancel";
   dialog.showModal();
-  return new Promise((resolve) =>
+  return new Promise<boolean>((resolve) =>
     dialog.addEventListener("close", () => resolve(dialog.returnValue === "confirm"), {
       once: true,
     }),
   );
 }
 
-async function labAction(ref, operation) {
+async function labAction(ref: string | undefined, operation: string | undefined) {
+  if (ref !== "vulnerable" && ref !== "fixed") return;
+  if (!operation || !["prepare", "start", "stop", "delete", "marker", "status"].includes(operation))
+    return;
   if (busy) return;
   const current = labs[ref];
   const shared =
@@ -394,13 +445,13 @@ async function labAction(ref, operation) {
     operation === "prepare" && ref === "fixed" && shared && sameComparisonLab()
       ? "vulnerable"
       : ref;
-  let policy;
+  let policy: VolumePolicy = "retain";
   if (operation === "start") {
     if (!canStart(current) || labErrors[ref]) return;
     if (
       !(await confirm(
         `${target}を起動しますか`,
-        `<p>安全性検査済み・外部公開なしを確認しました。起動時にもRunnerが再検査します。Dockerは完全な隔離境界ではありません。</p><p>対象Session: <code>${escape(current.labSessionId)}</code></p>`,
+        `<p>安全性検査済み・外部公開なしを確認しました。起動時にもRunnerが再検査します。Dockerは完全な隔離境界ではありません。</p><p>対象Session: <code>${escape(current?.labSessionId)}</code></p>`,
         "確認してLabを起動する",
       ))
     )
@@ -410,32 +461,33 @@ async function labAction(ref, operation) {
     if (
       !(await confirm(
         `${target}を削除しますか`,
-        `<p>対象Session: <code>${escape(current.labSessionId)}</code></p><label for="volume-policy">Volumeの削除方針</label><select id="volume-policy"><option value="retain">Volumeを保持する</option><option value="delete">Volumeも削除する</option></select><p>回答と学習メモはLab削除後も保持します。</p>`,
+        `<p>対象Session: <code>${escape(current?.labSessionId)}</code></p><label for="volume-policy">Volumeの削除方針</label><select id="volume-policy"><option value="retain">Volumeを保持する</option><option value="delete">Volumeも削除する</option></select><p>回答と学習メモはLab削除後も保持します。</p>`,
         "方針を確認してLabを削除する",
       ))
     )
       return;
-    policy = document.querySelector("#volume-policy").value;
+    policy =
+      requiredElement<HTMLSelectElement>("#volume-policy").value === "delete" ? "delete" : "retain";
   }
   await perform(
     async () => {
       const id = current?.labSessionId;
       if (["prepare", "start", "stop", "delete"].includes(operation)) {
-        const transient = {
-          prepare: "preparing",
-          start: "starting",
-          stop: "stopping",
-          delete: "deleting",
-        }[operation];
-        document
-          .querySelector(`#lab-title-${ref}`)
-          .parentElement.querySelector(".state").textContent =
+        const transient = (
+          {
+            prepare: "preparing",
+            start: "starting",
+            stop: "stopping",
+            delete: "deleting",
+          } as Record<string, LabState>
+        )[operation];
+        requiredElement(".state", requiredElement(`#lab-title-${ref}`).parentElement!).textContent =
           `${stateLabels[transient]} (${transient})`;
         announce(`${titles[ref]}: ${stateLabels[transient]}`);
       }
       try {
         if (operation === "prepare") {
-          const reference = await api.binding(study.id, prepareRef);
+          const reference = await api.binding(currentStudy().id, prepareRef);
           if (
             reference.lessonId !== LESSON_ID ||
             reference.lessonVersion !== lesson.metadata.version ||
@@ -443,29 +495,30 @@ async function labAction(ref, operation) {
           )
             throw new Error("受講セッションのLab参照が一致しません。");
         }
-        const value =
-          operation === "prepare"
-            ? await api.prepare(lesson.metadata.version, prepareRef)
-            : operation === "start"
-              ? await api.start(id)
-              : operation === "stop"
-                ? await api.stop(id)
-                : operation === "delete"
-                  ? await api.delete(id, policy)
-                  : operation === "marker"
-                    ? await api.marker(id, ref)
-                    : await api.status(id);
-        if (operation === "marker") markers[ref] = value;
-        else rememberLab(ref, value);
+        if (operation !== "prepare" && !id) throw new Error("Lab Sessionがありません。");
+        if (operation === "marker") {
+          const value = await api.marker(id!, ref);
+          markers[ref] = value;
+          announce(`${titles[ref]}: ${value.exists ? "マーカーあり" : "マーカーなし"}`);
+        } else {
+          const value =
+            operation === "prepare"
+              ? await api.prepare(lesson.metadata.version, prepareRef)
+              : operation === "start"
+                ? await api.start(id!)
+                : operation === "stop"
+                  ? await api.stop(id!)
+                  : operation === "delete"
+                    ? await api.delete(id!, policy)
+                    : await api.status(id!);
+          rememberLab(ref, value);
+          announce(`${titles[ref]}: ${stateLabels[value.state] ?? value.state}`);
+        }
         delete labErrors[ref];
-        announce(
-          operation === "marker"
-            ? `${titles[ref]}: ${value.exists ? "マーカーあり" : "マーカーなし"}`
-            : `${titles[ref]}: ${stateLabels[value.state] ?? value.state}`,
-        );
       } catch (error) {
-        if (error.session?.labSessionId) rememberLab(ref, error.session);
-        labErrors[ref] = error.message;
+        if (error instanceof ApiError && error.session?.labSessionId)
+          rememberLab(ref, error.session);
+        labErrors[ref] = errorMessage(error);
         throw error;
       }
     },
@@ -473,7 +526,7 @@ async function labAction(ref, operation) {
     operation !== "marker" && !["observe-marker", "compare-fixed"].includes(page),
   );
 }
-function rememberLab(ref, value) {
+function rememberLab(ref: LabRef, value: LabSession) {
   if (
     !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(value?.labSessionId) ||
     (bindings[ref] && labs[ref]?.state !== "deleted" && bindings[ref] !== value.labSessionId)
@@ -481,13 +534,13 @@ function rememberLab(ref, value) {
     throw new Error("Runnerが異なるSessionを返しました。");
   bindings[ref] = value.labSessionId;
   if (sameComparisonLab() && hasComparisonEndpoints(value)) {
-    for (const other of ["vulnerable", "fixed"]) {
+    for (const other of labRefs) {
       if (!bindings[other] || labs[other]?.state === "deleted")
         bindings[other] = value.labSessionId;
     }
   }
-  for (const [target, id] of Object.entries(bindings)) {
-    if (id === value.labSessionId) {
+  for (const target of labRefs) {
+    if (bindings[target] === value.labSessionId) {
       labs[target] = value;
       delete labErrors[target];
     }
@@ -522,7 +575,7 @@ async function load() {
     )
       throw new Error("割り当てられた研修と教材が一致しません。");
     storageKey = `${LESSON_ID}@${lesson.metadata.version}`;
-    const record = localRecord(storageKey, {});
+    const record = localRecord<SavedRecord>(storageKey, {});
     drafts = record.drafts ?? {};
     bindings = record.bindings ?? {};
     if (record.studyId) {
@@ -533,17 +586,17 @@ async function load() {
           throw new Error("保存された受講セッションの教材が一致しません。");
       } catch (error) {
         study = undefined;
-        if (error.status === 404) resumeId = undefined;
+        if (error instanceof ApiError && error.status === 404) resumeId = undefined;
         showError(error);
       }
     }
-    for (const ref of ["vulnerable", "fixed"]) {
+    for (const ref of labRefs) {
       if (!bindings[ref]) continue;
       try {
-        rememberLab(ref, await api.status(bindings[ref]));
+        rememberLab(ref, await api.status(bindings[ref]!));
       } catch (error) {
         labs[ref] = { labSessionId: bindings[ref], state: "error" };
-        labErrors[ref] = error.message;
+        labErrors[ref] = errorMessage(error);
       }
     }
     loadFailed = false;
@@ -553,7 +606,7 @@ async function load() {
     loadFailed = true;
     showError(error);
     app.innerHTML = `<main id="content" class="card loading"><h1>教材に接続できません</h1><p>ローカルRunnerと教材APIが起動しているか確認してください。</p>${button("retry-load", "接続を再試行する", 'class="primary"')}</main>`;
-    document.querySelector("#retry-load").addEventListener("click", load);
+    requiredElement("#retry-load").addEventListener("click", load);
   }
 }
 
@@ -563,11 +616,11 @@ setInterval(async () => {
   const started = generation;
   polling = true;
   try {
-    for (const ref of ["vulnerable", "fixed"]) {
+    for (const ref of labRefs) {
       if (!bindings[ref] || labs[ref]?.state === "deleted") continue;
       try {
         const previousState = labs[ref]?.state;
-        const value = await api.status(bindings[ref]);
+        const value = await api.status(bindings[ref]!);
         if (busy || generation !== started) return;
         rememberLab(ref, value);
         delete labErrors[ref];
@@ -575,7 +628,7 @@ setInterval(async () => {
           announce(`${titles[ref]}: ${stateLabels[value.state] ?? value.state}`);
       } catch (error) {
         if (busy || generation !== started) return;
-        labErrors[ref] = error.message;
+        labErrors[ref] = errorMessage(error);
       }
     }
     if (busy || dialog.open) return;
@@ -586,12 +639,12 @@ setInterval(async () => {
 }, 5000);
 
 // Lab応答で本文を再描画すると入力中のメモを失うため、更新をLab領域に閉じる。
-function renderLabs(focusId) {
+function renderLabs(focusId?: string) {
   const activeId = document.activeElement?.id;
   const editing = document.activeElement?.matches("textarea, select");
-  document.querySelector("#labs").innerHTML = labPanel();
+  requiredElement("#labs").innerHTML = labPanel();
   document
-    .querySelectorAll("[data-operation]")
+    .querySelectorAll<HTMLElement>("[data-operation]")
     .forEach((control) =>
       control.addEventListener("click", () =>
         labAction(control.dataset.lab, control.dataset.operation),

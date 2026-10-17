@@ -1,4 +1,8 @@
-export function LabModal({ state: S, onChange }) {
+import type { LearnerState, StateProps } from "./lesson-data.ts";
+export function LabModal({
+  state: S,
+  onChange,
+}: StateProps & { onChange: (patch: Partial<LearnerState>) => void }) {
   if (S.modal === "deploy")
     return (
       <>
@@ -39,7 +43,11 @@ export function LabModal({ state: S, onChange }) {
             <h3>{"Labを削除しますか？"}</h3>
             <label style={{ fontSize: "14px" }}>
               {"Volume："}
-              <select id={"vol"} value={S.vol} onChange={(e) => onChange({ vol: e.target.value })}>
+              <select
+                id={"vol"}
+                value={S.vol}
+                onChange={(e) => onChange({ vol: e.target.value === "rm" ? "rm" : "keep" })}
+              >
                 <option value={"keep"}>{"保持する"}</option>
                 <option value={"rm"}>{"このLabのものだけ削除"}</option>
               </select>
