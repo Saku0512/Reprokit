@@ -1,0 +1,187 @@
+{
+  "apiVersion": "reprokit.dev/v1alpha1",
+  "kind": "Lesson",
+  "metadata": {
+    "id": "command-injection/filebrowser-auth-hook",
+    "version": "1.0.0",
+    "title": "ログイン入力が認証フックでコマンドとして解釈される"
+  },
+  "spec": {
+    "audience": "Webアプリケーションを開発・運用するエンジニア",
+    "prerequisites": [
+      "HTTPのログインリクエストと認証前・認証後の違いを説明できる",
+      "環境変数とシェルの基本的な役割を知っている"
+    ],
+    "durationMinutes": 60,
+    "objectives": [
+      "未認証の入力が認証フックのコマンド文字列へ届く経路を説明できる",
+      "脆弱版と修正版の観察結果、およびコード上の差を対応付けられる",
+      "資格情報をコマンド文字列へ展開しない修正方針と再発防止策を提案できる"
+    ],
+    "case": {
+      "product": "File Browser",
+      "affectedVersions": "Hook Authenticationを有効にした2.63.5以前。比較対象は2.63.6。",
+      "background": "File BrowserのHook Authenticationは、ログイン判定を管理者が設定した外部コマンドへ委ねる機能。脆弱版ではログイン入力のユーザー名とパスワードをコマンド文字列へ展開していた。シェルを呼ぶ設定では、認証前の入力がシェル構文として解釈され得る。"
+    },
+    "evidence": {
+      "cves": ["CVE-2026-54088"],
+      "references": [
+        {
+          "type": "vendor-advisory",
+          "title": "File Browser公式アドバイザリ GHSA-m93h-4hw7-5qcm",
+          "url": "https://github.com/filebrowser/filebrowser/security/advisories/GHSA-m93h-4hw7-5qcm"
+        },
+        {
+          "type": "patch",
+          "title": "認証フックから資格情報の文字列展開を削除した修正差分",
+          "url": "https://github.com/filebrowser/filebrowser/commit/34ae34e764d72540c039f1f5ea2ec4c974168c1f"
+        },
+        {
+          "type": "other",
+          "title": "固定したVulhub forkのFile Browser Lab手順",
+          "url": "https://github.com/Saku0512/vulhub/blob/a94285e057faee8c7232e100116dc750cf17e257/filebrowser/CVE-2026-54088/README.md"
+        }
+      ]
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://github.com/jphacks/sd_2601/blob/main/LICENSE",
+      "attribution": "教材本文はJPHACKS sd_2601 contributorsが作成。File BrowserのソースはApache-2.0、参照したVulhub forkはMIT。各原典と権利表記は研修担当者ガイドに記載する。"
+    },
+    "labs": [
+      {
+        "ref": "vulnerable",
+        "labId": "vulhub/filebrowser-cve-2026-54088",
+        "purpose": "reproduce"
+      },
+      {
+        "ref": "fixed",
+        "labId": "vulhub/filebrowser-cve-2026-54088",
+        "purpose": "compare-fix"
+      }
+    ],
+    "steps": [
+      {
+        "id": "set-boundary",
+        "title": "検証の範囲を確認する",
+        "instruction": "演習はRunnerが準備したローカルLabだけで行う。第三者のFile Browserや実運用環境にリクエストを送らない。Hook Authenticationを有効にした場合に限る事例であることを確認する。",
+        "expectedResult": "対象製品、影響を受ける条件、ローカルLabだけを使う理由を説明できる。",
+        "observation": "脆弱性の入口は認証後の管理画面ではなく、認証前のログイン処理にある。",
+        "hints": ["ログインが失敗しても、認証フックはすでに呼ばれている可能性がある。"]
+      },
+      {
+        "id": "prepare-vulnerable",
+        "title": "脆弱版Labの状態を確認する",
+        "labRef": "vulnerable",
+        "instruction": "学習画面の準備操作で脆弱版Labを取得・検査する。安全性結果とloopback接続先を確認してから、明示的に起動する。接続先はRunnerの表示値を使う。",
+        "expectedResult": "脆弱版2.63.5がrunningとなり、接続先が127.0.0.1に限定されている。",
+        "observation": "準備と起動は別操作であり、準備しただけではコンテナは動かない。",
+        "hints": ["準備結果の検査状態と接続先の表示を先に確認する。"]
+      },
+      {
+        "id": "predict-flow",
+        "title": "ログイン入力の行き先を予想する",
+        "instruction": "usernameとpasswordがHTTPリクエストから認証フックへ渡される順序を追う。シェルの引数として資格情報を展開すると、どの時点で外部入力がコードとして扱われ得るか予想する。",
+        "expectedResult": "外部入力がos.Expandでコマンド引数に入り、管理者設定のシェルへ渡る箇所を指せる。",
+        "observation": "問題は資格情報の値そのものではなく、値をシェル構文の一部へ組み込む処理にある。",
+        "hints": [
+          "修正差分のauth/hook.goで削除された処理を探す。",
+          "os.Expandは置換先の文字列をシェル向けにエスケープしない。"
+        ]
+      },
+      {
+        "id": "send-marker-request",
+        "title": "無害なマーカーを作るリクエストを手動で試す",
+        "labRef": "vulnerable",
+        "instruction": "Runnerが表示した脆弱版のloopback接続先の/api/loginへ、JSON本文 {\"username\":\"id > /tmp/success; echo hook.action=block\",\"password\":\"anything\"} を学習者自身が送る。この固定例はLabコンテナ内の/tmp/successへプロセスのID情報を書くだけで、ログインは拒否する。",
+        "expectedResult": "ログインは拒否される。脆弱版では認証判定前にマーカー作成が起きる。",
+        "observation": "認証失敗というHTTP結果だけでは、認証前にコマンドが動いたか判断できない。",
+        "hints": [
+          "送信先はRunnerが返した127.0.0.1の接続先だけを使う。",
+          "ユーザー名の末尾のhook.action=blockはログインを拒否するためのフック応答である。"
+        ]
+      },
+      {
+        "id": "observe-marker",
+        "title": "脆弱版の観察結果を確かめる",
+        "labRef": "vulnerable",
+        "instruction": "学習画面の承認済み観察導線でLabコンテナ内の/tmp/successの有無と内容を確認する。マーカーにFile Browserプロセスのユーザー情報が記録され、ログインは失敗したことを対応付ける。",
+        "expectedResult": "脆弱版では/tmp/successが存在し、プロセスのユーザーID情報を含む。",
+        "observation": "認証が成立していない時点で、File Browserプロセスの権限で処理が行われた。",
+        "hints": ["HTTPの認証結果とLab内部の観察結果を別々に確認する。"]
+      },
+      {
+        "id": "compare-fixed",
+        "title": "修正版で同じ入力を比較する",
+        "labRef": "fixed",
+        "instruction": "修正版2.63.6のLabを安全性確認後に明示起動し、Runnerが示す修正版のloopback接続先へ同じ固定JSON本文を手動送信する。学習画面の観察導線で修正版の/tmp/successがないことを確認する。",
+        "expectedResult": "修正版でもログインは拒否されるが、/tmp/successは作成されない。",
+        "observation": "同じ入力でマーカーの有無が変わる。修正版は資格情報をコマンド文字列へ展開しない。",
+        "hints": [
+          "比較前に脆弱版と修正版の接続先を取り違えていないか確認する。",
+          "修正差分では資格情報が環境変数で渡される。"
+        ]
+      },
+      {
+        "id": "explain-fix",
+        "title": "原因と修正方針を説明する",
+        "instruction": "入力、os.Expandによる変換、シェルへ渡る信頼境界、観察結果を順に説明する。修正差分では資格情報のコマンド引数への展開が削除され、環境変数で渡されることを確認する。",
+        "expectedResult": "脆弱版の原因と修正版の変更を、単に入力を拒否したという説明にせず区別できる。",
+        "observation": "外部入力を実行可能な文字列へ連結しない設計が再発防止の中心になる。",
+        "hints": ["脆弱版のos.Expandループと、修正版に残るcmd.Envの設定を比較する。"]
+      },
+      {
+        "id": "cleanup",
+        "title": "Labを停止・削除する",
+        "instruction": "学習画面から両Lab Sessionを停止し、必要な提出内容を保存した後に定義済みのVolume方針を選んで削除する。Runnerが報告するコンテナ、ネットワーク、Volume、公開ポートの残存を確認する。",
+        "expectedResult": "両Lab Sessionが停止・削除され、残存リソースの表示を確認できる。",
+        "observation": "Labの起動や停止は研修の理解度判定と別の状態である。",
+        "hints": ["削除前に回答の保存状態を確認する。"]
+      }
+    ],
+    "analysis": {
+      "cause": "脆弱版のHookAuth.RunCommandは未認証のusername/passwordをos.Expandでフックのコマンド引数へ展開した。管理者がシェルを呼ぶ設定では、入力に含まれる構文がシェルに解釈され得る。",
+      "impact": "Hook Authenticationを有効にし、シェルを呼ぶ構成では、認証前のリクエストだけでFile Browserプロセスの権限によるコマンド実行につながる。",
+      "remediation": "File Browser 2.63.6以降へ更新する。修正版は資格情報のコマンド文字列への展開を削除し、フックへ環境変数として渡す。シェルを使うフック設定の必要性も見直す。"
+    },
+    "comparison": {
+      "vulnerable": "2.63.5: os.Expandで資格情報をコマンド引数へ埋め込む。固定入力では/tmp/successができる。",
+      "fixed": "2.63.6: コマンド引数への展開を削除し、資格情報を環境変数で渡す。同じ入力で/tmp/successはできない。",
+      "difference": "修正は入力文字種の拒否ではなく、外部入力をシェルで解釈されるコマンド文字列へ埋め込まないこと。",
+      "fixedLabRef": "fixed"
+    },
+    "prevention": [
+      "外部入力を実行可能な文字列へ連結しない。必要な値は分離された引数または環境変数として渡す。",
+      "認証前に到達できる外部プロセス呼び出しをレビューし、入力がどの権限で処理されるか確認する。",
+      "脆弱版でマーカーができ、修正版でできない回帰テストを隔離されたLabで維持する。"
+    ],
+    "assessment": [
+      {
+        "id": "trace-boundary",
+        "question": "未認証の入力はどの処理を通ってシェルの解釈対象になりましたか。信頼境界を含めて説明してください。",
+        "answerExample": "ログインのusername/passwordがHookAuth.RunCommandへ渡り、os.Expandでフックのコマンド引数に埋め込まれた。管理者設定のシェルがその引数を解釈する時点で、外部入力がコードとして扱われた。",
+        "criteria": [
+          "ログイン入力と認証前の処理を示す",
+          "os.Expandとシェルの役割を区別する",
+          "信頼境界を特定する"
+        ]
+      },
+      {
+        "id": "compare-behavior",
+        "question": "ログインは両方で失敗しました。マーカーの有無から何が分かりますか。",
+        "answerExample": "脆弱版では認証失敗前にFile Browserプロセスの権限でマーカー作成が起きた。修正版では同じ入力がコマンド文字列へ展開されず、マーカーはできなかった。",
+        "criteria": ["HTTPの失敗と内部実行を区別する", "脆弱版と修正版の結果を対応付ける"]
+      },
+      {
+        "id": "propose-prevention",
+        "question": "原因への修正と、同種の欠陥を防ぐ開発時の確認を提案してください。",
+        "answerExample": "資格情報をコマンド文字列へ展開せず、環境変数で渡す。認証前に外部プロセスを呼ぶ箇所を棚卸しし、外部入力がシェルへ入らない回帰テストを追加する。",
+        "criteria": [
+          "修正方針と再発防止を分ける",
+          "資格情報の受け渡し方法に触れる",
+          "認証前の到達性を確認する"
+        ]
+      }
+    ]
+  }
+}
