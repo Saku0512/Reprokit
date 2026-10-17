@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/jphacks/sd_2601/main/schemas/lesson-v1alpha1.schema.json",
+  "title": "Reprokit Lesson v1alpha1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": { "const": "reprokit.dev/v1alpha1" },
+    "kind": { "const": "Lesson" },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "title"],
+      "properties": {
+        "id": { "$ref": "#/$defs/id" },
+        "version": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)$"
+        },
+        "title": {
+          "allOf": [
+            { "$ref": "#/$defs/text" },
+            { "not": { "type": "string", "pattern": "^CVE-[0-9]{4}-[0-9]{4,}$" } }
+          ]
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "audience",
+        "prerequisites",
+        "durationMinutes",
+        "objectives",
+        "case",
+        "evidence",
+        "license",
+        "labs",
+        "steps",
+        "analysis",
+        "comparison",
+        "prevention",
+        "assessment"
+      ],
+      "properties": {
+        "audience": { "$ref": "#/$defs/text" },
+        "prerequisites": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/text" },
+          "uniqueItems": true
+        },
+        "durationMinutes": { "type": "integer", "minimum": 1, "maximum": 1440 },
+        "objectives": { "$ref": "#/$defs/textList" },
+        "case": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["product", "affectedVersions", "background"],
+          "properties": {
+            "product": { "$ref": "#/$defs/text" },
+            "affectedVersions": { "$ref": "#/$defs/text" },
+            "background": { "$ref": "#/$defs/text" }
+          }
+        },
+        "evidence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["references"],
+          "properties": {
+            "cves": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "type": "string", "pattern": "^CVE-[0-9]{4}-[0-9]{4,}$" }
+            },
+            "references": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["type", "title", "url"],
+                "properties": {
+                  "type": {
+                    "enum": ["vendor-advisory", "cve-record", "patch", "product-docs", "other"]
+                  },
+                  "title": { "$ref": "#/$defs/text" },
+                  "url": { "$ref": "#/$defs/httpsUrl" }
+                }
+              }
+            }
+          }
+        },
+        "license": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "url", "attribution"],
+          "properties": {
+            "name": { "$ref": "#/$defs/text" },
+            "url": { "$ref": "#/$defs/httpsUrl" },
+            "attribution": { "$ref": "#/$defs/text" }
+          }
+        },
+        "labs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ref", "labId", "purpose"],
+            "properties": {
+              "ref": { "$ref": "#/$defs/ref" },
+              "labId": { "$ref": "#/$defs/id" },
+              "purpose": { "enum": ["reproduce", "compare-fix"] }
+            }
+          }
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "title", "instruction", "expectedResult", "observation", "hints"],
+            "properties": {
+              "id": { "$ref": "#/$defs/ref" },
+              "title": { "$ref": "#/$defs/text" },
+              "labRef": { "$ref": "#/$defs/ref" },
+              "instruction": { "$ref": "#/$defs/text" },
+              "expectedResult": { "$ref": "#/$defs/text" },
+              "observation": { "$ref": "#/$defs/text" },
+              "hints": { "type": "array", "items": { "$ref": "#/$defs/text" } }
+            }
+          }
+        },
+        "analysis": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cause", "impact", "remediation"],
+          "properties": {
+            "cause": { "$ref": "#/$defs/text" },
+            "impact": { "$ref": "#/$defs/text" },
+            "remediation": { "$ref": "#/$defs/text" }
+          }
+        },
+        "comparison": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["vulnerable", "fixed", "difference"],
+          "properties": {
+            "vulnerable": { "$ref": "#/$defs/text" },
+            "fixed": { "$ref": "#/$defs/text" },
+            "difference": { "$ref": "#/$defs/text" },
+            "fixedLabRef": { "$ref": "#/$defs/ref" }
+          }
+        },
+        "prevention": { "$ref": "#/$defs/textList" },
+        "assessment": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "question", "answerExample", "criteria"],
+            "properties": {
+              "id": { "$ref": "#/$defs/ref" },
+              "question": { "$ref": "#/$defs/text" },
+              "answerExample": { "$ref": "#/$defs/text" },
+              "criteria": { "$ref": "#/$defs/textList" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "text": { "type": "string", "minLength": 1, "pattern": "\\S" },
+    "textList": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/text" } },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?/[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$"
+    },
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "httpsUrl": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://[^\\s/?#@]+(?:[/?#][^\\s]*)?$"
+    }
+  }
+}
