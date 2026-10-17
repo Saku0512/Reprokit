@@ -11,7 +11,13 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/jphacks/sd_2601/internal/identity"
 	"github.com/jphacks/sd_2601/internal/lesson"
+)
+
+const (
+	managementOrganizationHeader = "X-Reprokit-Organization-ID"
+	managementUserHeader         = "X-Reprokit-User-ID"
 )
 
 // LocalConfigはWebシェルから渡す管理主体と、この端末の固定受講者を定義する。
@@ -22,6 +28,7 @@ type LocalConfig struct {
 	AdministratorID string
 	LearnerID       string
 	AssignmentID    string
+	Identity        *identity.Service
 }
 
 type localHandler struct {
@@ -34,7 +41,7 @@ type localHandler struct {
 
 // NewLocalHandlerは管理APIと受講APIを、用途別の認証情報でローカルRunnerへ接続する。
 func NewLocalHandler(service *Service, study *lesson.SessionStore, next http.Handler, config LocalConfig) (http.Handler, error) {
-	if service == nil || study == nil || next == nil || config.SessionToken == "" || config.ManagementToken == "" || !validID(config.OrganizationID) || !validID(config.AdministratorID) || !validID(config.LearnerID) || !validID(config.AssignmentID) {
+	if service == nil || study == nil || next == nil || config.Identity == nil || config.SessionToken == "" || config.ManagementToken == "" || !validID(config.OrganizationID) || !validID(config.AdministratorID) || !validID(config.LearnerID) || !validID(config.AssignmentID) {
 		return nil, errors.New("training service, study store, local handlers and identities are required")
 	}
 	management, err := NewHandler(service)
@@ -61,6 +68,10 @@ func (handler *localHandler) serveHTTP(writer http.ResponseWriter, request *http
 			http.Error(writer, "invalid local session", http.StatusUnauthorized)
 			return
 		}
+		if err := handler.config.Identity.Authorize(identity.Principal{OrganizationID: handler.config.OrganizationID, UserID: handler.config.LearnerID}, identity.PermissionAccessLearning); err != nil {
+			http.Error(writer, "learner access forbidden", http.StatusForbidden)
+			return
+		}
 		handler.serveLearner(writer, request)
 		return
 	}
@@ -68,20 +79,74 @@ func (handler *localHandler) serveHTTP(writer http.ResponseWriter, request *http
 		http.Error(writer, "invalid management session", http.StatusUnauthorized)
 		return
 	}
-	if !handler.applyPrincipal(request) {
+	principal, ok := handler.managementPrincipal(request)
+	if !ok {
+		http.Error(writer, "invalid management principal", http.StatusForbidden)
+		return
+	}
+	permission, ok := managementPermission(request)
+	if !ok {
+		http.NotFound(writer, request)
+		return
+	}
+	if err := handler.config.Identity.Authorize(principal, permission); err != nil {
+		http.Error(writer, "management permission denied", http.StatusForbidden)
+		return
+	}
+	if !handler.applyPrincipal(request, principal) {
 		http.Error(writer, "management scope does not match the authenticated principal", http.StatusForbidden)
 		return
 	}
 	handler.management.ServeHTTP(writer, request)
 }
 
-func (handler *localHandler) applyPrincipal(request *http.Request) bool {
+func (handler *localHandler) managementPrincipal(request *http.Request) (identity.Principal, bool) {
+	organizationID := request.Header.Get(managementOrganizationHeader)
+	userID := request.Header.Get(managementUserHeader)
+	if organizationID == "" && userID == "" {
+		organizationID = handler.config.OrganizationID
+		userID = handler.config.AdministratorID
+	}
+	if !validID(organizationID) || !validID(userID) {
+		return identity.Principal{}, false
+	}
+	return identity.Principal{OrganizationID: organizationID, UserID: userID}, true
+}
+
+func managementPermission(request *http.Request) (identity.Permission, bool) {
+	path := request.URL.Path
+	switch {
+	case path == "/api/training/courses" && (request.Method == http.MethodGet || request.Method == http.MethodPost):
+		return identity.PermissionManageCourses, true
+	case path == "/api/training/cohorts" && request.Method == http.MethodPost:
+		return identity.PermissionManageAssignments, true
+	case path == "/api/training/assignments" && (request.Method == http.MethodGet || request.Method == http.MethodPost):
+		return identity.PermissionManageAssignments, true
+	case path == "/api/training/audit-events" && request.Method == http.MethodGet:
+		return identity.PermissionReadAudit, true
+	case path == "/api/training/exports/results.csv" && request.Method == http.MethodGet:
+		return identity.PermissionReadAudit, true
+	}
+	parts := strings.Split(strings.TrimPrefix(path, "/api/training/"), "/")
+	if len(parts) == 2 && parts[0] == "assignments" && request.Method == http.MethodGet {
+		return identity.PermissionManageAssignments, true
+	}
+	if len(parts) == 3 && parts[0] == "assignments" && parts[2] == "submissions" && request.Method == http.MethodGet {
+		return identity.PermissionReviewSubmissions, true
+	}
+	if len(parts) == 3 && parts[0] == "submissions" && parts[2] == "review" && request.Method == http.MethodPost {
+		return identity.PermissionReviewSubmissions, true
+	}
+	return "", false
+}
+
+func (handler *localHandler) applyPrincipal(request *http.Request, principal identity.Principal) bool {
 	if request.Method == http.MethodGet {
 		values := request.URL.Query()
-		if organization := values.Get("organizationId"); organization != "" && organization != handler.config.OrganizationID {
+		if organization := values.Get("organizationId"); organization != "" && organization != principal.OrganizationID {
 			return false
 		}
-		values.Set("organizationId", handler.config.OrganizationID)
+		values.Set("organizationId", principal.OrganizationID)
 		request.URL.RawQuery = values.Encode()
 		return true
 	}
@@ -96,21 +161,21 @@ func (handler *localHandler) applyPrincipal(request *http.Request) bool {
 	if err := json.Unmarshal(data, &body); err != nil || body == nil {
 		return false
 	}
-	if organization, exists := body["organizationId"]; exists && organization != handler.config.OrganizationID {
+	if organization, exists := body["organizationId"]; exists && organization != principal.OrganizationID {
 		return false
 	}
-	body["organizationId"] = handler.config.OrganizationID
+	body["organizationId"] = principal.OrganizationID
 	if request.URL.Path == "/api/training/courses" || request.URL.Path == "/api/training/assignments" {
-		if actor, exists := body["actorId"]; exists && actor != handler.config.AdministratorID {
+		if actor, exists := body["actorId"]; exists && actor != principal.UserID {
 			return false
 		}
-		body["actorId"] = handler.config.AdministratorID
+		body["actorId"] = principal.UserID
 	}
 	if strings.HasSuffix(request.URL.Path, "/review") {
-		if evaluator, exists := body["evaluatorId"]; exists && evaluator != handler.config.AdministratorID {
+		if evaluator, exists := body["evaluatorId"]; exists && evaluator != principal.UserID {
 			return false
 		}
-		body["evaluatorId"] = handler.config.AdministratorID
+		body["evaluatorId"] = principal.UserID
 	}
 	data, err = json.Marshal(body)
 	if err != nil {

@@ -208,6 +208,20 @@ func NewService(store *Store) (*Service, error) {
 	return &Service{store: store, now: time.Now}, nil
 }
 
+// OrganizationはIDで組織を取得する。
+func (service *Service) Organization(organizationID string) (Organization, error) {
+	if !validID(organizationID) {
+		return Organization{}, ErrInvalid
+	}
+	service.store.mu.Lock()
+	defer service.store.mu.Unlock()
+	organization, exists := service.store.state.Organizations[organizationID]
+	if !exists {
+		return Organization{}, ErrNotFound
+	}
+	return organization, nil
+}
+
 type BootstrapInput struct {
 	OrganizationID   string
 	OrganizationName string

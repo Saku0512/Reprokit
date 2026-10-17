@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jphacks/sd_2601/internal/identity"
 	"github.com/jphacks/sd_2601/internal/lab"
 	"github.com/jphacks/sd_2601/internal/lesson"
 	"github.com/jphacks/sd_2601/internal/runnerapi"
@@ -51,7 +52,7 @@ func newApplication(ctx context.Context, config configuration, provider runtime.
 	if config.learnerID == "" {
 		config.learnerID = "local-learner"
 	}
-	for _, directory := range []string{config.state, filepath.Join(config.state, "labs"), filepath.Join(config.state, "study"), filepath.Join(config.state, "training")} {
+	for _, directory := range []string{config.state, filepath.Join(config.state, "labs"), filepath.Join(config.state, "study"), filepath.Join(config.state, "training"), filepath.Join(config.state, "identity")} {
 		if err := privateDirectory(directory); err != nil {
 			return nil, err
 		}
@@ -128,6 +129,20 @@ func newApplication(ctx context.Context, config configuration, provider runtime.
 		server.Listener.Close()
 		return nil, err
 	}
+	identityStore, err := identity.NewStore(filepath.Join(config.state, "identity"))
+	if err != nil {
+		server.Listener.Close()
+		return nil, err
+	}
+	identityService, err := identity.NewService(identityStore)
+	if err != nil {
+		server.Listener.Close()
+		return nil, err
+	}
+	if err := ensureLocalIdentities(identityService, config); err != nil {
+		server.Listener.Close()
+		return nil, err
+	}
 	assignment, err := ensureLocalAssignment(trainingService, config)
 	if err != nil {
 		server.Listener.Close()
@@ -138,13 +153,50 @@ func newApplication(ctx context.Context, config configuration, provider runtime.
 		server.Listener.Close()
 		return nil, err
 	}
-	server.Handler, err = training.NewLocalHandler(trainingService, study, server.Handler, training.LocalConfig{SessionToken: server.SessionToken, ManagementToken: managementToken, OrganizationID: config.organizationID, AdministratorID: config.administratorID, LearnerID: config.learnerID, AssignmentID: assignment.ID})
+	server.Handler, err = training.NewLocalHandler(trainingService, study, server.Handler, training.LocalConfig{SessionToken: server.SessionToken, ManagementToken: managementToken, OrganizationID: config.organizationID, AdministratorID: config.administratorID, LearnerID: config.learnerID, AssignmentID: assignment.ID, Identity: identityService})
 	if err != nil {
 		server.Listener.Close()
 		return nil, err
 	}
 	cleanup = false
 	return &application{server: server, snapshot: root, managementToken: managementToken, organizationID: config.organizationID, administratorID: config.administratorID}, nil
+}
+
+func ensureLocalIdentities(service *identity.Service, config configuration) error {
+	principal := identity.Principal{OrganizationID: config.organizationID, UserID: config.administratorID}
+	if _, err := service.Organization(config.organizationID); errors.Is(err, identity.ErrNotFound) {
+		_, _, err = service.Bootstrap(identity.BootstrapInput{
+			OrganizationID:   config.organizationID,
+			OrganizationName: "Local organization",
+			UserID:           config.administratorID,
+			Subject:          "local:" + config.administratorID,
+			Email:            config.administratorID + "@local.invalid",
+			DisplayName:      "Local administrator",
+		})
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else if err := service.Authorize(principal, identity.PermissionManageOrganization); err != nil {
+		return errors.New("configured local administrator is unavailable")
+	}
+	if config.learnerID == config.administratorID {
+		return nil
+	}
+	if _, err := service.User(principal, config.learnerID); errors.Is(err, identity.ErrNotFound) {
+		_, err = service.CreateUser(principal, identity.CreateUserInput{
+			ID:          config.learnerID,
+			Subject:     "local:" + config.learnerID,
+			Email:       config.learnerID + "@local.invalid",
+			DisplayName: "Local learner",
+			Roles:       []identity.Role{identity.RoleLearner},
+		})
+		return err
+	} else if err != nil {
+		return err
+	}
+	return service.Authorize(identity.Principal{OrganizationID: config.organizationID, UserID: config.learnerID}, identity.PermissionAccessLearning)
 }
 
 func ensureLocalAssignment(service *training.Service, config configuration) (training.Assignment, error) {
