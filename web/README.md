@@ -18,13 +18,19 @@ Lab操作・観察結果は元HTMLと同じデモ表示であり、RunnerやDock
 実Labに接続する従来の受講画面は `/runner`、管理画面は `/admin` に残している。
 
 RunnerなしでReact画面を確認する場合は `npm --prefix web run dev:external` を実行する。
-開発配信では初回アクセス時にReactをビルドする。ソース変更後はサーバーを再起動する。
+開発配信では初回アクセス時にReactと全画面のTailwind CSSをビルドする。ソース変更後はサーバーを再起動する。
 `npm run web:build` はReact、CSS、フォントを `web/dist/generated/` に同梱する。
 フォントはサンプルと同じNoto Sans JP / IBM Plex Monoを使用し、Google Fontsへの通信は不要。
 
 `src/sample-app.jsx` が状態管理、`sample-views.jsx` が一覧と各学習フェーズ、
 `sample-modal.jsx` が確認ダイアログ、`sample-data.js` がサンプルの固定データを担当する。
-`src/sample.css` は元HTMLのスタイルを引き継ぐ。
+`src/sample.css`、`src/style.css`、`src/admin.css` はTailwind CSSの `@apply` で各画面のスタイルを定義する。
+共通の読み込みと色の対応は `src/tailwind.css` に置き、既存のライト・ダークテーマのCSS変数を参照する。
+既存のブラウザ標準スタイルを維持するためPreflightは読み込まない。
+フォント、テーマ値、独自アニメーションなどは通常のCSSで定義する。
+`scripts/frontend.mjs` がPostCSSとTailwindをesbuildへ組み込み、
+`generated/app.css`、`generated/runner.css`、`generated/admin.css` を生成する。
+画面へユーティリティクラスを直接追加することもできる。HTMLと `src/` 内のコードが検出対象になる。
 HTMLの直接挿入は使わず、JSXで描画する。
 
 ## Runner接続画面
