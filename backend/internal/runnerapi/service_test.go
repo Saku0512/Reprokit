@@ -1,0 +1,51 @@
+package runnerapi
+
+import (
+	"context"
+	"strings"
+	"testing"
+
+	"github.com/jphacks/sd_2601/internal/runtime"
+)
+
+func TestLifecycleServicePreparesOnlyConfiguredLessonReference(t *testing.T) {
+	manager, err := runtime.NewManager(runtime.NewMemoryStore(), runnerProvider{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixed := FixedLab{
+		Lesson: LessonReference{LessonID: "filebrowser/hook", LessonVersion: "1.0.0", LabRef: "vulnerable-and-fixed"},
+		Prepared: runtime.PreparedLab{
+			LabID:          "vulhub/filebrowser-cve-2026-54088",
+			SourceRevision: strings.Repeat("a", 40),
+			Compose: []byte(`services:
+  app:
+    image: example/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    ports:
+      - "8080:80"
+`),
+		},
+	}
+	service, err := NewLifecycleService(manager, fixed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Prepare(context.Background(), LessonReference{LessonID: "other", LessonVersion: "1.0.0", LabRef: "vulnerable-and-fixed"}); err == nil {
+		t.Fatal("unconfigured Lesson reference was accepted")
+	}
+	session, err := service.Prepare(context.Background(), fixed.Lesson)
+	if err != nil || session.LabID != fixed.Prepared.LabID || session.State != runtime.Prepared {
+		t.Fatalf("Prepare = %#v, %v", session, err)
+	}
+}
+
+type runnerProvider struct{}
+
+func (runnerProvider) Start(context.Context, string, []byte) error { return nil }
+func (runnerProvider) Stop(context.Context, string, []byte) error  { return nil }
+func (runnerProvider) Delete(context.Context, string, []byte, bool) error {
+	return nil
+}
+func (runnerProvider) Inspect(context.Context, string, []byte) (runtime.Resources, error) {
+	return runtime.Resources{}, nil
+}
