@@ -288,6 +288,7 @@ func (manager *Manager) Recover(ctx context.Context) error {
 		if candidate.State != Running && candidate.State != Failed {
 			continue
 		}
+		manager.cancelExpiration(candidate.ID)
 		_, err := manager.change(ctx, candidate.ID, func(session *Session) error {
 			if err := manager.provider.Delete(ctx, session.Project, session.Compose, false); err != nil {
 				session.State, session.Failure = Failed, &Failure{Operation: "recovery", Message: err.Error()}
