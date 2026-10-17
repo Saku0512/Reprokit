@@ -68,6 +68,21 @@ type DockerComposeProvider struct {
 	env     []string
 }
 
+// PortConflictErrorはLabのloopback公開ポートが使用中の場合だけ、復旧方法を固定して返す。
+type PortConflictError struct {
+	Port  int
+	cause error
+}
+
+func (err *PortConflictError) Error() string {
+	if err.Port > 0 {
+		return fmt.Sprintf("公開ポート 127.0.0.1:%d は他のプロセスが使用中です。Labの起動を中止しました。使用中のアプリを安全に停止するか、ポート競合のない環境で再試行してください。", err.Port)
+	}
+	return "Labの公開ポートは他のプロセスが使用中です。Labの起動を中止しました。使用中のアプリを安全に停止するか、ポート競合のない環境で再試行してください。"
+}
+
+func (err *PortConflictError) Unwrap() error { return err.cause }
+
 func NewDockerComposeProvider() *DockerComposeProvider {
 	provider, err := NewDockerComposeProviderWithNetwork(network.Config{})
 	if err != nil {
@@ -259,10 +274,78 @@ func (provider *DockerComposeProvider) withCompose(ctx context.Context, project 
 	arguments = append(arguments, "compose", "--project-name", project, "--file", path)
 	arguments = append(arguments, action...)
 	output, err := provider.runner.Run(ctx, provider.env, arguments...)
-	if err != nil && len(action) > 0 && action[0] == "up" && likelyConnectionFailure(err) {
-		return nil, network.NewConnectionError("コンテナイメージの取得", strings.Join(registryHosts(compose), ", "), "プロキシ設定、レジストリ認証情報、またはネットワーク接続を確認してください", err)
+	if err != nil && len(action) > 0 && action[0] == "up" {
+		if conflict := portConflict(err, compose); conflict != nil {
+			return nil, conflict
+		}
+		if likelyConnectionFailure(err) {
+			return nil, network.NewConnectionError("コンテナイメージの取得", strings.Join(registryHosts(compose), ", "), "プロキシ設定、レジストリ認証情報、またはネットワーク接続を確認してください", err)
+		}
 	}
 	return output, err
+}
+
+func portConflict(err error, compose []byte) error {
+	message := strings.ToLower(err.Error())
+	if !strings.Contains(message, "port is already allocated") && !strings.Contains(message, "address already in use") {
+		return nil
+	}
+	ports := publishedPorts(compose)
+	for _, port := range ports {
+		if errorMentionsPort(message, port) {
+			return &PortConflictError{Port: port, cause: err}
+		}
+	}
+	if len(ports) == 1 {
+		return &PortConflictError{Port: ports[0], cause: err}
+	}
+	return &PortConflictError{cause: err}
+}
+
+func publishedPorts(compose []byte) []int {
+	var document struct {
+		Services map[string]struct {
+			Ports []string `yaml:"ports"`
+		} `yaml:"services"`
+	}
+	if yaml.Unmarshal(compose, &document) != nil {
+		return nil
+	}
+	seen := map[int]bool{}
+	for _, service := range document.Services {
+		for _, value := range service.Ports {
+			parts := strings.Split(value, ":")
+			if len(parts) != 3 || parts[0] != "127.0.0.1" {
+				continue
+			}
+			port, err := strconv.Atoi(parts[1])
+			if err == nil && port >= 1 && port <= 65535 {
+				seen[port] = true
+			}
+		}
+	}
+	ports := make([]int, 0, len(seen))
+	for port := range seen {
+		ports = append(ports, port)
+	}
+	slices.Sort(ports)
+	return ports
+}
+
+func errorMentionsPort(message string, port int) bool {
+	needle := ":" + strconv.Itoa(port)
+	for offset := 0; ; {
+		index := strings.Index(message[offset:], needle)
+		if index < 0 {
+			return false
+		}
+		index += offset
+		next := index + len(needle)
+		if next == len(message) || message[next] < '0' || message[next] > '9' {
+			return true
+		}
+		offset = next
+	}
 }
 
 func likelyConnectionFailure(err error) bool {

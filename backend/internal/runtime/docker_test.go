@@ -70,6 +70,34 @@ func TestDockerComposeProviderUsesTemporaryCredentialsAndExplainsConnectionFailu
 	}
 }
 
+func TestDockerComposeProviderExplainsPortConflictBeforeRegistryFailure(t *testing.T) {
+	runner := &recordingDockerRunner{err: errors.New("pulling image failed: Bind for 127.0.0.1:18080 failed: port is already allocated")}
+	provider := newDockerComposeProviderForTest(runner)
+	compose := []byte("services:\n  app:\n    image: registry.example/reprokit/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n    ports:\n      - \"127.0.0.1:18080:80\"\n")
+	err := provider.Start(context.Background(), "reprokit_0123456789ab", compose)
+	var conflict *PortConflictError
+	if !errors.As(err, &conflict) || conflict.Port != 18080 {
+		t.Fatalf("start error = %v", err)
+	}
+	if strings.Contains(err.Error(), "レジストリ") || !strings.Contains(err.Error(), "127.0.0.1:18080") || !strings.Contains(err.Error(), "起動を中止") {
+		t.Fatalf("unexpected remediation = %q", err)
+	}
+}
+
+func TestDockerComposeProviderDoesNotGuessPortWhenMultiplePortsArePublished(t *testing.T) {
+	runner := &recordingDockerRunner{err: errors.New("listen tcp: address already in use")}
+	provider := newDockerComposeProviderForTest(runner)
+	compose := []byte("services:\n  app:\n    image: registry.example/reprokit/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n    ports:\n      - \"127.0.0.1:18080:80\"\n      - \"127.0.0.1:18081:81\"\n")
+	err := provider.Start(context.Background(), "reprokit_0123456789ab", compose)
+	var conflict *PortConflictError
+	if !errors.As(err, &conflict) || conflict.Port != 0 {
+		t.Fatalf("start error = %v", err)
+	}
+	if strings.Contains(err.Error(), "127.0.0.1:") {
+		t.Fatalf("ambiguous port was disclosed: %q", err)
+	}
+}
+
 func TestDockerComposeProviderInspectsProjectLabels(t *testing.T) {
 	runner := &recordingDockerRunner{outputs: [][]byte{
 		[]byte(`{"Names":"reprokit_0123456789ab-app-1","State":"running"}` + "\n"),
