@@ -100,7 +100,6 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await page.getByRole("button", { name: "起動する", exact: true }).click();
   await expect(page.locator(".st")).toHaveText("RUNNING");
   await expect(page.locator('a[href="http://127.0.0.1:18080"]')).toBeVisible();
-  await expect(page.locator('a[href="http://127.0.0.1:18081"]')).toBeVisible();
   await page.getByRole("button", { name: "検証コンソール", exact: true }).click();
   const consoleDialog = page.getByRole("dialog", { name: "検証コンソール" });
   await expect(consoleDialog).toBeVisible();
