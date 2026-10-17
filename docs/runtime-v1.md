@@ -28,13 +28,13 @@ Docker Hubの`vulhub/*`はupstream管理の名前空間であり、独自Lab用�
 | コンテナ起動 | デタッチ |
 | ポートのバインド | `127.0.0.1`のみ |
 | ポート競合 | 起動を中止してエラー |
-| ネットワーク | インスタンス専用Bridge |
+| ネットワーク | インスタンス専用の内部Bridge（外向き通信なし） |
 | Image | digest固定、プラットフォーム明示 |
 | 自動再起動 | 無効化（`no`相当） |
 | 起動/基本チェックの全体タイムアウト | 60秒 |
 | Docker Volume | 削除時も既定では保持 |
 | Compose `build` | 拒否 |
-| ネットワーク外向き通信 | 標準Bridgeの範囲で可能。完全隔離とは主張しない |
+| ネットワーク外向き通信 | `none`。Labごとに必要な通信をレビューして明示対応するまでは許可しない |
 
 ## ポート公開の変換
 
@@ -82,7 +82,26 @@ v0.1は元のCompose YAMLを**厳格な許可リスト**で検証し、正規化
 | 最上位`volumes` | `name: {}` | 外部指定・driver_opts・明示名を禁止 |
 | 最上位`networks` | `name: {}` | project専用Bridgeのみ。`external`/`ipam`/driver_opts禁止 |
 
-`volumes`・`networks`の省略は可能。省略時はComposeがproject専用のdefault Bridgeを作る。`restart`は未指定か`"no"`だけを許し、実効Composeでは`restart: "no"`に固定。`expose`・`user`・`container_name`・`command`・`entrypoint`・`healthcheck`・`build`・`secrets`・`configs`・`include`・`extends`・`env_file`・`profiles`・`deploy`その他許可外の属性は拒否する。YAMLアンカー、マージ、エイリアスもv0.1では拒否する。
+`volumes`・`networks`の省略は可能。入力Composeのネットワークはproject専用Bridgeだけを許可する。`guardrails.egress: none`を指定したLabでは、解決済みComposeにRunnerが`internal: true`の専用Bridgeを付与し、全サービスをそこへ接続する。`restart`は未指定か`"no"`だけを許し、実効Composeでは`restart: "no"`に固定。`expose`・`user`・`container_name`・`command`・`entrypoint`・`healthcheck`・`build`・`secrets`・`configs`・`include`・`extends`・`env_file`・`profiles`・`deploy`・`storage_opt`その他許可外の属性は拒否する。YAMLアンカー、マージ、エイリアスもv0.1では拒否する。
+
+## 実行ガードレール
+
+各Lab Manifestの`spec.runtime.guardrails`はLockfileへ固定し、Prepare時とStart直前に同じ解決済みComposeを生成して照合する。利用者・Web UI・元Composeから上限を変更できない。
+
+```yaml
+guardrails:
+  maxRuntimeSeconds: 1800
+  cpuCores: 1
+  memoryMiB: 512
+  pids: 128
+  diskMiB: 1024
+  egress: none
+```
+
+- `maxRuntimeSeconds`は60〜14,400秒、CPUは1〜4コア、メモリは128〜4,096 MiB、PID数は64〜512、ディスクは256〜8,192 MiBに限定する。
+- Runnerは`deploy.resources.limits`でCPU・メモリ・PID数を、`storage_opt.size`でコンテナ書込み層のディスク上限を付与する。Dockerのストレージドライバがディスク上限をサポートしない場合は起動を失敗として扱い、無制限で続行しない。
+- `egress`は現時点で`none`だけを許可する。外部通信が必要な教材は、宛先・必要性・実装する隔離方法を別途レビューして対応する。
+- 起動後は期限で自動停止する。Runnerの再起動時には、前回のRunnerが残したrunning/error Sessionを削除して、保持指定のVolumeだけを記録する。
 
 明示的な`0.0.0.0`/外部IP/IPv6バインド、UDP、ポート範囲・省略・動的割当・長形式は非対応。ループバック公開は外向き通信を阻止しない。Docker Image本来のENTRYPOINTは第三者コードとして実行されるため、元Composeによる上書きを拒否しても安全性は保証できない。
 

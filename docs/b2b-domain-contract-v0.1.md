@@ -218,12 +218,22 @@ Runnerは少なくとも次をUIへ返す。
     "checked": true,
     "externalExposure": false
   },
+  "guardrails": {
+    "maxRuntimeSeconds": 1800,
+    "cpuCores": 1,
+    "memoryMiB": 512,
+    "pids": 128,
+    "diskMiB": 1024,
+    "egress": "none"
+  },
+  "expiresAt": "2026-10-17T12:30:00Z",
+  "stopReason": null,
   "endpoints": [],
   "failure": null
 }
 ```
 
-`endpoints`はRunnerが決定したループバック接続先だけを含む。内部ファイルパス、Docker認証情報、セッショントークンを返さない。
+`endpoints`はRunnerが決定したループバック接続先だけを含む。内部ファイルパス、Docker認証情報、セッショントークンを返さない。`guardrails`は固定済みLabの実行上限を表示するための値であり、UIから変更できない。`expiresAt`はrunning時の自動停止時刻、`stopReason`は停止後の理由（例: `manual`、`expired`、`runner_restarted`）である。
 
 ## 7. Lab Sessionの状態遷移
 

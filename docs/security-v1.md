@@ -27,7 +27,7 @@ WebはPoC操作例、ヒント、観察結果を表示するが**任意のPoC/OS
 | `cap_add` / `devices` | 拒否 |
 | `build` / Dockerfile依存 | 拒否 |
 | `include` / `extends` | 拒否 |
-| 外部ネットワーク・不明なネットワークモード | 拒否 |
+| 外部ネットワーク・不明なネットワークモード | 拒否。承認済みLabはRunnerが付与する内部Bridgeだけを使う |
 | 未固定の外部環境変数/`env_file`/外部ファイル | 拒否 |
 | 明示的`command`/`entrypoint` | v0.1では拒否 |
 | rootユーザー | 警告（拒否ではない） |
@@ -62,7 +62,7 @@ WebはPoC操作例、ヒント、観察結果を表示するが**任意のPoC/OS
 
 ## 具体的なCompose許可条件（追加確定）
 
-[Runtime v0.1の許可リスト](runtime-v1.md)に記載したキーだけを許容する。元Compose YAMLと解決済みComposeの両方を検査し、未知のオプション・変数展開・YAMLアンカー/マージ・ホスト参照を拒否する。対応するのはimage、固定TCP ports、固定値environment、短形式depends_on、project所有のnamed volumesとBridge networksに限る。
+[Runtime v0.1の許可リスト](runtime-v1.md)に記載したキーだけを許容する。元Compose YAMLと解決済みComposeの両方を検査し、未知のオプション・変数展開・YAMLアンカー/マージ・ホスト参照を拒否する。対応するのはimage、固定TCP ports、固定値environment、短形式depends_on、project所有のnamed volumesとBridge networksに限る。`guardrails.egress: none`のLabは、Runnerが生成する`internal: true`の専用Bridgeだけに接続する。
 
 検証チェッカーも第三者イメージであるため、`alpine:3`をPrepare時にdigest固定し、Start時はRunnerが定義した引数配列を短命な最小権限コンテナへ渡す。Manifest経由の任意スクリプトは受け付けない。
 
