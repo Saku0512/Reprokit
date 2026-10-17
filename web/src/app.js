@@ -79,12 +79,12 @@ function render(focusId) {
   const items = menu();
   const active = items.find((item) => item.id === page);
   app.innerHTML = `
-    <div class="course-header"><div><p class="eyebrow">実在事例で学ぶ / ${escape(lesson.spec.case.product)}</p>
+    <div class="lesson-header"><div><p class="eyebrow">実在事例で学ぶ / ${escape(lesson.spec.case.product)}</p>
       <h1>${escape(lesson.metadata.title)}</h1>
       <p class="muted">${lesson.spec.durationMinutes}分 · 開発者向け · 教材 v${escape(lesson.metadata.version)} · 研修状態: ${escape(training?.assignment.status ?? "未取得")}</p></div>
       <div class="progress-summary"><span>学習手順の記録</span><strong>${study?.stepIndex ?? 0}<small> / ${lesson.spec.steps.length}</small></strong><progress aria-label="学習手順の進捗" max="${lesson.spec.steps.length}" value="${study?.stepIndex ?? 0}"></progress></div></div>
     <div class="workspace">
-      <nav class="course-nav" aria-label="学習の順序"><p class="eyebrow">学習の流れ</p><ol>${items.map((item, index) => `<li><button id="nav-${item.id}" data-page="${item.id}" ${unlocked(item) ? "" : "disabled"} ${page === item.id ? 'aria-current="step"' : ""}><span class="step-number">${String(index + 1).padStart(2, "0")}</span><span>${escape(item.title)}</span></button></li>`).join("")}</ol></nav>
+      <nav class="lesson-nav" aria-label="学習の順序"><p class="eyebrow">学習の流れ</p><ol>${items.map((item, index) => `<li><button id="nav-${item.id}" data-page="${item.id}" ${unlocked(item) ? "" : "disabled"} ${page === item.id ? 'aria-current="step"' : ""}><span class="step-number">${String(index + 1).padStart(2, "0")}</span><span>${escape(item.title)}</span></button></li>`).join("")}</ol></nav>
       <main id="content" tabindex="-1"><section class="card lesson-card" aria-labelledby="page-title"><p class="eyebrow">${page === "overview" ? "LESSON OVERVIEW" : "LEARNING WORKSPACE"}</p><h2 id="page-title" tabindex="-1">${escape(active?.title)}</h2>${content()}</section></main>
       <aside id="labs" aria-label="ローカルLabの状態">${labPanel()}</aside>
     </div>
@@ -517,11 +517,8 @@ async function load() {
     )
       throw new Error("未対応の教材またはLab参照です。");
     if (
-      training.assignment.courseVersion !== lesson.metadata.version ||
-      !training.course.lessons.some(
-        (item) =>
-          item.lessonId === lesson.metadata.id && item.lessonVersion === lesson.metadata.version,
-      )
+      training.assignment.lessonId !== lesson.metadata.id ||
+      training.assignment.lessonVersion !== lesson.metadata.version
     )
       throw new Error("割り当てられた研修と教材が一致しません。");
     storageKey = `${LESSON_ID}@${lesson.metadata.version}`;

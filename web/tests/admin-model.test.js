@@ -5,35 +5,36 @@ import {
   assignmentSummary,
   completionDescription,
   filterAssignments,
+  materialForAssignment,
   parseLearnerIDs,
 } from "../src/admin-model.js";
 
 const assignments = [
   {
     learnerId: "alice",
-    courseId: "secure-web",
-    courseVersion: "1",
+    lessonId: "command-injection/filebrowser-auth-hook",
+    lessonVersion: "1.0.0",
     status: "assigned",
     dueAt: "2026-10-10T00:00:00Z",
   },
   {
     learnerId: "bob",
-    courseId: "secure-web",
-    courseVersion: "1",
+    lessonId: "command-injection/filebrowser-auth-hook",
+    lessonVersion: "1.0.0",
     status: "in_progress",
     dueAt: "2026-10-20T00:00:00Z",
   },
   {
     learnerId: "carol",
-    courseId: "review",
-    courseVersion: "2",
+    lessonId: "review/topic",
+    lessonVersion: "2.0.0",
     status: "completed",
     dueAt: "2026-10-01T00:00:00Z",
   },
   {
     learnerId: "dave",
-    courseId: "review",
-    courseVersion: "2",
+    lessonId: "review/topic",
+    lessonVersion: "2.0.0",
     status: "needs_retry",
     dueAt: "2026-10-15T00:00:00Z",
   },
@@ -55,16 +56,48 @@ test("複数の対象者IDを改行またはカンマから重複なく読み取
   assert.throws(() => parseLearnerIDs("  "), /1件以上/);
 });
 
-test("コースの必須教材から完了条件を説明する", () => {
-  assert.equal(
-    completionDescription({ requiredLessons: [{ lessonId: "auth/hook", lessonVersion: "1.0.0" }] }),
-    "必須教材1件の回答がすべて承認されること（auth/hook @ 1.0.0）",
-  );
+const materials = [
+  {
+    lessonId: "command-injection/filebrowser-auth-hook",
+    lessonVersion: "1.0.0",
+    title: "認証フック",
+    product: "File Browser",
+    durationMinutes: 60,
+    cves: ["CVE-2026-54088"],
+  },
+  {
+    lessonId: "review/topic",
+    lessonVersion: "2.0.0",
+    title: "レビュー",
+    product: "Sample",
+    durationMinutes: 30,
+  },
+];
+
+test("割り当てから固定された教材版を取得する", () => {
+  assert.equal(materialForAssignment(assignments[0], materials), materials[0]);
 });
 
-test("状態と受講者・コースを組み合わせて絞り込む", () => {
-  assert.deepEqual(filterAssignments(assignments, "in_progress", "BOB"), [assignments[1]]);
-  assert.deepEqual(filterAssignments(assignments, "", "review"), [assignments[2], assignments[3]]);
+test("教材単位の完了条件を説明する", () => {
+  assert.equal(
+    completionDescription({ lessonId: "auth/hook", lessonVersion: "1.0.0" }),
+    "auth/hook @ 1.0.0 の提出回答が承認されること",
+  );
+  assert.equal(completionDescription(), "教材を選択してください。");
+});
+
+test("状態と受講者・教材を組み合わせて絞り込む", () => {
+  assert.deepEqual(filterAssignments(assignments, "in_progress", "BOB", materials), [
+    assignments[1],
+  ]);
+  assert.deepEqual(filterAssignments(assignments, "", "filebrowser", materials), [
+    assignments[0],
+    assignments[1],
+  ]);
+  assert.deepEqual(filterAssignments(assignments, "", "review", materials), [
+    assignments[2],
+    assignments[3],
+  ]);
 });
 
 test("回答IDを原因・影響・修正・再発防止の観点へ対応付ける", () => {

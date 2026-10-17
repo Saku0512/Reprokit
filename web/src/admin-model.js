@@ -57,21 +57,32 @@ export function parseLearnerIDs(value) {
   return learners;
 }
 
-export function completionDescription(course) {
-  const required = course?.requiredLessons ?? [];
-  if (required.length === 0) return "完了条件を取得できません";
-  const lessonLabel = required
-    .map((lesson) => `${lesson.lessonId} @ ${lesson.lessonVersion}`)
-    .join("、");
-  return `必須教材${required.length}件の回答がすべて承認されること（${lessonLabel}）`;
+export function completionDescription(material) {
+  if (!material) return "教材を選択してください。";
+  return `${material.lessonId} @ ${material.lessonVersion} の提出回答が承認されること`;
 }
 
-export function filterAssignments(assignments, status, query) {
+export function materialForAssignment(assignment, materials) {
+  return materials.find(
+    (material) =>
+      material.lessonId === assignment.lessonId &&
+      material.lessonVersion === assignment.lessonVersion,
+  );
+}
+
+export function filterAssignments(assignments, status, query, materials = []) {
   const normalizedQuery = query.trim().toLocaleLowerCase("ja");
   return assignments.filter((assignment) => {
     if (status && assignment.status !== status) return false;
     if (!normalizedQuery) return true;
-    return [assignment.learnerId, assignment.courseId, assignment.courseVersion]
+    const material = materialForAssignment(assignment, materials);
+    return [
+      assignment.learnerId,
+      material?.lessonId,
+      material?.lessonVersion,
+      assignment.lessonId,
+      assignment.lessonVersion,
+    ]
       .join(" ")
       .toLocaleLowerCase("ja")
       .includes(normalizedQuery);

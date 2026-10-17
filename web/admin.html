@@ -38,8 +38,8 @@
         <div class="admin-heading">
           <div>
             <p class="eyebrow">TRAINING OVERVIEW</p>
-            <h1>研修の割り当てと進捗</h1>
-            <p class="heading-copy">対象者への割り当てから提出回答の確認まで、研修に必要な情報だけを管理します。</p>
+            <h1>教材の割り当てと進捗</h1>
+            <p class="heading-copy">CVE単位の教材を対象者へ割り当て、提出回答まで確認します。</p>
           </div>
           <div class="heading-actions">
             <button id="download">結果CSV</button><button id="logout">ログアウト</button>
@@ -68,22 +68,22 @@
         </section>
         <div class="admin-grid">
           <section class="card admin-card">
-            <p class="eyebrow">COURSE CATALOG</p>
-            <h2>割り当て可能なコース</h2>
-            <div id="courses" class="course-list"></div>
+            <p class="eyebrow">MATERIAL CATALOG</p>
+            <h2>割り当て可能な教材</h2>
+            <div id="materials" class="material-list"></div>
           </section>
           <section class="card admin-card">
             <p class="eyebrow">NEW ASSIGNMENT</p>
             <h2>割り当てを作成</h2>
             <form id="assignment-form">
-              <label for="course">コース</label><select id="course" required></select>
+              <label for="material">教材</label><select id="material" required></select>
               <label for="learners">対象者ID</label>
               <textarea id="learners" rows="3" placeholder="alice, bob&#10;team-member-03" required></textarea>
               <p class="field-help">複数指定はカンマまたは改行で区切ります。</p>
               <label for="due">受講期限</label><input id="due" type="datetime-local" required />
               <div class="completion-rule">
                 <span>完了条件</span>
-                <output id="completion-rule" for="course">コースを選択してください。</output>
+                <output id="completion-rule" for="material">教材を選択してください。</output>
               </div>
               <label class="checkbox-label"><input id="retry" type="checkbox" checked /> 不承認時の再受講を許可</label>
               <button class="primary" type="submit">割り当てる</button>
@@ -105,12 +105,12 @@
               <option value="completed">完了</option>
               <option value="needs_retry">要再受講</option>
             </select>
-            <label for="assignment-search">受講者・コース</label>
+            <label for="assignment-search">受講者・教材</label>
             <input id="assignment-search" type="search" placeholder="IDで絞り込み" />
           </div>
           <div class="table-scroll">
             <table>
-              <thead><tr><th>対象者</th><th>コース</th><th>状態</th><th>期限</th><th>完了条件</th><th><span class="visually-hidden">操作</span></th></tr></thead>
+              <thead><tr><th>対象者</th><th>教材</th><th>状態</th><th>期限</th><th>完了条件</th><th><span class="visually-hidden">操作</span></th></tr></thead>
               <tbody id="assignments"></tbody>
             </table>
           </div>

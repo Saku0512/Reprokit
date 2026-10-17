@@ -3,18 +3,17 @@ import { join } from "node:path";
 import { testOutputDir } from "./paths.js";
 
 async function mockAdministration(page) {
-  const course = {
-    id: "secure-development-foundations",
-    version: "1.0.0",
+  const material = {
+    lessonId: "command-injection/filebrowser-auth-hook",
+    lessonVersion: "1.0.0",
     title: "実在事例から学ぶセキュア開発",
-    lessons: [{ lessonId: "command-injection/filebrowser-auth-hook", lessonVersion: "1.0.0" }],
-    requiredLessons: [
-      { lessonId: "command-injection/filebrowser-auth-hook", lessonVersion: "1.0.0" },
-    ],
+    product: "File Browser",
+    durationMinutes: 60,
+    cves: ["CVE-2026-54088"],
   };
   const base = {
-    courseId: course.id,
-    courseVersion: course.version,
+    lessonId: material.lessonId,
+    lessonVersion: material.lessonVersion,
     allowRetry: true,
     createdAt: "2026-10-01T00:00:00Z",
   };
@@ -78,7 +77,7 @@ async function mockAdministration(page) {
       route.fulfill({ status, contentType: "application/json", body: JSON.stringify(value) });
     if (path === "/api/admin/config") return json({ oidcEnabled: false });
     if (path === "/api/admin/session") return route.fulfill({ status: 204, body: "" });
-    if (path === "/api/training/courses") return json([course]);
+    if (path === "/api/training/materials") return json([material]);
     if (path === "/api/training/assignments" && request.method() === "GET")
       return json(assignments);
     if (path === "/api/training/assignments" && request.method() === "POST") {
@@ -106,17 +105,21 @@ async function mockAdministration(page) {
   return { assignments, calls };
 }
 
-test("複数対象者へ割り当て、状態を絞り込み、4観点の回答を確認する", async ({ page }) => {
+test("CVE教材を複数対象者へ割り当て、状態と4観点の回答を確認する", async ({ page }) => {
   const fixture = await mockAdministration(page);
   await page.goto("/admin");
-  await expect(page.getByRole("heading", { name: "研修の割り当てと進捗" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "教材の割り当てと進捗" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "割り当て可能な教材" })).toBeVisible();
+  await expect(page.getByText("割り当て可能なコース")).toHaveCount(0);
   await expect(page.locator("#metric-total")).toHaveText("5");
   await expect(page.locator("#metric-assigned")).toHaveText("1");
   await expect(page.locator("#metric-in-progress")).toHaveText("1");
   await expect(page.locator("#metric-submitted")).toHaveText("1");
   await expect(page.locator("#metric-completed")).toHaveText("1");
   await expect(page.locator("#metric-needs-retry")).toHaveText("1");
-  await expect(page.locator("#completion-rule")).toContainText("必須教材1件の回答がすべて承認");
+  await expect(page.locator("#completion-rule")).toContainText(
+    "command-injection/filebrowser-auth-hook @ 1.0.0 の提出回答が承認",
+  );
 
   await page.getByLabel("対象者ID").fill("alice, bob\nteam-member-03");
   await page.getByLabel("受講期限").fill("2027-02-01T18:00");
@@ -127,13 +130,16 @@ test("複数対象者へ割り当て、状態を絞り込み、4観点の回答�
   );
   expect(createCall.body.learnerIds).toEqual(["alice", "bob", "team-member-03"]);
   expect(createCall.body.allowRetry).toBe(true);
+  expect(createCall.body.lessonId).toBe("command-injection/filebrowser-auth-hook");
+  expect(createCall.body.lessonVersion).toBe("1.0.0");
+  expect(createCall.body).not.toHaveProperty("courseId");
   expect(createCall.body).not.toHaveProperty("organizationId");
 
   await page.getByLabel("状態").selectOption("needs_retry");
   await expect(page.locator("#assignments tr")).toHaveCount(1);
   await expect(page.locator("#assignments")).toContainText("retry-user");
   await page.getByLabel("状態").selectOption("");
-  await page.getByLabel("受講者・コース").fill("review-user");
+  await page.getByLabel("受講者・教材").fill("review-user");
   const reviewRow = page.locator("#assignments tr").filter({ hasText: "review-user" });
   await reviewRow.getByRole("button", { name: "提出を見る" }).click();
   for (const facet of ["原因", "影響", "修正", "再発防止"])
@@ -152,7 +158,7 @@ test("管理画面を小画面でも横にはみ出さず操作できる", async
   await page.setViewportSize({ width: 390, height: 844 });
   await mockAdministration(page);
   await page.goto("/admin");
-  await expect(page.getByRole("heading", { name: "研修の割り当てと進捗" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "教材の割り当てと進捗" })).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
   ).toBeTruthy();

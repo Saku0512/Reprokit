@@ -65,7 +65,7 @@ test("管理ログイン後だけ管理トークンで研修APIへ接続する",
     }),
     t,
   );
-  assert.equal((await fetch(`${origin}/api/training/courses`)).status, 401);
+  assert.equal((await fetch(`${origin}/api/training/materials`)).status, 401);
   assert.equal(
     (
       await fetch(`${origin}/api/admin/login`, {
@@ -78,7 +78,7 @@ test("管理ログイン後だけ管理トークンで研修APIへ接続する",
   );
   assert.equal(
     (
-      await fetch(`${origin}/api/training/courses`, {
+      await fetch(`${origin}/api/training/materials`, {
         headers: { "X-Reprokit-Session": token },
       })
     ).status,
@@ -168,8 +168,10 @@ test("OIDCログイン主体をサーバー側セッションへ保存して管�
     state: "opaque-state",
     code: "authorization-code",
   });
-  const courses = await fetch(`${origin}/api/training/courses`, { headers: { Cookie: cookie } });
-  assert.equal(courses.status, 200);
+  const materials = await fetch(`${origin}/api/training/materials`, {
+    headers: { Cookie: cookie },
+  });
+  assert.equal(materials.status, 200);
   assert.equal(received[2].organizationId, "local");
   assert.equal(received[2].userId, "reviewer");
   assert.equal(received[2].management, management.token);

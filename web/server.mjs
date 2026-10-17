@@ -324,7 +324,7 @@ export function createWebServer({
         url.pathname,
       );
       const managementTraining =
-        /^\/api\/training\/(?:courses|cohorts|assignments|audit-events|exports\/results\.csv|assignments\/[a-z0-9._-]{1,63}(?:\/submissions)?|submissions\/[a-z0-9._-]{1,63}\/review)$/.test(
+        /^\/api\/training\/(?:materials|cohorts|assignments|audit-events|exports\/results\.csv|assignments\/[a-z0-9._-]{1,63}(?:\/submissions)?|submissions\/[a-z0-9._-]{1,63}\/review)$/.test(
           url.pathname,
         );
       const identityManagement =
