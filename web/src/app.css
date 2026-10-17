@@ -679,6 +679,9 @@ textarea {
 .console-content {
   @apply p-4;
 }
+.card > .console-content {
+  @apply p-0;
+}
 .console-lead,
 .console-notice {
   @apply text-[13px] text-subtle m-0;
@@ -686,11 +689,17 @@ textarea {
 .console-notice {
   @apply mt-4 pt-3 [border-top:1px_solid_var(--line)];
 }
-.console-service {
-  @apply mt-5;
+.console-switch {
+  @apply grid grid-cols-2 gap-1 mt-4 p-1 bg-canvas rounded-[8px] [border:1px_solid_var(--line)];
 }
-.console-service h3 {
-  @apply text-[15px] m-0;
+.console-switch .btn {
+  @apply w-full py-[6px] px-2 [border-color:transparent] text-[12.5px];
+}
+.console-switch .btn[aria-selected="true"] {
+  @apply bg-brand text-white border-brand;
+}
+.console-service {
+  @apply mt-3;
 }
 .console-section {
   @apply mt-3 p-3 bg-canvas rounded-[8px] [border:1px_solid_var(--line)];
@@ -706,6 +715,9 @@ textarea {
 }
 .console-section .log {
   @apply max-h-64 overflow-auto mt-3 mb-0;
+}
+.console-empty {
+  @apply text-[12.5px] text-subtle m-[12px_0_0];
 }
 html:has(.console-dialog[open]) {
   @apply overflow-hidden;

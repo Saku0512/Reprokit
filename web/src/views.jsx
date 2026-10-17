@@ -226,74 +226,95 @@ function LabBox({ state: S }) {
   );
 }
 
-export function LabConsole({ state: S }) {
+export function LabConsole({ state: S, idPrefix = "console", showLead = true }) {
   const services = [
-    ["vulnerable", "脆弱版"],
-    ["fixed", "修正版"],
+    ["vulnerable", "脆弱コンテナ"],
+    ["fixed", "修正版コンテナ"],
   ];
+  const activeService = services.some(([service]) => service === S.consoleService)
+    ? S.consoleService
+    : "vulnerable";
+  const activeTitle = services.find(([service]) => service === activeService)?.[1];
+  const logs = S.logs?.[activeService];
+  const action = S.actions?.[`${activeService}:list_tmp`];
+  const panelID = `${idPrefix}-${activeService}-panel`;
   return (
     <div className="console-content">
-      <p className="console-lead">
-        {
-          "実行中のLabだけを観察できます。自由なOSコマンドは実行できず、教材レビュー済みのアクションだけが利用できます。"
-        }
-      </p>
-      {services.map(([service, title]) => {
-        const logs = S.logs?.[service];
-        const action = S.actions?.[`${service}:list_tmp`];
-        return (
-          <section key={service} className="console-service" aria-labelledby={`console-${service}`}>
-            <h3 id={`console-${service}`}>{title}</h3>
-            <div className="console-section">
-              <div className="console-section-heading">
-                <div>
-                  <b>{"コンテナログ"}</b>
-                  <p>{"最大200行・64 KiBのスナップショットです。"}</p>
-                </div>
-                <button
-                  className="btn sm"
-                  data-a="logs"
-                  data-v={service}
-                  disabled={S.logLoading !== null}
-                >
-                  {S.logLoading === service ? "取得中…" : "更新"}
-                </button>
-              </div>
-              {logs && (
-                <>
-                  {logs.truncated && <span className="pill amber">{"先頭を省略"}</span>}
-                  <pre className="log">{logs.content || "（出力はまだありません）"}</pre>
-                </>
-              )}
+      {showLead && (
+        <p className="console-lead">
+          {
+            "実行中のLabだけを観察できます。自由なOSコマンドは実行できず、教材レビュー済みのアクションだけが利用できます。"
+          }
+        </p>
+      )}
+      <div className="console-switch" role="tablist" aria-label="観察するコンテナ">
+        {services.map(([service, title]) => (
+          <button
+            key={service}
+            className="btn"
+            role="tab"
+            aria-selected={activeService === service}
+            aria-controls={`${idPrefix}-${service}-panel`}
+            data-a="console-service"
+            data-v={service}
+          >
+            {title}
+          </button>
+        ))}
+      </div>
+      <section id={panelID} className="console-service" role="tabpanel" aria-label={activeTitle}>
+        <div className="console-section">
+          <div className="console-section-heading">
+            <div>
+              <b>{"コンテナログ"}</b>
+              <p>{"最大200行・64 KiBのスナップショットです。"}</p>
             </div>
-            <div className="console-section">
-              <div className="console-section-heading">
-                <div>
-                  <b>{"規定アクション"}</b>
-                  <p>
-                    <code>{"ls -la /tmp"}</code>
-                    {" — マーカー作成を確認"}
-                  </p>
-                </div>
-                <button
-                  className="btn sm"
-                  data-a="list-tmp"
-                  data-v={service}
-                  disabled={S.actionLoading !== null}
-                >
-                  {S.actionLoading === `${service}:list_tmp` ? "実行中…" : "/tmp を一覧"}
-                </button>
-              </div>
-              {action && (
-                <>
-                  {action.truncated && <span className="pill amber">{"先頭を省略"}</span>}
-                  <pre className="log">{action.output || "（出力はありません）"}</pre>
-                </>
-              )}
+            <button
+              className="btn sm"
+              data-a="logs"
+              data-v={activeService}
+              disabled={S.lab !== "running" || S.logLoading !== null}
+            >
+              {S.logLoading === activeService ? "取得中…" : "ログを更新"}
+            </button>
+          </div>
+          {logs ? (
+            <>
+              {logs.truncated && <span className="pill amber">{"先頭を省略"}</span>}
+              <pre className="log">{logs.content || "（出力はまだありません）"}</pre>
+            </>
+          ) : (
+            <p className="console-empty">{"まだログを取得していません。"}</p>
+          )}
+        </div>
+        <div className="console-section">
+          <div className="console-section-heading">
+            <div>
+              <b>{"検証コンソール"}</b>
+              <p>
+                <code>{"ls -la /tmp"}</code>
+                {" — マーカー作成を確認する固定アクション"}
+              </p>
             </div>
-          </section>
-        );
-      })}
+            <button
+              className="btn sm"
+              data-a="list-tmp"
+              data-v={activeService}
+              disabled={S.lab !== "running" || S.actionLoading !== null}
+            >
+              {S.actionLoading === `${activeService}:list_tmp` ? "実行中…" : "実行"}
+            </button>
+          </div>
+          {action ? (
+            <>
+              {action.truncated && <span className="pill amber">{"先頭を省略"}</span>}
+              <pre className="log">{action.output || "（出力はありません）"}</pre>
+            </>
+          ) : (
+            <p className="console-empty">{"まだ検証アクションを実行していません。"}</p>
+          )}
+        </div>
+      </section>
       {(S.logFailure || S.actionFailure) && (
         <p className="lab-failure" role="alert">
           {S.logFailure || S.actionFailure}
@@ -376,7 +397,7 @@ function NormalUsage({ lesson: l, state: S }) {
   );
 }
 
-function Reproduction({ lesson: l, state: S }) {
+function Reproduction({ state: S }) {
   const h = [
     "（ヒントなし）",
     "このCVEは「認証の結果が出る前」に何かが起きます。ログインの入力欄に注目してください。",
@@ -390,16 +411,20 @@ function Reproduction({ lesson: l, state: S }) {
           <div className="card">
             <h3>{"ガイド"}</h3>
             <ol className="step">
-              <li>{"脆弱版 2.63.5（8080）が起動していることを確認"}</li>
-              <li>{"ヒントを開きながら、ターミナルで検証用入力を送る"}</li>
-              <li>{"戻って「観察結果を取得」を押す"}</li>
+              <li>{"上のLabカードから脆弱版を別タブで開く"}</li>
+              <li>{"次の値をログインフォームへ入力して、ログインを試す"}</li>
+              <li>{"ログインが拒否された後、脆弱コンテナを選んで「観察結果を取得」を押す"}</li>
             </ol>
             {"\n            "}
             <div className="log" style={{ marginTop: "10px" }}>
-              {"$ curl -sI http://127.0.0.1:"}
-              {l.ports[0]}
-              {"/ | head -n 1"}
+              {"Username: id > /tmp/success; echo hook.action=block\n"}
+              {"Password: anything"}
             </div>
+            <p className="console-empty">
+              {
+                "この入力は隔離コンテナ内の /tmp/success にマーカーを作るだけです。認証失敗は想定どおりの結果です。"
+              }
+            </p>
             {"\n            "}
             {S.hint ? (
               <>
@@ -447,22 +472,7 @@ function Reproduction({ lesson: l, state: S }) {
         <div>
           <div className="card">
             <h3>{"観察結果（隔離コンテナ内）"}</h3>
-            {S.repro ? (
-              <>
-                <span className="pill red">{"認証前なのに処理が実行された"}</span>
-                <div className="log" style={{ marginTop: "8px" }}>
-                  {"$ ls /tmp\n"}
-                  <span className="ok">{"success"}</span>
-                  {"   ← 教材の無害なマーカー"}
-                </div>
-              </>
-            ) : (
-              <>
-                <p style={{ color: "var(--sub)", margin: "0", fontSize: "13.5px" }}>
-                  {"まだ何も取得していません。"}
-                </p>
-              </>
-            )}
+            <LabConsole state={S} idPrefix="observation" showLead={false} />
           </div>
           {"\n            "}
           <div className="card" style={{ marginTop: "14px" }}>

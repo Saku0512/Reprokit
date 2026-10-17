@@ -67,6 +67,7 @@ export const initialState = {
   actions: {},
   actionLoading: null,
   actionFailure: null,
+  consoleService: "vulnerable",
   ok: false,
   vol: "keep",
   login: null,

@@ -273,6 +273,47 @@ function App() {
     }
   }
 
+  async function observeService(service) {
+    if (!state.runtime?.labSessionId || state.lab !== "running") return;
+    const key = `${service}:list_tmp`;
+    update({
+      logLoading: service,
+      actionLoading: key,
+      logFailure: null,
+      actionFailure: null,
+    });
+    const [logsResult, actionResult] = await Promise.allSettled([
+      api.logs(state.runtime.labSessionId, service),
+      api.listTmp(state.runtime.labSessionId, service),
+    ]);
+    setState((previous) => ({
+      ...previous,
+      repro: previous.repro || (service === "vulnerable" && actionResult.status === "fulfilled"),
+      logs:
+        logsResult.status === "fulfilled"
+          ? { ...previous.logs, [service]: logsResult.value }
+          : previous.logs,
+      actions:
+        actionResult.status === "fulfilled"
+          ? { ...previous.actions, [key]: actionResult.value }
+          : previous.actions,
+      logLoading: null,
+      actionLoading: null,
+      logFailure:
+        logsResult.status === "rejected"
+          ? logsResult.reason instanceof Error
+            ? logsResult.reason.message
+            : "ログを取得できませんでした。"
+          : null,
+      actionFailure:
+        actionResult.status === "rejected"
+          ? actionResult.reason instanceof Error
+            ? actionResult.reason.message
+            : "検証アクションを実行できませんでした。"
+          : null,
+    }));
+  }
+
   async function action(event) {
     const target = event.target.closest("[data-a]");
     if (!target || target.disabled) return;
@@ -322,7 +363,7 @@ function App() {
         update({ hint: Math.min(3, state.hint + 1) });
         break;
       case "repro":
-        update({ repro: true });
+        await observeService(state.consoleService);
         break;
       case "rst":
         update({ repro: false, hint: 0 });
@@ -375,6 +416,9 @@ function App() {
         break;
       case "close-console":
         setConsoleOpen(false);
+        break;
+      case "console-service":
+        update({ consoleService: v, logFailure: null, actionFailure: null });
         break;
       case "logs":
         await showLogs(v);
@@ -479,7 +523,7 @@ function App() {
             ×
           </button>
         </div>
-        <LabConsole state={state} />
+        <LabConsole state={state} idPrefix="dialog-console" />
       </dialog>
       <div id="modal">
         <LabModal state={state} onChange={update} />
@@ -503,6 +547,7 @@ function resetLabState() {
     actions: {},
     actionLoading: null,
     actionFailure: null,
+    consoleService: "vulnerable",
   };
 }
 

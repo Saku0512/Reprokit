@@ -106,21 +106,38 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await page.getByRole("button", { name: "検証コンソール", exact: true }).click();
   const consoleDialog = page.getByRole("dialog", { name: "検証コンソール" });
   await expect(consoleDialog).toBeVisible();
-  await consoleDialog.getByRole("button", { name: "更新", exact: true }).first().click();
-  await expect(consoleDialog.locator(".console-service").first().locator(".log")).toContainText(
-    "vulnerable log",
-  );
-  await consoleDialog.getByRole("button", { name: "/tmp を一覧", exact: true }).first().click();
-  await expect(
-    consoleDialog.locator(".console-service").first().locator(".log").last(),
-  ).toContainText("success");
+  await consoleDialog.getByRole("button", { name: "ログを更新", exact: true }).click();
+  await expect(consoleDialog.locator(".console-service .log")).toContainText("vulnerable log");
+  await consoleDialog.getByRole("button", { name: "実行", exact: true }).click();
+  await expect(consoleDialog.locator(".console-service .log").last()).toContainText("success");
+  await consoleDialog.getByRole("tab", { name: "修正版コンテナ" }).click();
+  await consoleDialog.getByRole("button", { name: "ログを更新", exact: true }).click();
+  await expect(consoleDialog.locator(".console-service .log")).toContainText("fixed log");
   await consoleDialog.getByRole("button", { name: "検証コンソールを閉じる" }).click();
   await expect(consoleDialog).toBeHidden();
   await page.locator('#phase-0 [data-a="next"]').click();
   await atNextBoundary(page, 0);
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "ヒントを見る" }).click();
   await expect(page.getByRole("button", { name: "ヒントを見る" })).toBeDisabled();
+  await expect(page.locator("#phase-1 .step + .log")).toContainText(
+    "Username: id > /tmp/success; echo hook.action=block",
+  );
+  await expect(page.locator("#phase-1 .step + .log")).toContainText("Password: anything");
   await page.getByRole("button", { name: "観察結果を取得" }).click();
+  const observation = page.locator("#phase-1 .card").filter({
+    has: page.getByRole("heading", { name: "観察結果（隔離コンテナ内）" }),
+  });
+  await expect(observation.getByRole("tab", { name: "修正版コンテナ" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(observation.locator(".console-service .log").first()).toContainText("fixed log");
+  await observation.getByRole("tab", { name: "脆弱コンテナ" }).click();
+  await page.getByRole("button", { name: "観察結果を取得" }).click();
+  await expect(observation.locator(".console-service .log").first()).toContainText(
+    "vulnerable log",
+  );
+  await expect(observation.locator(".console-service .log").last()).toContainText("success");
   await expect(page.locator("#phase-1 .data")).toContainText("dummy-report.txt");
   await page.locator('#phase-1 [data-a="next"]').click();
   await atNextBoundary(page, 1);
