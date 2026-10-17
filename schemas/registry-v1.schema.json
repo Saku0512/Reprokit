@@ -4,11 +4,7 @@
   "title": "Reprokit Registry index v1",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "registryVersion",
-    "cves",
-    "labs"
-  ],
+  "required": ["registryVersion", "cves", "labs"],
   "properties": {
     "registryVersion": {
       "const": 1
@@ -36,9 +32,7 @@
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "manifest"
-        ],
+        "required": ["manifest"],
         "properties": {
           "manifest": {
             "type": "string",

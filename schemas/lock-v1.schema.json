@@ -4,15 +4,7 @@
   "title": "Reprokit Lockfile v1",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "lockVersion",
-    "lab",
-    "registry",
-    "manifest",
-    "source",
-    "runtime",
-    "images"
-  ],
+  "required": ["lockVersion", "lab", "registry", "manifest", "source", "runtime", "images"],
   "properties": {
     "lockVersion": {
       "const": 1
@@ -24,10 +16,7 @@
     "registry": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "revision",
-        "manifestPath"
-      ],
+      "required": ["revision", "manifestPath"],
       "properties": {
         "revision": {
           "type": "string",
@@ -42,9 +31,7 @@
     "manifest": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "sha256"
-      ],
+      "required": ["sha256"],
       "properties": {
         "sha256": {
           "type": "string",
@@ -55,13 +42,7 @@
     "source": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "url",
-        "revision",
-        "subdirectory",
-        "composeSha256",
-        "files"
-      ],
+      "required": ["url", "revision", "subdirectory", "composeSha256", "files"],
       "properties": {
         "url": {
           "type": "string",
@@ -86,10 +67,7 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "path",
-              "sha256"
-            ],
+            "required": ["path", "sha256"],
             "properties": {
               "path": {
                 "type": "string",
@@ -109,20 +87,13 @@
     "runtime": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "type",
-        "platform",
-        "resolvedComposeSha256"
-      ],
+      "required": ["type", "platform", "resolvedComposeSha256"],
       "properties": {
         "type": {
           "const": "docker-compose"
         },
         "platform": {
-          "enum": [
-            "linux/amd64",
-            "linux/arm64"
-          ]
+          "enum": ["linux/amd64", "linux/arm64"]
         },
         "resolvedComposeSha256": {
           "type": "string",
@@ -139,11 +110,7 @@
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "reference",
-          "digest",
-          "platform"
-        ],
+        "required": ["reference", "digest", "platform"],
         "properties": {
           "reference": {
             "type": "string",
@@ -154,10 +121,7 @@
             "pattern": "^sha256:[0-9a-f]{64}$"
           },
           "platform": {
-            "enum": [
-              "linux/amd64",
-              "linux/arm64"
-            ]
+            "enum": ["linux/amd64", "linux/arm64"]
           }
         }
       }
@@ -165,11 +129,7 @@
     "checker": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "reference",
-        "digest",
-        "platform"
-      ],
+      "required": ["reference", "digest", "platform"],
       "properties": {
         "reference": {
           "const": "alpine:3"
@@ -179,10 +139,7 @@
           "pattern": "^sha256:[0-9a-f]{64}$"
         },
         "platform": {
-          "enum": [
-            "linux/amd64",
-            "linux/arm64"
-          ]
+          "enum": ["linux/amd64", "linux/arm64"]
         }
       }
     }

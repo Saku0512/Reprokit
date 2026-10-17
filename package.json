@@ -1,0 +1,13 @@
+{
+  "name": "reprokit-workspace",
+  "private": true,
+  "scripts": {
+    "format": "bash .codex/skills/reprokit-verify/scripts/format.sh write",
+    "format:check": "bash .codex/skills/reprokit-verify/scripts/format.sh check",
+    "verify": "bash .codex/skills/reprokit-verify/scripts/verify.sh quick",
+    "verify:full": "bash .codex/skills/reprokit-verify/scripts/verify.sh full"
+  },
+  "devDependencies": {
+    "prettier": "3.9.10"
+  }
+}

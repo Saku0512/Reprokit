@@ -4,12 +4,7 @@
   "title": "Reprokit Lab Manifest v1alpha1",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "apiVersion",
-    "kind",
-    "metadata",
-    "spec"
-  ],
+  "required": ["apiVersion", "kind", "metadata", "spec"],
   "properties": {
     "apiVersion": {
       "const": "reprokit.dev/v1alpha1"
@@ -20,10 +15,7 @@
     "metadata": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "name"
-      ],
+      "required": ["id", "name"],
       "properties": {
         "id": {
           "type": "string",
@@ -37,11 +29,7 @@
     "spec": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "cves",
-        "source",
-        "runtime"
-      ],
+      "required": ["cves", "source", "runtime"],
       "properties": {
         "cves": {
           "type": "array",
@@ -55,12 +43,7 @@
         "source": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "type",
-            "url",
-            "revision",
-            "subdirectory"
-          ],
+          "required": ["type", "url", "revision", "subdirectory"],
           "properties": {
             "type": {
               "const": "git"
@@ -82,11 +65,7 @@
         "runtime": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "type",
-            "file",
-            "platform"
-          ],
+          "required": ["type", "file", "platform"],
           "properties": {
             "type": {
               "const": "docker-compose"
@@ -102,19 +81,14 @@
               ]
             },
             "platform": {
-              "enum": [
-                "linux/amd64",
-                "linux/arm64"
-              ]
+              "enum": ["linux/amd64", "linux/arm64"]
             }
           }
         },
         "target": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "product"
-          ],
+          "required": ["product"],
           "properties": {
             "product": {
               "$ref": "#/$defs/nonBlank"
@@ -125,10 +99,7 @@
             "vulnerableComponent": {
               "type": "object",
               "additionalProperties": false,
-              "required": [
-                "name",
-                "version"
-              ],
+              "required": ["name", "version"],
               "properties": {
                 "name": {
                   "$ref": "#/$defs/nonBlank"
@@ -147,11 +118,7 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": [
-              "type",
-              "service",
-              "port"
-            ],
+            "required": ["type", "service", "port"],
             "properties": {
               "type": {
                 "const": "tcp"
