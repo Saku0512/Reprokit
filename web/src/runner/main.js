@@ -5,8 +5,8 @@ import {
   endpointURL,
   hasComparisonEndpoints,
   stateLabels,
-} from "./api.js";
-import { localRecord, saveLocal } from "./storage.js";
+} from "../shared/study-api.js";
+import { localRecord, saveLocal } from "../shared/storage.js";
 
 const api = new StudyApi(document.querySelector('meta[name="reprokit-session"]').content);
 const app = document.querySelector("#app");

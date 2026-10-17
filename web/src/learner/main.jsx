@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { initialState } from "./data.js";
-import { LabConsole, LessonList, LessonDetail, LessonOutline } from "./views.jsx";
-import { LabModal } from "./modal.jsx";
-import { StudyApi, canStart } from "./api.js";
+import { initialState } from "./lesson-data.js";
+import { LabConsole, LessonList, LessonDetail, LessonOutline } from "./lesson-views.jsx";
+import { LabModal } from "./lab-modal.jsx";
+import { StudyApi, canStart } from "../shared/study-api.js";
 import "@fontsource/noto-sans-jp/400.css";
 import "@fontsource/noto-sans-jp/500.css";
 import "@fontsource/noto-sans-jp/700.css";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
-import "./app.css";
+import "./learner.css";
 
 const api = new StudyApi(document.querySelector('meta[name="reprokit-session"]')?.content ?? "");
 const labSessionStorageKey = "reprokit:sample:filebrowser:lab-session";
@@ -405,7 +405,7 @@ function App() {
         update({ hint: Math.min(3, state.hint + 1) });
         break;
       case "repro":
-        await observeService(state.consoleService);
+        await observeService("vulnerable");
         break;
       case "rst":
         update({ repro: false, hint: 0 });
@@ -457,9 +457,6 @@ function App() {
         break;
       case "close-console":
         setConsoleOpen(false);
-        break;
-      case "console-service":
-        update({ consoleService: v, logFailure: null, actionFailure: null });
         break;
       case "logs":
         await showLogs(v);
@@ -587,7 +584,6 @@ function resetLabState() {
     actions: {},
     actionLoading: null,
     actionFailure: null,
-    consoleService: "vulnerable",
   };
 }
 

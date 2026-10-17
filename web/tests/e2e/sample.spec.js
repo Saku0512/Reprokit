@@ -108,13 +108,18 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await expect(consoleDialog.locator(".console-service .log")).toContainText("vulnerable log");
   await consoleDialog.getByRole("button", { name: "実行", exact: true }).click();
   await expect(consoleDialog.locator(".console-service .log").last()).toContainText("success");
-  await consoleDialog.getByRole("tab", { name: "修正版コンテナ" }).click();
-  await consoleDialog.getByRole("button", { name: "ログを更新", exact: true }).click();
-  await expect(consoleDialog.locator(".console-service .log")).toContainText("fixed log");
+  await expect(consoleDialog.getByRole("tab")).toHaveCount(0);
+  await expect(consoleDialog.getByRole("region", { name: "脆弱コンテナ" })).toBeVisible();
+  await expect(consoleDialog).not.toContainText("修正版コンテナ");
   await consoleDialog.getByRole("button", { name: "検証コンソールを閉じる" }).click();
   await expect(consoleDialog).toBeHidden();
   await page.locator('#phase-0 [data-a="next"]').click();
   await atNextBoundary(page, 0);
+  const affectedData = page.locator("#phase-1 .card").filter({
+    has: page.getByRole("heading", { name: "影響を受けるデータ", exact: true }),
+  });
+  await expect(affectedData).toContainText("-");
+  await expect(affectedData.locator("table")).toHaveCount(0);
   for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "ヒントを見る" }).click();
   await expect(page.getByRole("button", { name: "ヒントを見る" })).toBeDisabled();
   await expect(page.locator("#phase-1 .step + .log")).toContainText(
@@ -125,22 +130,48 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   const observation = page.locator("#phase-1 .card").filter({
     has: page.getByRole("heading", { name: "観察結果（隔離コンテナ内）" }),
   });
-  await expect(observation.getByRole("tab", { name: "修正版コンテナ" })).toHaveAttribute(
-    "aria-selected",
-    "true",
-  );
-  await expect(observation.locator(".console-service .log").first()).toContainText("fixed log");
-  await observation.getByRole("tab", { name: "脆弱コンテナ" }).click();
-  await page.getByRole("button", { name: "観察結果を取得" }).click();
+  await expect(observation.getByRole("tab")).toHaveCount(0);
+  await expect(observation.getByRole("region", { name: "脆弱コンテナ" })).toBeVisible();
+  await expect(observation).not.toContainText("修正版コンテナ");
   await expect(observation.locator(".console-service .log").first()).toContainText(
     "vulnerable log",
   );
   await expect(observation.locator(".console-service .log").last()).toContainText("success");
-  await expect(page.locator("#phase-1 .data")).toContainText("dummy-report.txt");
+  const consoleCalls = fixture.calls.filter(
+    (call) => call.path.includes("/logs/") || call.path.includes("/actions/"),
+  );
+  expect(consoleCalls.map((call) => call.path.split("/").slice(4).join("/")).sort()).toEqual([
+    "actions/vulnerable/list_tmp",
+    "actions/vulnerable/list_tmp",
+    "logs/vulnerable",
+    "logs/vulnerable",
+  ]);
+  await expect(affectedData).toContainText("-");
+  await expect(affectedData.locator("table")).toHaveCount(0);
   await page.locator('#phase-1 [data-a="next"]').click();
   await atNextBoundary(page, 1);
+  const traceDetail = page.getByRole("region", { name: "この地点の様子", exact: true });
+  await expect(traceDetail).toContainText("後からログインを拒否しても取り消されません");
+  await expect(traceDetail.locator("code")).toContainText('a.Fields.Values["hook.action"]');
   await page.getByRole("button", { name: "1つ戻る" }).click();
   await expect(page.locator(".nd.at")).toContainText("外部コマンドを実行する");
+  await expect(traceDetail).toContainText("File Browserプロセスの権限");
+  await expect(traceDetail.locator("code")).toContainText("cmd.Output()");
+  for (const code of [
+    "os.Expand(arg, envMapping)",
+    "a.Cred = cred",
+    "sh -c $USERNAME",
+    "json.NewDecoder(r.Body).Decode(&cred)",
+  ]) {
+    await page.getByRole("button", { name: "1つ戻る" }).click();
+    await expect(traceDetail.locator("code")).toContainText(code);
+  }
+  await expect(page.getByRole("button", { name: "1つ戻る" })).toBeDisabled();
+  await expect(
+    traceDetail.getByRole("link", { name: "File Browser 2.63.5の実装を見る" }),
+  ).toHaveAttribute("href", /v2\.63\.5\/auth\/hook\.go#L36$/);
+  await page.getByRole("button", { name: "1つ進める" }).click();
+  await expect(traceDetail.locator("code")).toHaveText("sh -c $USERNAME");
   await page.locator('#phase-2 [data-a="next"]').click();
   await atNextBoundary(page, 2);
   await page.locator('.diff [data-v="a"]').first().click();

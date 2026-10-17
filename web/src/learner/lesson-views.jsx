@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef } from "react";
-import { L, PH, NODES } from "./data.js";
-import { endpointURL } from "./api.js";
+import { L, PH, NODES, TRACE_DETAILS } from "./lesson-data.js";
+import { endpointURL } from "../shared/study-api.js";
 export function LessonList({ state: S }) {
   const cats = [
     ["all", "すべて", L.length],
@@ -214,7 +214,7 @@ function LabBox({ state: S }) {
     <>
       <div className="tm">
         <div className="r1">
-          <b>{"◎ ターゲットマシン"}</b>
+          <b>{"演習環境"}</b>
           <div className="act" style={{ margin: "0" }}>
             {r1}
           </div>
@@ -227,14 +227,7 @@ function LabBox({ state: S }) {
 }
 
 export function LabConsole({ state: S, idPrefix = "console", showLead = true }) {
-  const services = [
-    ["vulnerable", "脆弱コンテナ"],
-    ["fixed", "修正版コンテナ"],
-  ];
-  const activeService = services.some(([service]) => service === S.consoleService)
-    ? S.consoleService
-    : "vulnerable";
-  const activeTitle = services.find(([service]) => service === activeService)?.[1];
+  const activeService = "vulnerable";
   const logs = S.logs?.[activeService];
   const action = S.actions?.[`${activeService}:list_tmp`];
   const panelID = `${idPrefix}-${activeService}-panel`;
@@ -247,22 +240,7 @@ export function LabConsole({ state: S, idPrefix = "console", showLead = true }) 
           }
         </p>
       )}
-      <div className="console-switch" role="tablist" aria-label="観察するコンテナ">
-        {services.map(([service, title]) => (
-          <button
-            key={service}
-            className="btn"
-            role="tab"
-            aria-selected={activeService === service}
-            aria-controls={`${idPrefix}-${service}-panel`}
-            data-a="console-service"
-            data-v={service}
-          >
-            {title}
-          </button>
-        ))}
-      </div>
-      <section id={panelID} className="console-service" role="tabpanel" aria-label={activeTitle}>
+      <section id={panelID} className="console-service" aria-label="脆弱コンテナ">
         <div className="console-section">
           <div className="console-section-heading">
             <div>
@@ -335,7 +313,8 @@ function NormalUsage() {
           <div className="card">
             <h3>{"やってみること"}</h3>
             <ol className="step">
-              <li>{"右の「別タブで開く」で、脆弱版または修正版のログイン画面を開く"}</li>
+              <li>{"演習環境を起動する"}</li>
+              <li>{"「別タブで開く」で、脆弱版または修正版のログイン画面を開く"}</li>
               <li>{"任意のユーザー名・パスワードでログインを試す"}</li>
               <li>{"どちらの画面でもログインが拒否されることを確認する"}</li>
               <li>{"戻ってきて、拒否される前のサーバー側の処理を確認する"}</li>
@@ -373,7 +352,8 @@ function NormalUsage() {
   );
 }
 
-function Reproduction({ state: S }) {
+function Reproduction({ lesson, state: S }) {
+  const affectedData = lesson.affectedData ?? [];
   const h = [
     "（ヒントなし）",
     "このCVEは「認証の結果が出る前」に何かが起きます。ログインの入力欄に注目してください。",
@@ -389,7 +369,7 @@ function Reproduction({ state: S }) {
             <ol className="step">
               <li>{"上のLabカードから脆弱版を別タブで開く"}</li>
               <li>{"次の値をログインフォームへ入力して、ログインを試す"}</li>
-              <li>{"ログインが拒否された後、脆弱コンテナを選んで「観察結果を取得」を押す"}</li>
+              <li>{"ログインが拒否された後、「観察結果を取得」を押す"}</li>
             </ol>
             {"\n            "}
             <div className="log" style={{ marginTop: "10px" }}>
@@ -452,32 +432,25 @@ function Reproduction({ state: S }) {
           </div>
           {"\n            "}
           <div className="card" style={{ marginTop: "14px" }}>
-            <h3>{"影響を受ける架空データ"}</h3>
-            {S.repro ? (
+            <h3>{"影響を受けるデータ"}</h3>
+            {affectedData.length === 0 ? (
+              <p className="console-empty">{"-"}</p>
+            ) : S.repro ? (
               <>
                 <table className="data">
                   <tbody>
                     <tr>
                       <th>{"種類"}</th>
-                      <th>{"内容（すべて架空）"}</th>
+                      <th>{"内容"}</th>
                     </tr>
-                    <tr>
-                      <td>{"ユーザー"}</td>
-                      <td>{"sample-admin / sample-guest"}</td>
-                    </tr>
-                    <tr>
-                      <td>{"ファイル"}</td>
-                      <td>{"dummy-report.txt / dummy-keys.txt"}</td>
-                    </tr>
-                    <tr>
-                      <td>{"設定"}</td>
-                      <td>{"fake-token = 0000-DUMMY"}</td>
-                    </tr>
+                    {affectedData.map((item, index) => (
+                      <tr key={index}>
+                        <td>{item.type}</td>
+                        <td>{item.content}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
-                <p style={{ fontSize: "12.5px", color: "var(--sub)", margin: "6px 0 0" }}>
-                  {"実際の事故で見える可能性があるものを示す、教材用の架空データです。"}
-                </p>
               </>
             ) : (
               <>
@@ -494,6 +467,7 @@ function Reproduction({ state: S }) {
 }
 
 function RequestTrace({ state: S }) {
+  const detail = TRACE_DETAILS[S.pos];
   return (
     <>
       <div className="stage">
@@ -549,27 +523,23 @@ function RequestTrace({ state: S }) {
           </div>
         </div>
         {"\n            "}
-        <div className="card">
+        <section className="card trace-detail" aria-label="この地点の様子">
           <h3>{"この地点の様子"}</h3>
-          <div className="log">
-            {
-              [
-                "受信直後の値: 外部入力（未検証）",
-                "分岐: Hook Authentication",
-                "保持: 値は加工されていない",
-                <>
-                  <span className="t">{"展開: 値がコマンド引数へ"}</span>
-                </>,
-                <>
-                  <span className="u">{"実行: 展開後の文字列を解釈"}</span>
-                </>,
-                <>
-                  <span className="t">{"確定: すでにコマンドは実行済み"}</span>
-                </>,
-              ][S.pos]
-            }
-          </div>
-        </div>
+          <h4>{`${S.pos + 1}. ${NODES[S.pos][0]}`}</h4>
+          <p>{detail.description}</p>
+          <p className="console-empty">{detail.codeLabel}</p>
+          <pre className="log">
+            <code>{detail.code}</code>
+          </pre>
+          <p>{detail.result}</p>
+          <a
+            href={`https://github.com/filebrowser/filebrowser/blob/v2.63.5/auth/hook.go#L${detail.line}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {"File Browser 2.63.5の実装を見る"}
+          </a>
+        </section>
       </div>
     </>
   );
@@ -625,7 +595,7 @@ function PatchComparison({ state: S }) {
             <h3>{"原因から修正まで"}</h3>
             {"\n            "}
             <p style={{ margin: "0 0 8px", fontSize: "14px" }}>
-              <b>{"あなたが見つけた原因（フェーズ3・手順4）"}</b>
+              <b>{"見つけた原因（フェーズ3・手順4）"}</b>
               <br />
               <code>{"os.Expand"}</code>
               {"がユーザー名・パスワードをコマンド文字列の中へ展開し、その文字列を次の"}
@@ -773,7 +743,7 @@ function Remediation({ state: S }) {
 const phases = [NormalUsage, Reproduction, RequestTrace, PatchComparison, Remediation];
 const phaseLeads = [
   "このLabではログインが拒否されることが正常な動作です。拒否される前の処理を確認します。",
-  "ガイドに沿って検証し、観察結果と、影響を受ける架空データを確認します。",
+  "ガイドに沿って検証し、観察結果を確認します。",
   "結果から処理をたどり、入力値がコマンドとして扱われる流れを確認します。",
   "実際の修正差分と、自分が見つけた原因との対応を確認します。",
   "修正版で同じ操作をもう一度行い、両版のログイン拒否と副作用の違いを確認します。",

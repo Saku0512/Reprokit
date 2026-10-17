@@ -22,16 +22,54 @@ RunnerなしでReact画面を確認する場合は `npm --prefix web run dev:ext
 `npm run web:build` はReact、CSS、フォントを `web/dist/generated/` に同梱する。
 フォントはサンプルと同じNoto Sans JP / IBM Plex Monoを使用し、Google Fontsへの通信は不要。
 
-`src/app.jsx` が状態管理、`views.jsx` が一覧と各学習フェーズ、
-`modal.jsx` が確認ダイアログ、`data.js` がサンプルの固定データを担当する。
-`src/sample.css`、`src/style.css`、`src/admin.css` はTailwind CSSの `@apply` で各画面のスタイルを定義する。
-共通の読み込みと色の対応は `src/tailwind.css` に置き、既存のライト・ダークテーマのCSS変数を参照する。
+`src/learner/main.jsx` が状態管理、`lesson-views.jsx` が一覧と各学習フェーズ、
+`lab-modal.jsx` が確認ダイアログ、`lesson-data.js` がサンプルの固定データを担当する。
+「影響を受けるデータ」は各教材の `affectedData` に `{ type, content }` の配列で設定する。
+空配列または未設定なら「-」と表示する。
+`src/learner/learner.css`、`src/shared/base.css`、`src/admin/admin.css` はTailwind CSSの `@apply` で各画面のスタイルを定義する。
+共通の読み込みと色の対応は `src/shared/tailwind.css` に置き、既存のライト・ダークテーマのCSS変数を参照する。
 既存のブラウザ標準スタイルを維持するためPreflightは読み込まない。
 フォント、テーマ値、独自アニメーションなどは通常のCSSで定義する。
 `scripts/frontend.mjs` がPostCSSとTailwindをesbuildへ組み込み、
 `generated/app.css`、`generated/runner.css`、`generated/admin.css` を生成する。
 画面へユーティリティクラスを直接追加することもできる。HTMLと `src/` 内のコードが検出対象になる。
 HTMLの直接挿入は使わず、JSXで描画する。
+
+## ディレクトリ構成
+
+```text
+web/
+├── src/
+│   ├── learner/              # React受講画面（/）
+│   │   ├── main.jsx          # 入口と状態管理
+│   │   ├── lesson-views.jsx  # 教材一覧・詳細・Lab表示
+│   │   ├── lab-modal.jsx     # Lab操作の確認ダイアログ
+│   │   ├── lesson-data.js    # サンプル教材データ
+│   │   └── learner.css
+│   ├── runner/              # Runner接続画面（/runner）
+│   │   └── main.js
+│   ├── admin/               # 研修管理画面（/admin）
+│   │   ├── main.js
+│   │   ├── assignment-model.js
+│   │   └── admin.css
+│   └── shared/              # 画面間で使うAPI・保存処理・スタイル
+│       ├── study-api.js
+│       ├── storage.js
+│       ├── base.css         # Runner・管理画面の共通スタイル
+│       └── tailwind.css
+├── assets/                  # ロゴなどの静的素材
+├── scripts/                 # ビルド・構文検査
+├── tests/                   # Node.jsテスト（対象モジュールと同じ名前）
+│   └── e2e/                 # Playwrightテストと補助処理
+├── index.html               # React受講画面のHTML
+├── runner.html
+├── admin.html
+├── server.mjs               # 静的配信とRunnerへの転送
+└── launch.mjs               # Go RunnerとWebの起動
+```
+
+画面ごとの入口は `main.js` / `main.jsx`、その他のファイル名は役割を表すkebab-caseにそろえる。
+`generated/` と `dist/` はビルド生成物で、直接編集しない。
 
 ## Runner接続画面
 
