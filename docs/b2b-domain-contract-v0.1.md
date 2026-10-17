@@ -131,22 +131,22 @@ Lesson Schemaは[#7](https://github.com/jphacks/sd_2601/issues/7)で確定する
 apiVersion: reprokit.dev/v1alpha1
 kind: Lesson
 metadata:
-  id: path-normalization/non-public-file-access
+  id: filebrowser/hook-authentication-command-injection
   version: 1.0.0
-  title: URLの正規化不備により非公開ファイルを読み取られる
+  title: Hook Authenticationの認証不備によりコマンドが実行される
 spec:
   evidence:
     cves:
-      - CVE-2021-41773
+      - CVE-2026-54088
     references:
       - type: vendor-advisory
         url: https://example.invalid/advisory
   labs:
     - ref: vulnerable
-      labId: vulhub/httpd-cve-2021-41773
+      labId: vulhub/filebrowser-cve-2026-54088
       purpose: reproduce
     - ref: fixed
-      labId: reprokit/httpd-cve-2021-41773-fixed
+      labId: reprokit/filebrowser-cve-2026-54088-fixed
       purpose: compare-fix
 ```
 
@@ -163,9 +163,9 @@ spec:
 - Lesson更新時にLab参照を変えた場合は、新しいLesson Versionとして公開する。
 - 脆弱版と修正版の同時起動または切り替え方式はRunner側が決め、LessonはRuntime内部へ依存しない。
 
-## 6. 学習UIとRunnerの最小インターフェース
+## 6. ローカルWeb UIとRunner APIの最小インターフェース
 
-HTTPのパスやJSON Schemaの最終形は実装Issueで確定する。本節は、学習UIが利用できる操作と渡してよい値を定める。
+Web UIはDockerを直接操作しない。`127.0.0.1`に限定して待ち受けるRunner APIへ、許可済みの操作だけを送る。CLIによるLab操作は提供しない。HTTPのパスやJSON Schemaの最終形は実装Issueで確定する。本節は、Web UIが利用できる操作と渡してよい値を定める。
 
 ### 6.1 操作一覧
 
@@ -205,12 +205,12 @@ Runnerは少なくとも次をUIへ返す。
 {
   "labSessionId": "01J...",
   "lesson": {
-    "id": "path-normalization/non-public-file-access",
+    "id": "filebrowser/hook-authentication-command-injection",
     "version": "1.0.0",
     "labRef": "vulnerable"
   },
   "lab": {
-    "id": "vulhub/httpd-cve-2021-41773",
+    "id": "vulhub/filebrowser-cve-2026-54088",
     "sourceRevision": "0123456789abcdef0123456789abcdef01234567"
   },
   "state": "prepared",
@@ -285,7 +285,7 @@ PoCの生ログ、シェル履歴、Lab内のデータは既定では含めな�
 
 - ローカルHTTP APIは`127.0.0.1`だけでListenする。
 - Host、Origin、CSRF、ローカルセッションを検証する。
-- UIとCLIは同じGo Coreの安全性検査を利用する。
+- Web UIはRunner APIを介して同じGo Coreの安全性検査を利用する。別のCLI操作経路は提供しない。
 - Manifestの検証、Lockfileの整合性検査、Compose許可リストを迂回するAPIを作らない。
 - RunnerはDockerを完全な隔離境界として説明しない。
 - 管理プレーンへDocker socket、レジストリ認証、ホストパス、Lab内の機密情報を送信しない。
@@ -297,7 +297,7 @@ PoCの生ログ、シェル履歴、Lab内のデータは既定では含めな�
 
 主な所有範囲：
 
-- `backend/cmd/reprokit/`
+- `backend/cmd/reprokit/`（ローカルWeb Runnerの起動のみ。Lab操作CLIは持たない）
 - `backend/internal/lab/`
 - `backend/internal/runtime/`
 - `backend/internal/security/`

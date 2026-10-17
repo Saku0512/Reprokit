@@ -6,7 +6,7 @@
 
 元環境が本書の許可リストに適合する場合に限りそのまま取り込み、非対応の設定（`build`、bind mount、`command`等）が必要な場合は**個別のレビュー済み互換アダプターを管理対象にして、上流コミット・元ファイル・差分を固定・検査**する。自動で制限を弱める機能は付けない。
 
-初期教材のCVE-2021-41773はfork内の元Composeが`build: .`を使用するため、固定Dockerfileからfork CIで事前ビルドしたレビュー済みイメージを`ghcr.io/saku0512/*`へ公開し、digest固定して許可リスト内のComposeから使う。CVE-2026-54088はforkの`filebrowser/CVE-2026-54088`へ追加済み。元Composeの`profiles`は許可リスト外のため直接実行せず、脆弱版2.63.5と修正版2.63.6を異なるloopbackポートで起動する`reprokit.compose.yml`を使用する。
+最初の縦断対象はforkの`filebrowser/CVE-2026-54088`だけとする。元Composeの`profiles`は許可リスト外のため直接実行せず、脆弱版2.63.5と修正版2.63.6を異なるloopbackポートで起動する`reprokit.compose.yml`を使用する。Apache HTTP Serverなど追加CVEは、この最初の実装を完了した後に別Issueで扱う。
 
 Docker Hubの`vulhub/*`はupstream管理の名前空間であり、独自Lab用イメージの公開先として仮定しない。詳細は[Lab昇格設計](lab-catalog-runtime-v0.1.md)。
 
@@ -88,6 +88,6 @@ v0.1は元のCompose YAMLを**厳格な許可リスト**で検証し、正規化
 
 ## 専用TCPチェック用コンテナ
 
-`checks`が指定されている場合、`create`で`alpine:3`のplatform別digestを解決しLockfileの`checker`へ記録。`start`時はdigest固定イメージで**短命な専用チェックコンテナ**を作り、対象サービスと同じproject Bridgeに接続して`nc -z -w 3 <service> <port>`相当を実行する。CLIが作った引数配列を使用し、シェル文字列の組み立てをしない。
+`checks`が指定されている場合、Prepare時に`alpine:3`のplatform別digestを解決しLockfileの`checker`へ記録。Start時はdigest固定イメージで**短命な専用チェックコンテナ**を作り、対象サービスと同じproject Bridgeに接続して`nc -z -w 3 <service> <port>`相当を実行する。Runnerが作った引数配列を使用し、シェル文字列の組み立てをしない。
 
 チェッカーは`--rm`、`--cap-drop=ALL`、`--read-only`、`no-new-privileges`、ホストポート・bind mountなし。必要なBridge以外へは接続しない。3秒/回、2秒間隔、起動から計60秒以内。`checks`未定義ならBootable判定しない。

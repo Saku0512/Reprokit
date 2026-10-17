@@ -53,7 +53,7 @@ WebはPoC操作例、ヒント、観察結果を表示するが**任意のPoC/OS
 ## ホスト環境の前提
 
 - Docker Engine/Composeのバージョンを確認する。localhost公開の既知の問題を避けるため、v0.1ではDocker Engine **28.0.0以上**を動作前提とする（その他の互換性は実機テストで決定する）。
-- 制御できない外向き通信やコンテナ脱出リスクまでCLI単体では解消できない。
+- 制御できない外向き通信やコンテナ脱出リスクまでローカルWeb Runner単体では解消できない。
 - 高リスク検証は**専用VM、通信制限、共有資産なし**で行う。
 
 ## 運用
@@ -64,6 +64,6 @@ WebはPoC操作例、ヒント、観察結果を表示するが**任意のPoC/OS
 
 [Runtime v0.1の許可リスト](runtime-v1.md)に記載したキーだけを許容する。元Compose YAMLと解決済みComposeの両方を検査し、未知のオプション・変数展開・YAMLアンカー/マージ・ホスト参照を拒否する。対応するのはimage、固定TCP ports、固定値environment、短形式depends_on、project所有のnamed volumesとBridge networksに限る。
 
-検証チェッカーも第三者イメージであるため、`alpine:3`を`create`時にdigest固定し、`start`時はCLIが定義したコマンドを短命な最小権限コンテナで実行する。Manifest経由の任意スクリプトは受け付けない。
+検証チェッカーも第三者イメージであるため、`alpine:3`をPrepare時にdigest固定し、Start時はRunnerが定義した引数配列を短命な最小権限コンテナへ渡す。Manifest経由の任意スクリプトは受け付けない。
 
 Lockfileに全ての参照ファイルを`source.files`として列挙・ハッシュ固定し、起動前に照合する。既定の`127.0.0.1`公開は安全境界ではなく、Bridgeから外部への通信は可能。Docker Engine 28.0.0以上、Compose v2.36.1以上を前提として安全性を再検査する。
