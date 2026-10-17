@@ -8,7 +8,7 @@
 
 1. **学習と実行を分離する。** Lessonは学習内容、Labは再現環境を表す。
 2. **管理状態と実行状態を分離する。** 管理プレーンは研修を管理し、RunnerはローカルLabの実状態を管理する。
-3. **参照は固定する。** Course、Assignment、Lab Sessionは利用開始時の版を保持し、公開中の更新へ暗黙追従しない。
+3. **参照は固定する。** AssignmentとLab Sessionは利用開始時のLesson版を保持し、公開中の更新へ暗黙追従しない。
 4. **ブラウザに実行権限を渡さない。** UIは許可済みのLessonとLab IDだけをローカルAPIへ渡し、任意コマンド、Compose、URL、パスを渡さない。
 5. **実行前に検査する。** Labの取得は起動を意味せず、固定リビジョンの解決、安全性検査、明示確認後にだけ起動する。
 6. **CVE IDを学習の主キーにしない。** CVEは根拠情報であり、Lesson IDとLab IDは製品内の安定識別子を使う。
@@ -19,7 +19,7 @@
 ```text
 Management Plane                         Local Execution Plane
 ┌──────────────────────────┐            ┌──────────────────────────┐
-│ Organization / Course     │            │ Reprokit Local Server    │
+│ Organization / Lesson     │            │ Reprokit Local Server    │
 │ Assignment / Submission   │            │ Runner / Go Core         │
 │ Completion / Audit        │            │ Lab Session / Lockfile   │
 │ Published Lesson metadata │            │ Docker Compose Runtime   │
@@ -35,8 +35,8 @@ Management Plane                         Local Execution Plane
 管理プレーンは次を正本として持つ。
 
 - Organizationとユーザー所属
-- CourseとCourseに含めるLesson Version
-- Assignmentの対象、期限、完了条件
+- 公開済みLesson Version
+- Assignmentの教材、対象、期限、完了条件
 - SubmissionとCompletion
 - Lessonの公開状態とレビュー履歴
 - 研修管理上の監査イベント
@@ -54,7 +54,7 @@ Management Plane                         Local Execution Plane
 - Docker Compose project、コンテナ、ネットワーク、Volume
 - ローカルに公開した接続先とポート
 
-RunnerはCourse、Assignment、評価結果を管理しない。Runnerが返す状態は研修の完了を意味しない。
+RunnerはAssignment、評価結果を管理しない。Runnerが返す状態は研修の完了を意味しない。
 
 ### 2.3 Lessonパッケージ
 
@@ -65,10 +65,9 @@ Lessonパッケージは管理プレーンとローカル実行プレーンを�
 | 用語 | 責務 | 安定識別子 | 版固定 |
 | --- | --- | --- | --- |
 | Organization | 法人単位のテナント境界 | `organizationId` | しない |
-| Course | 研修目的に合わせてLessonを順序付ける | `courseId` | `courseVersion` |
 | Lesson | 実在事例を学ぶ教材の論理的なまとまり | `lessonId` | `lessonVersion` |
 | Lab | 脆弱版または修正版の再現環境 | Manifestの`metadata.id` | Manifest SHA、source revision、image digestをLockfileで固定 |
-| Assignment | Courseを対象者へ割り当てた記録 | `assignmentId` | 作成時の`courseVersion`を固定 |
+| Assignment | Lessonを対象者へ割り当てた記録 | `assignmentId` | 作成時の`lessonVersion`を固定 |
 | Submission | 受講者が提出した回答 | `submissionId` | 対象`assignmentId`と`lessonVersion`を保持 |
 | Completion | 完了条件を満たした判定記録 | `completionId` | 判定時のAssignmentとSubmissionを参照 |
 | Lab Session | 受講者端末上の一時的なLab実行単位 | `labSessionId` | `lessonVersion`、Lab ID、Lockfileを固定 |
@@ -77,31 +76,27 @@ Lessonパッケージは管理プレーンとローカル実行プレーンを�
 
 法人単位のデータ境界を表す。MVPが単一組織であっても、管理データには将来の組織分離を妨げない`organizationId`を持たせる。Lab SessionのDocker内部データをOrganizationへアップロードすることは既定動作にしない。
 
-### 3.2 Course
-
-順序付けたLesson Versionと完了条件を持つ。Courseが公開された後にLessonの最新版が変わっても、そのCourse Versionは暗黙更新しない。
-
-### 3.3 Lesson
+### 3.2 Lesson
 
 学習目標、前提知識、実在事例、手順、観察点、原因、修正、再発防止、確認課題を持つ。CVE IDや原典は証拠情報として保持するが、CVE IDをLesson IDや表示名に使うことを必須にしない。
 
-### 3.4 Lab
+### 3.3 Lab
 
 再現環境だけを表し、教材本文や受講状態を持たない。既存の`reprokit.dev/v1alpha1` Lab Manifestを正本とし、`metadata.id`を論理IDとして参照する。具体的なGit SHA、Composeハッシュ、image digestは解決後のLockfileで固定する。
 
-### 3.5 Assignment
+### 3.4 Assignment
 
-あるCourse Versionを特定の受講者またはグループへ割り当てる。期限、完了条件、再受講可否を保持する。受講開始後にCourseを更新する場合は、新しいAssignmentまたは明示的な移行操作を必要とする。
+あるLesson Versionを特定の受講者またはグループへ割り当てる。期限と再受講可否を保持し、その教材の提出回答が承認されたときに完了する。受講開始後にLessonを更新する場合は、新しいAssignmentまたは明示的な移行操作を必要とする。
 
-### 3.6 Submission
+### 3.5 Submission
 
 受講者が提出した確認課題の回答を保持する。Labのコンテナログ、シェル履歴、ホスト上のファイルをSubmissionへ自動添付しない。
 
-### 3.7 Completion
+### 3.6 Completion
 
 Assignmentの完了判定を表す。Labを起動した、PoCの期待結果が得られた、技術的なBootable/Verified判定に成功した、という事実だけではCompletionにしない。
 
-### 3.8 Lab Session
+### 3.7 Lab Session
 
 ローカル端末または企業管理の隔離環境上で動く一時的な実行単位。1つのLab Sessionは、1つのLesson Version、1つのLab参照、1つの解決済みLockfileに結び付く。
 
@@ -110,10 +105,10 @@ Assignmentの完了判定を表す。Labを起動した、PoCの期待結果が�
 ```text
 Organization
 ├─ User / Group
-├─ Course ── ordered ──> Lesson Version ── references ──> Lab
-└─ Assignment ── pins ──> Course Version
+├─ Lesson Version ── references ──> Lab
+└─ Assignment ── pins ──> Lesson Version
    ├─ Submission ── answers ──> Lesson Version
-   └─ Completion ── evaluated from ──> Submission(s)
+   └─ Completion ── evaluated from ──> Submission
 
 Learner device
 └─ Lab Session ── pins ──> Lesson Version + Lab ID + Lockfile
@@ -381,7 +376,7 @@ PoCの生ログ、シェル履歴、Lab内のデータは既定では含めな�
 | #10 Lesson API | UIは公開Lesson Versionを取得する | 保存方式とHTTPパスの詳細 |
 | #11 Learner UI | 任意実行入力を持たず、定義済み操作だけを呼ぶ | UIフレームワークと画面実装 |
 | #13 Compare | Lessonは`vulnerable`、`fixed`等の論理参照を使う | 同時起動か切り替えかの実装 |
-| #15 Training API | AssignmentがCourse Versionを固定し、Submissionで理解を記録する | 永続化とAPIの詳細 |
+| #15 Training API | AssignmentがLesson Versionを固定し、Submissionで理解を記録する | 永続化とAPIの詳細 |
 
 ## 14. レビュー項目
 

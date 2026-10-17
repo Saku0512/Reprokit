@@ -23,16 +23,10 @@ export async function mockRunner(page, options = {}) {
   const training = {
     assignment: {
       id: "b".repeat(32),
-      courseId: "secure-development-foundations",
-      courseVersion: lesson.metadata.version,
+      lessonId: lesson.metadata.id,
+      lessonVersion: lesson.metadata.version,
       learnerId: "local-learner",
       status: "assigned",
-    },
-    course: {
-      id: "secure-development-foundations",
-      version: lesson.metadata.version,
-      title: "実在事例から学ぶセキュア開発",
-      lessons: [{ lessonId: lesson.metadata.id, lessonVersion: lesson.metadata.version }],
     },
   };
   const labs = {},

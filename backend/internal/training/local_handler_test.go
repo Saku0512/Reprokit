@@ -18,10 +18,7 @@ import (
 func TestLocalHandlerSeparatesManagementAndLearnerAuthorization(t *testing.T) {
 	service := testService(t)
 	lessonID := "command-injection/filebrowser-auth-hook"
-	if _, err := service.CreateCourse(CreateCourseInput{OrganizationID: "local", ActorID: "admin", ID: "secure-course", Version: "1.0.0", Title: "研修", Lessons: []LessonRef{{LessonID: lessonID, LessonVersion: "1.0.0"}}, RequiredLessons: []LessonRef{{LessonID: lessonID, LessonVersion: "1.0.0"}}}); err != nil {
-		t.Fatal(err)
-	}
-	assignments, err := service.CreateAssignments(CreateAssignmentsInput{OrganizationID: "local", ActorID: "admin", CourseID: "secure-course", CourseVersion: "1.0.0", LearnerIDs: []string{"learner"}, DueAt: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), AllowRetry: true})
+	assignments, err := service.CreateAssignments(CreateAssignmentsInput{OrganizationID: "local", ActorID: "admin", LessonID: lessonID, LessonVersion: "1.0.0", LearnerIDs: []string{"learner"}, DueAt: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), AllowRetry: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,25 +90,25 @@ func TestLocalHandlerSeparatesManagementAndLearnerAuthorization(t *testing.T) {
 		handler.ServeHTTP(writer, request)
 		return writer
 	}
-	if status := call(http.MethodGet, "/api/training/courses", "", "", "").Code; status != http.StatusUnauthorized {
+	if status := call(http.MethodGet, "/api/training/materials", "", "", "").Code; status != http.StatusUnauthorized {
 		t.Fatalf("unprotected management status = %d", status)
 	}
-	if status := call(http.MethodGet, "/api/training/courses?organizationId=other", "", "X-Reprokit-Management-Session", "management-session-token").Code; status != http.StatusForbidden {
+	if status := call(http.MethodGet, "/api/training/materials?organizationId=other", "", "X-Reprokit-Management-Session", "management-session-token").Code; status != http.StatusForbidden {
 		t.Fatalf("cross-organization status = %d", status)
 	}
-	if status := call(http.MethodPost, "/api/training/courses", `{"organizationId":"local","actorId":"other","id":"other","version":"1.0.0","title":"不正","lessons":[{"lessonId":"command-injection/filebrowser-auth-hook","lessonVersion":"1.0.0"}],"requiredLessons":[{"lessonId":"command-injection/filebrowser-auth-hook","lessonVersion":"1.0.0"}]}`, "X-Reprokit-Management-Session", "management-session-token").Code; status != http.StatusForbidden {
+	if status := call(http.MethodPost, "/api/training/assignments", `{"organizationId":"local","actorId":"other","lessonId":"command-injection/filebrowser-auth-hook","lessonVersion":"1.0.0","learnerIds":["learner"],"dueAt":"2027-01-01T00:00:00Z","allowRetry":true}`, "X-Reprokit-Management-Session", "management-session-token").Code; status != http.StatusForbidden {
 		t.Fatalf("spoofed actor status = %d", status)
 	}
-	if status := call(http.MethodGet, "/api/training/courses", "", "X-Reprokit-Management-Session", "management-session-token").Code; status != http.StatusOK {
+	if status := call(http.MethodGet, "/api/training/materials", "", "X-Reprokit-Management-Session", "management-session-token").Code; status != http.StatusOK {
 		t.Fatalf("management status = %d", status)
 	}
-	if status := callAs(http.MethodGet, "/api/training/courses", "", "local", "reviewer").Code; status != http.StatusForbidden {
-		t.Fatalf("reviewer course access status = %d", status)
+	if status := callAs(http.MethodGet, "/api/training/materials", "", "local", "reviewer").Code; status != http.StatusForbidden {
+		t.Fatalf("reviewer material access status = %d", status)
 	}
 	if status := callAs(http.MethodGet, "/api/training/assignments/"+assignments[0].ID+"/submissions", "", "local", "reviewer").Code; status != http.StatusOK {
 		t.Fatalf("reviewer submission access status = %d", status)
 	}
-	if status := callAs(http.MethodGet, "/api/training/courses?organizationId=local", "", "other", "admin").Code; status != http.StatusForbidden {
+	if status := callAs(http.MethodGet, "/api/training/materials?organizationId=local", "", "other", "admin").Code; status != http.StatusForbidden {
 		t.Fatalf("cross-organization principal status = %d", status)
 	}
 	localUsers := decodeResponse[[]identity.User](t, callAs(http.MethodGet, "/api/identity/users", "", "local", "admin"), http.StatusOK)

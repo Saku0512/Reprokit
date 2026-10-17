@@ -24,7 +24,6 @@ const (
 	lessonID      = "command-injection/filebrowser-auth-hook"
 	lessonVersion = "1.0.0"
 	labID         = "vulhub/filebrowser-cve-2026-54088"
-	localCourseID = "secure-development-foundations"
 )
 
 type configuration struct {
@@ -139,7 +138,12 @@ func newApplication(ctx context.Context, config configuration, provider runtime.
 		server.Listener.Close()
 		return nil, err
 	}
-	trainingService, err := training.NewService(trainingStore)
+	lessonSummaries := catalog.List()
+	materials := make([]training.Material, 0, len(lessonSummaries))
+	for _, summary := range lessonSummaries {
+		materials = append(materials, training.Material{LessonID: summary.ID, LessonVersion: summary.Version, Title: summary.Title, Product: summary.Product, DurationMinutes: summary.DurationMinutes, CVEs: summary.CVEs})
+	}
+	trainingService, err := training.NewService(trainingStore, materials)
 	if err != nil {
 		server.Listener.Close()
 		return nil, err
@@ -271,30 +275,16 @@ func ensureLocalIdentities(service *identity.Service, config configuration) erro
 }
 
 func ensureLocalAssignment(service *training.Service, config configuration) (training.Assignment, error) {
-	courses, err := service.ListCourses(config.organizationID)
-	if err != nil {
-		return training.Assignment{}, err
-	}
-	foundCourse := false
-	for _, course := range courses {
-		foundCourse = foundCourse || (course.ID == localCourseID && course.Version == lessonVersion)
-	}
-	if !foundCourse {
-		_, err = service.CreateCourse(training.CreateCourseInput{OrganizationID: config.organizationID, ActorID: config.administratorID, ID: localCourseID, Version: lessonVersion, Title: "実在事例から学ぶセキュア開発", Lessons: []training.LessonRef{{LessonID: lessonID, LessonVersion: lessonVersion}}, RequiredLessons: []training.LessonRef{{LessonID: lessonID, LessonVersion: lessonVersion}}})
-		if err != nil {
-			return training.Assignment{}, err
-		}
-	}
 	assignments, err := service.ListAssignments(config.organizationID)
 	if err != nil {
 		return training.Assignment{}, err
 	}
 	for _, assignment := range assignments {
-		if assignment.CourseID == localCourseID && assignment.CourseVersion == lessonVersion && assignment.LearnerID == config.learnerID {
+		if assignment.LessonID == lessonID && assignment.LessonVersion == lessonVersion && assignment.LearnerID == config.learnerID {
 			return assignment, nil
 		}
 	}
-	created, err := service.CreateAssignments(training.CreateAssignmentsInput{OrganizationID: config.organizationID, ActorID: config.administratorID, CourseID: localCourseID, CourseVersion: lessonVersion, LearnerIDs: []string{config.learnerID}, DueAt: time.Now().UTC().AddDate(1, 0, 0), AllowRetry: true})
+	created, err := service.CreateAssignments(training.CreateAssignmentsInput{OrganizationID: config.organizationID, ActorID: config.administratorID, LessonID: lessonID, LessonVersion: lessonVersion, LearnerIDs: []string{config.learnerID}, DueAt: time.Now().UTC().AddDate(1, 0, 0), AllowRetry: true})
 	if err != nil {
 		return training.Assignment{}, err
 	}
