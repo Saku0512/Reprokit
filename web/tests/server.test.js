@@ -76,6 +76,14 @@ test("管理ログイン後だけ管理トークンで研修APIへ接続する",
     ).status,
     401,
   );
+  assert.equal(
+    (
+      await fetch(`${origin}/api/training/courses`, {
+        headers: { "X-Reprokit-Session": token },
+      })
+    ).status,
+    401,
+  );
   const login = await fetch(`${origin}/api/admin/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
