@@ -54,3 +54,7 @@ func (service *LifecycleService) Delete(ctx context.Context, id string, removeVo
 func (service *LifecycleService) Status(ctx context.Context, id string) (runtime.Session, error) {
 	return service.manager.Status(ctx, id)
 }
+
+func (service *LifecycleService) ObserveMarker(ctx context.Context, id, reference string) (runtime.MarkerObservation, error) {
+	return service.manager.ObserveMarker(ctx, id, reference)
+}

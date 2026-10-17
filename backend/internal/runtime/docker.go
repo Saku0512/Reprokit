@@ -83,11 +83,13 @@ func newDockerComposeProviderForTest(runner dockerCommandRunner) *DockerComposeP
 }
 
 func (provider *DockerComposeProvider) Start(ctx context.Context, project string, compose []byte) error {
-	return provider.withCompose(ctx, project, compose, "up", "--detach", "--remove-orphans")
+	_, err := provider.withCompose(ctx, project, compose, "up", "--detach", "--remove-orphans")
+	return err
 }
 
 func (provider *DockerComposeProvider) Stop(ctx context.Context, project string, compose []byte) error {
-	return provider.withCompose(ctx, project, compose, "stop")
+	_, err := provider.withCompose(ctx, project, compose, "stop")
+	return err
 }
 
 func (provider *DockerComposeProvider) Delete(ctx context.Context, project string, compose []byte, removeVolumes bool) error {
@@ -95,7 +97,21 @@ func (provider *DockerComposeProvider) Delete(ctx context.Context, project strin
 	if removeVolumes {
 		arguments = append(arguments, "--volumes")
 	}
-	return provider.withCompose(ctx, project, compose, arguments...)
+	_, err := provider.withCompose(ctx, project, compose, arguments...)
+	return err
+}
+
+// ReadMarker は比較Lab内の固定/tmp/successだけを最大512 byte読取る。
+// serviceとコマンドは固定であり、HTTP入力をDocker実行へ転用しない。
+func (provider *DockerComposeProvider) ReadMarker(ctx context.Context, project string, compose []byte, service string) (string, error) {
+	if service != "vulnerable" && service != "fixed" {
+		return "", errors.New("unknown File Browser comparison service")
+	}
+	output, err := provider.withCompose(ctx, project, compose, "exec", "--no-TTY", service, "/bin/sh", "-c", "if [ -r /tmp/success ]; then head -c 512 /tmp/success; fi")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(output)), nil
 }
 
 func (provider *DockerComposeProvider) Inspect(ctx context.Context, project string, _ []byte) (Resources, error) {
@@ -122,23 +138,23 @@ func (provider *DockerComposeProvider) Inspect(ctx context.Context, project stri
 	}, nil
 }
 
-func (provider *DockerComposeProvider) withCompose(ctx context.Context, project string, compose []byte, action ...string) error {
+func (provider *DockerComposeProvider) withCompose(ctx context.Context, project string, compose []byte, action ...string) ([]byte, error) {
 	if !projectPattern.MatchString(project) {
-		return errors.New("invalid Runner project name")
+		return nil, errors.New("invalid Runner project name")
 	}
 	directory, err := os.MkdirTemp("", "reprokit-compose-*")
 	if err != nil {
-		return fmt.Errorf("create Compose staging directory: %w", err)
+		return nil, fmt.Errorf("create Compose staging directory: %w", err)
 	}
 	defer os.RemoveAll(directory)
 	path := filepath.Join(directory, "compose.yaml")
 	if err := os.WriteFile(path, compose, 0o600); err != nil {
-		return fmt.Errorf("write Compose staging file: %w", err)
+		return nil, fmt.Errorf("write Compose staging file: %w", err)
 	}
 	arguments := []string{}
 	configDirectory, cleanup, err := provider.network.DockerConfigDir()
 	if err != nil {
-		return fmt.Errorf("create temporary registry credentials: %w", err)
+		return nil, fmt.Errorf("create temporary registry credentials: %w", err)
 	}
 	defer cleanup()
 	if configDirectory != "" {
@@ -146,11 +162,11 @@ func (provider *DockerComposeProvider) withCompose(ctx context.Context, project 
 	}
 	arguments = append(arguments, "compose", "--project-name", project, "--file", path)
 	arguments = append(arguments, action...)
-	_, err = provider.runner.Run(ctx, provider.env, arguments...)
+	output, err := provider.runner.Run(ctx, provider.env, arguments...)
 	if err != nil && len(action) > 0 && action[0] == "up" && likelyConnectionFailure(err) {
-		return network.NewConnectionError("コンテナイメージの取得", strings.Join(registryHosts(compose), ", "), "プロキシ設定、レジストリ認証情報、またはネットワーク接続を確認してください", err)
+		return nil, network.NewConnectionError("コンテナイメージの取得", strings.Join(registryHosts(compose), ", "), "プロキシ設定、レジストリ認証情報、またはネットワーク接続を確認してください", err)
 	}
-	return err
+	return output, err
 }
 
 func likelyConnectionFailure(err error) bool {

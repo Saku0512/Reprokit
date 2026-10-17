@@ -166,10 +166,42 @@ func validLab() PreparedLab {
 	}
 }
 
+func TestObserveMarkerReadsOnlyRunningComparisonService(t *testing.T) {
+	provider := &fakeProvider{marker: "uid=1000(filebrowser)"}
+	manager, err := NewManager(NewMemoryStore(), provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lab := validLab()
+	lab.Compose = []byte("services:\n  vulnerable:\n    image: example/vulnerable@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n    ports:\n      - \"18080:80\"\n  fixed:\n    image: example/fixed@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n    ports:\n      - \"18081:80\"\n")
+	session, err := manager.Prepare(context.Background(), lab)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.ObserveMarker(context.Background(), session.ID, "vulnerable"); !errors.Is(err, ErrInvalidState) {
+		t.Fatalf("prepared observation error = %v", err)
+	}
+	if _, err := manager.Start(context.Background(), session.ID); err != nil {
+		t.Fatal(err)
+	}
+	observation, err := manager.ObserveMarker(context.Background(), session.ID, "vulnerable")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !observation.Exists || observation.Content != provider.marker || observation.Service != "vulnerable" || provider.markerReads != 1 {
+		t.Fatalf("observation = %#v, reads = %d", observation, provider.markerReads)
+	}
+	if _, err := manager.ObserveMarker(context.Background(), session.ID, "other"); err == nil {
+		t.Fatal("unknown comparison service was accepted")
+	}
+}
+
 type fakeProvider struct {
 	starts, stops, deletes int
 	startErr               error
 	resources              Resources
+	marker                 string
+	markerReads            int
 }
 
 func (provider *fakeProvider) Start(context.Context, string, []byte) error {
@@ -186,4 +218,8 @@ func (provider *fakeProvider) Delete(context.Context, string, []byte, bool) erro
 }
 func (provider *fakeProvider) Inspect(context.Context, string, []byte) (Resources, error) {
 	return provider.resources, nil
+}
+func (provider *fakeProvider) ReadMarker(context.Context, string, []byte, string) (string, error) {
+	provider.markerReads++
+	return provider.marker, nil
 }
