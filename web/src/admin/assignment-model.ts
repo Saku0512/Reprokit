@@ -1,3 +1,4 @@
+import type { Assignment, AssignmentStatus, Material } from "../shared/types.ts";
 export const STATUS_META = Object.freeze({
   assigned: { label: "未着手", tone: "neutral" },
   in_progress: { label: "受講中", tone: "info" },
@@ -6,7 +7,7 @@ export const STATUS_META = Object.freeze({
   needs_retry: { label: "要再受講", tone: "danger" },
 });
 
-const ANSWER_META = Object.freeze({
+const ANSWER_META: Readonly<Record<string, { label: string; facets: string[] }>> = Object.freeze({
   "trace-boundary": {
     label: "原因と信頼境界",
     facets: ["原因", "影響"],
@@ -21,8 +22,14 @@ const ANSWER_META = Object.freeze({
   },
 });
 
-export function assignmentSummary(assignments, now = new Date()) {
-  const counts = Object.fromEntries(Object.keys(STATUS_META).map((status) => [status, 0]));
+export function assignmentSummary(assignments: Assignment[], now = new Date()) {
+  const counts: Record<AssignmentStatus, number> = {
+    assigned: 0,
+    in_progress: 0,
+    submitted: 0,
+    completed: 0,
+    needs_retry: 0,
+  };
   let overdue = 0;
   for (const assignment of assignments) {
     if (Object.hasOwn(counts, assignment.status)) counts[assignment.status]++;
@@ -43,7 +50,7 @@ export function assignmentSummary(assignments, now = new Date()) {
   };
 }
 
-export function parseLearnerIDs(value) {
+export function parseLearnerIDs(value: string) {
   const learners = value
     .split(/[\s,]+/)
     .map((item) => item.trim())
@@ -57,12 +64,12 @@ export function parseLearnerIDs(value) {
   return learners;
 }
 
-export function completionDescription(material) {
+export function completionDescription(material?: Material) {
   if (!material) return "教材を選択してください。";
   return `${material.lessonId} @ ${material.lessonVersion} の提出回答が承認されること`;
 }
 
-export function materialForAssignment(assignment, materials) {
+export function materialForAssignment(assignment: Assignment, materials: Material[]) {
   return materials.find(
     (material) =>
       material.lessonId === assignment.lessonId &&
@@ -70,7 +77,12 @@ export function materialForAssignment(assignment, materials) {
   );
 }
 
-export function filterAssignments(assignments, status, query, materials = []) {
+export function filterAssignments(
+  assignments: Assignment[],
+  status: string,
+  query: string,
+  materials: Material[] = [],
+) {
   const normalizedQuery = query.trim().toLocaleLowerCase("ja");
   return assignments.filter((assignment) => {
     if (status && assignment.status !== status) return false;
@@ -89,7 +101,7 @@ export function filterAssignments(assignments, status, query, materials = []) {
   });
 }
 
-export function answerPresentation(questionID) {
+export function answerPresentation(questionID: string) {
   return (
     ANSWER_META[questionID] ?? {
       label: questionID,

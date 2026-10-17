@@ -7,7 +7,7 @@ import {
   canStart,
   endpointURL,
   hasComparisonEndpoints,
-} from "../src/shared/study-api.js";
+} from "../src/shared/study-api.ts";
 
 const studyId = "a".repeat(32);
 const labId = "11111111-1111-4111-8111-111111111111";

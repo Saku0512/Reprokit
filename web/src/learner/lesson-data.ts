@@ -1,4 +1,57 @@
-export const L = [
+import type { ActionObservation, LabSession, LogSnapshot } from "../shared/types.ts";
+
+export interface SampleLesson {
+  id: string;
+  cve: string;
+  title: string;
+  sub: string;
+  cat: string;
+  src: string;
+  product: string;
+  ports: number[];
+  sha: string;
+  ready: boolean;
+  affectedData?: { type: string; content: string }[];
+}
+
+export interface LearnerState {
+  view: "list" | "detail";
+  cat: string;
+  p: number;
+  revealed: number;
+  done: Record<number, boolean>;
+  lab: "ready" | "deploying" | "running" | "stopped" | "failed";
+  seg: number;
+  runtime: LabSession | null;
+  labFailure: string | null;
+  logs: Partial<Record<string, LogSnapshot>>;
+  logLoading: string | null;
+  logFailure: string | null;
+  actions: Partial<Record<string, ActionObservation>>;
+  actionLoading: string | null;
+  actionFailure: string | null;
+  ok: boolean;
+  vol: "keep" | "rm";
+  repro: boolean;
+  hint: number;
+  pos: number;
+  pick: number | null;
+  found: number | null;
+  diffHl: string | null;
+  runV: boolean;
+  runF: boolean;
+  note: string;
+  modal?: "deploy" | "destroy" | null;
+}
+
+export interface StateProps {
+  state: LearnerState;
+}
+export interface PhaseProps extends StateProps {
+  lesson: SampleLesson;
+}
+
+export const L: SampleLesson[] = [
   {
     id: "fb",
     cve: "CVE-2026-54088",
@@ -108,7 +161,7 @@ export const TRACE_DETAILS = [
     line: 107,
   },
 ];
-export const initialState = {
+export const initialState: LearnerState = {
   view: "list",
   cat: "all",
   p: -1,

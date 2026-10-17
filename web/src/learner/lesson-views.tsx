@@ -1,7 +1,8 @@
+import type { PhaseProps, StateProps } from "./lesson-data.ts";
 import { Fragment, useEffect, useRef } from "react";
-import { L, PH, NODES, TRACE_DETAILS } from "./lesson-data.js";
-import { endpointURL } from "../shared/study-api.js";
-export function LessonList({ state: S }) {
+import { L, PH, NODES, TRACE_DETAILS } from "./lesson-data.ts";
+import { endpointURL } from "../shared/study-api.ts";
+export function LessonList({ state: S }: StateProps) {
   const cats = [
     ["all", "すべて", L.length],
     ["コマンドインジェクション", "コマンドインジェクション", 1],
@@ -90,12 +91,12 @@ export function LessonList({ state: S }) {
   );
 }
 
-function LabBox({ state: S }) {
+function LabBox({ state: S }: StateProps) {
   const s = S.lab;
   const endpoints = (S.runtime?.endpoints ?? [])
     .map((endpoint) => ({ ...endpoint, url: endpointURL(endpoint) }))
     .filter((endpoint) => endpoint.url);
-  const endpointTitle = (service) =>
+  const endpointTitle = (service: string) =>
     service === "vulnerable" ? "脆弱版" : service === "fixed" ? "修正版" : "Lab";
   let r1, r2;
   if (s === "ready") {
@@ -167,7 +168,12 @@ function LabBox({ state: S }) {
               <button className="btn sm" data-a="copy" data-v={endpoint.url}>
                 {"コピー"}
               </button>{" "}
-              <a className="btn sm" href={endpoint.url} target="_blank" rel="noopener noreferrer">
+              <a
+                className="btn sm"
+                href={endpoint.url ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 {"別タブで開く ↗"}
               </a>
             </span>
@@ -226,7 +232,11 @@ function LabBox({ state: S }) {
   );
 }
 
-export function LabConsole({ state: S, idPrefix = "console", showLead = true }) {
+export function LabConsole({
+  state: S,
+  idPrefix = "console",
+  showLead = true,
+}: StateProps & { idPrefix?: string; showLead?: boolean }) {
   const activeService = "vulnerable";
   const logs = S.logs?.[activeService];
   const action = S.actions?.[`${activeService}:list_tmp`];
@@ -352,7 +362,7 @@ function NormalUsage() {
   );
 }
 
-function Reproduction({ lesson, state: S }) {
+function Reproduction({ lesson, state: S }: PhaseProps) {
   const affectedData = lesson.affectedData ?? [];
   const h = [
     "（ヒントなし）",
@@ -466,7 +476,7 @@ function Reproduction({ lesson, state: S }) {
   );
 }
 
-function RequestTrace({ state: S }) {
+function RequestTrace({ state: S }: StateProps) {
   const detail = TRACE_DETAILS[S.pos];
   return (
     <>
@@ -545,7 +555,7 @@ function RequestTrace({ state: S }) {
   );
 }
 
-function PatchComparison({ state: S }) {
+function PatchComparison({ state: S }: StateProps) {
   const h = S.diffHl;
   return (
     <>
@@ -649,7 +659,7 @@ function PatchComparison({ state: S }) {
   );
 }
 
-function Remediation({ state: S }) {
+function Remediation({ state: S }: StateProps) {
   const none = (
     <>
       <span style={{ color: "var(--sub)" }}>{"未実行"}</span>
@@ -749,7 +759,7 @@ const phaseLeads = [
   "修正版で同じ操作をもう一度行い、両版のログイン拒否と副作用の違いを確認します。",
 ];
 
-export function LessonOutline({ state: S, id = "lesson-outline" }) {
+export function LessonOutline({ state: S, id = "lesson-outline" }: StateProps & { id?: string }) {
   return (
     <nav id={id} className="lesson-outline" aria-label="学習の流れ">
       <p className="outline-title">学習の流れ</p>
@@ -782,18 +792,22 @@ export function LessonOutline({ state: S, id = "lesson-outline" }) {
   );
 }
 
-export function LessonDetail({ state: S, onPhaseChange }) {
-  const l = L.find((x) => x.id === "fb");
-  const detail = useRef(null);
+export function LessonDetail({
+  state: S,
+  onPhaseChange,
+}: StateProps & { onPhaseChange: (phase: number) => void }) {
+  const l = L.find((x) => x.id === "fb")!;
+  const detail = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const container = detail.current;
-    let frame;
+    if (!container) return;
+    let frame = 0;
     const updatePosition = () => {
       const bounds = container.getBoundingClientRect();
       const top = Math.max(0, bounds.top) + Math.min(window.innerHeight * 0.25, 160);
       let phase = -1;
-      for (const section of container.querySelectorAll("[data-phase]")) {
+      for (const section of container.querySelectorAll<HTMLElement>("[data-phase]")) {
         if (section.getBoundingClientRect().top <= top) phase = Number(section.dataset.phase);
       }
       onPhaseChange(phase);

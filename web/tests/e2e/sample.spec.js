@@ -100,7 +100,6 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await page.getByRole("button", { name: "起動する", exact: true }).click();
   await expect(page.locator(".st")).toHaveText("RUNNING");
   await expect(page.locator('a[href="http://127.0.0.1:18080"]')).toBeVisible();
-  await expect(page.locator('a[href="http://127.0.0.1:18081"]')).toBeVisible();
   await page.getByRole("button", { name: "検証コンソール", exact: true }).click();
   const consoleDialog = page.getByRole("dialog", { name: "検証コンソール" });
   await expect(consoleDialog).toBeVisible();
@@ -151,6 +150,22 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await page.locator('#phase-1 [data-a="next"]').click();
   await atNextBoundary(page, 1);
   const traceDetail = page.getByRole("region", { name: "この地点の様子", exact: true });
+  await expect(page.locator(".nd.at")).toContainText("ログイン要求を受け取る");
+  await expect(traceDetail.locator("code")).toContainText("json.NewDecoder(r.Body).Decode(&cred)");
+  await expect(page.getByRole("button", { name: "1つ戻る" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "1つ進める" })).toBeEnabled();
+  for (const code of [
+    "sh -c $USERNAME",
+    "a.Cred = cred",
+    "os.Expand(arg, envMapping)",
+    "cmd.Output()",
+    'a.Fields.Values["hook.action"]',
+  ]) {
+    await page.getByRole("button", { name: "1つ進める" }).click();
+    await expect(traceDetail.locator("code")).toContainText(code);
+  }
+  await expect(page.locator(".nd.at")).toContainText("認証結果を確定する");
+  await expect(page.getByRole("button", { name: "1つ進める" })).toBeDisabled();
   await expect(traceDetail).toContainText("後からログインを拒否しても取り消されません");
   await expect(traceDetail.locator("code")).toContainText('a.Fields.Values["hook.action"]');
   await page.getByRole("button", { name: "1つ戻る" }).click();

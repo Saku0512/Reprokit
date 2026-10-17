@@ -192,6 +192,14 @@ test("静的ファイルを限定し、API未設定を成功表示しない", as
   assert.equal((await fetch(`${origin}/api/lessons`)).status, 503);
   assert.equal((await fetch(`${origin}/package.json`)).status, 404);
   assert.equal((await fetch(`${origin}/src/../server.mjs`)).status, 404);
+  for (const entry of ["app", "runner", "admin"]) {
+    const script = await fetch(`${origin}/generated/${entry}.js`);
+    assert.equal(script.status, 200);
+    assert.equal(script.headers.get("content-type"), "text/javascript; charset=utf-8");
+    assert.ok((await script.text()).length > 0);
+  }
+  assert.equal((await fetch(`${origin}/src/runner/main.ts`)).status, 404);
+  assert.equal((await fetch(`${origin}/src/shared/types.ts`)).status, 404);
 });
 
 test("同一Originとトークンを検証して既存APIだけをRunnerへ転送する", async (t) => {

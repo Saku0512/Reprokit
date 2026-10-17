@@ -37,10 +37,10 @@ npm run web:start
 
 ## 初期教材
 
-| 教材 | 主題 | Labの提供元 |
-| --- | --- | --- |
-| CVE-2021-41773 | Apache HTTP Serverのパス正規化不備によるパストラバーサル | `Saku0512/vulhub`がupstreamから継承するLab |
-| CVE-2026-54088 | File Browser Hook Authenticationの未認証OSコマンドインジェクション | `Saku0512/vulhub`へ追加する独自Lab |
+| 教材           | 主題                                                               | Labの提供元                                |
+| -------------- | ------------------------------------------------------------------ | ------------------------------------------ |
+| CVE-2021-41773 | Apache HTTP Serverのパス正規化不備によるパストラバーサル           | `Saku0512/vulhub`がupstreamから継承するLab |
+| CVE-2026-54088 | File Browser Hook Authenticationの未認証OSコマンドインジェクション | `Saku0512/vulhub`へ追加する独自Lab         |
 
 教材は「入力 → 変換 → 信頼境界 → 危険な処理 → 影響 → 修正」の順に表示し、脆弱版と修正版の違いまで説明します。詳細は[初期教材方針](docs/initial-lessons.md)を参照してください。
 
@@ -66,7 +66,7 @@ npm run web:start
 - Runtime: Docker Compose
 - Lab catalog: [`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)（`vulhub/vulhub`のfork）
 - Metadata: YAML / JSON Schema
-- Frontend: JavaScript
+- Frontend: TypeScript
 
 ## ドキュメント
 

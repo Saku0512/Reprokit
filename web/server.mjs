@@ -8,14 +8,6 @@ const files = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/runner", ["runner.html", "text/html; charset=utf-8"]],
   ["/admin", ["admin.html", "text/html; charset=utf-8"]],
-  ["/src/runner/main.js", ["src/runner/main.js", "text/javascript; charset=utf-8"]],
-  ["/src/admin/main.js", ["src/admin/main.js", "text/javascript; charset=utf-8"]],
-  [
-    "/src/admin/assignment-model.js",
-    ["src/admin/assignment-model.js", "text/javascript; charset=utf-8"],
-  ],
-  ["/src/shared/study-api.js", ["src/shared/study-api.js", "text/javascript; charset=utf-8"]],
-  ["/src/shared/storage.js", ["src/shared/storage.js", "text/javascript; charset=utf-8"]],
   ["/assets/reprokit-logo.png", ["assets/reprokit-logo.png", "image/png"]],
 ]);
 
