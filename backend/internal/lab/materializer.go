@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"github.com/jphacks/sd_2601/internal/network"
 )
 
 const (
@@ -30,12 +32,28 @@ type Materializer struct {
 
 // NewMaterializer creates a source materializer backed by the git executable.
 func NewMaterializer() Materializer {
+	materializer, err := NewMaterializerWithNetwork(network.Config{})
+	if err != nil {
+		panic(err)
+	}
+	return materializer
+}
+
+// NewMaterializerWithNetwork は明示された企業ネットワーク設定だけでGitを取得する。
+func NewMaterializerWithNetwork(config network.Config) (Materializer, error) {
+	if err := config.Validate(); err != nil {
+		return Materializer{}, err
+	}
+	backend, err := newGitBackend(config)
+	if err != nil {
+		return Materializer{}, err
+	}
 	return Materializer{
-		backend:       newGitBackend(),
+		backend:       backend,
 		maxFiles:      defaultMaxFiles,
 		maxFileBytes:  defaultMaxFileBytes,
 		maxTotalBytes: defaultMaxTotalBytes,
-	}
+	}, nil
 }
 
 func newMaterializerForTest(backend gitBackend) Materializer {
