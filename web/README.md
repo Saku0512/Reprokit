@@ -22,8 +22,8 @@ RunnerなしでReact画面を確認する場合は `npm --prefix web run dev:ext
 `npm run web:build` はReact、CSS、フォントを `web/dist/generated/` に同梱する。
 フォントはサンプルと同じNoto Sans JP / IBM Plex Monoを使用し、Google Fontsへの通信は不要。
 
-`src/sample-app.jsx` が状態管理、`sample-views.jsx` が一覧と各学習フェーズ、
-`sample-modal.jsx` が確認ダイアログ、`sample-data.js` がサンプルの固定データを担当する。
+`src/app.jsx` が状態管理、`views.jsx` が一覧と各学習フェーズ、
+`modal.jsx` が確認ダイアログ、`data.js` がサンプルの固定データを担当する。
 `src/sample.css`、`src/style.css`、`src/admin.css` はTailwind CSSの `@apply` で各画面のスタイルを定義する。
 共通の読み込みと色の対応は `src/tailwind.css` に置き、既存のライト・ダークテーマのCSS変数を参照する。
 既存のブラウザ標準スタイルを維持するためPreflightは読み込まない。
