@@ -45,7 +45,7 @@
 - ソースキャッシュをインスタンス内へ配置するときは、各インスタンスが変更しても他に波及しないよう分離する。
 - 作成は一時ディレクトリで検証・ロック生成後に原子的に配置する。途中失敗時に壊れたインスタンスを登録しない。
 - `delete`はComposeを停止・削除してインスタンス内ファイルを除去するが、共有キャッシュは保持。
-- Dockerのnamed volumeは既定では保持。`delete --volumes`でそのインスタンスに属するVolumeを明示的に削除する。
+- Dockerのnamed volumeは既定では保持。Web UIがRunner APIへ渡す定義済みのVolume削除方針で、そのインスタンスに属するVolumeだけを明示的に削除する。
 - 他のCompose projectや他のユーザーのコンテナ、Volume、キャッシュは削除しない。所有ラベルとInstance IDを照合して操作する。
 
 ## 同時実行と整合性
@@ -58,7 +58,7 @@
 
 `$XDG_STATE_HOME/reprokit/volumes.json`を用意し、削除済みインスタンスが残したVolumeの`instanceId`、Compose Project名、Volume名、削除日時、保持状況を記録する。データ本体は含めない。管理ラベルとProject名が一致した対象のみを操作する。
 
-`delete`ではnamed Volumeを**保持**し、インスタンス削除時に所有記録を原子的に保存する。`delete --volumes`では対象インスタンスの所有を確認できたVolumeのみ削除し、共有キャッシュや他Projectのリソースに触らない。v0.1では一括pruneコマンドを提供しない。過去に保持したVolumeを新規インスタンスへ自動アタッチしない。
+Deleteではnamed Volumeを**保持**し、インスタンス削除時に所有記録を原子的に保存する。Web UIが明示的に選んだ削除方針では、対象インスタンスの所有を確認できたVolumeのみ削除し、共有キャッシュや他Projectのリソースに触らない。v0.1では一括prune機能を提供しない。過去に保持したVolumeを新規インスタンスへ自動アタッチしない。
 
 ## 障害時のロールバック（追加確定）
 
