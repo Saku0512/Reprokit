@@ -564,6 +564,55 @@ func (service *Service) Assignment(organizationID, id string) (Assignment, error
 	return assignment, nil
 }
 
+// ListCoursesは組織内のコース版を作成日時と識別子の順で返す。
+func (service *Service) ListCourses(organizationID string) ([]Course, error) {
+	if !validID(organizationID) {
+		return nil, ErrInvalid
+	}
+	service.store.mu.Lock()
+	defer service.store.mu.Unlock()
+	result := []Course{}
+	for _, course := range service.store.state.Courses {
+		if course.OrganizationID == organizationID {
+			course.Lessons = append([]LessonRef{}, course.Lessons...)
+			course.RequiredLessons = append([]LessonRef{}, course.RequiredLessons...)
+			result = append(result, course)
+		}
+	}
+	sort.Slice(result, func(left, right int) bool {
+		if result[left].CreatedAt.Equal(result[right].CreatedAt) {
+			if result[left].ID == result[right].ID {
+				return result[left].Version < result[right].Version
+			}
+			return result[left].ID < result[right].ID
+		}
+		return result[left].CreatedAt.Before(result[right].CreatedAt)
+	})
+	return result, nil
+}
+
+// ListAssignmentsは組織内の割り当てを作成日時と識別子の順で返す。
+func (service *Service) ListAssignments(organizationID string) ([]Assignment, error) {
+	if !validID(organizationID) {
+		return nil, ErrInvalid
+	}
+	service.store.mu.Lock()
+	defer service.store.mu.Unlock()
+	result := []Assignment{}
+	for _, assignment := range service.store.state.Assignments {
+		if assignment.OrganizationID == organizationID {
+			result = append(result, assignment)
+		}
+	}
+	sort.Slice(result, func(left, right int) bool {
+		if result[left].CreatedAt.Equal(result[right].CreatedAt) {
+			return result[left].ID < result[right].ID
+		}
+		return result[left].CreatedAt.Before(result[right].CreatedAt)
+	})
+	return result, nil
+}
+
 func (service *Service) Start(organizationID, assignmentID, learnerID string) (Assignment, error) {
 	service.store.mu.Lock()
 	defer service.store.mu.Unlock()

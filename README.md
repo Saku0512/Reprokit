@@ -26,6 +26,8 @@ npm run web:start
 
 起動後に表示される `http://127.0.0.1:4173` をブラウザで開いてください。Webシェルは同時にGo Runnerを起動し、接続先と認証トークンを専用パイプで受け渡します。URLやトークンを手入力する必要はありません。
 
+研修管理画面は起動時に表示される `/admin` です。`REPROKIT_ADMIN_USERNAME` と `REPROKIT_ADMIN_PASSWORD` で管理ログインを固定できます。パスワードを設定しない場合は、起動ごとに一時パスワードを生成して端末へ表示します。
+
 1. 「学習を始める」を選ぶ。
 2. 「Labを準備する」で固定済みソースを取得・検査する。この操作だけではコンテナは起動しません。
 3. 安全性検査とloopback接続先を確認してから、「安全性を確認して起動する」を明示的に選ぶ。
@@ -74,6 +76,7 @@ npm run web:start
 - [Vulhub連携MVP](docs/vulhub-learning-mvp.md)
 - [アーキテクチャ](docs/architecture-v0.1.md)
 - [学習インターフェース](docs/interface-study.md)
+- [研修管理・受講連携 API](docs/training/management-api-v1.md)
 - [セキュリティ仕様](docs/security-v1.md)
 
 ## 安全上の注意

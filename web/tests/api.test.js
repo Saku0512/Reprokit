@@ -63,6 +63,20 @@ test("回答は受講APIのanswerだけに入る", async () => {
   assert.deepEqual(JSON.parse(actual[1].body), { answer });
 });
 
+test("研修提出は保存済みStudy Session IDだけを送る", async () => {
+  const requests = [];
+  const api = new StudyApi("secret", async (path, init) => {
+    requests.push([path, init]);
+    return new Response("{}");
+  });
+  await api.trainingAssignment();
+  await api.startTraining();
+  await api.submitTraining(studyId);
+  assert.equal(requests[0][0], "/api/training/learner/assignment");
+  assert.deepEqual(JSON.parse(requests[1][1].body), {});
+  assert.deepEqual(JSON.parse(requests[2][1].body), { studySessionId: studyId });
+});
+
 test("Runnerの失敗レスポンスからSessionと理由を失わない", async () => {
   const session = {
     labSessionId: labId,

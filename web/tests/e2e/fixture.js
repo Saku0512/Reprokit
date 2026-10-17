@@ -20,6 +20,21 @@ export async function mockRunner(page, options = {}) {
     answers: {},
     hints: {},
   };
+  const training = {
+    assignment: {
+      id: "b".repeat(32),
+      courseId: "secure-development-foundations",
+      courseVersion: lesson.metadata.version,
+      learnerId: "local-learner",
+      status: "assigned",
+    },
+    course: {
+      id: "secure-development-foundations",
+      version: lesson.metadata.version,
+      title: "実在事例から学ぶセキュア開発",
+      lessons: [{ lessonId: lesson.metadata.id, lessonVersion: lesson.metadata.version }],
+    },
+  };
   const labs = {},
     calls = [];
   let errorOnce = options.failStart,
@@ -43,6 +58,15 @@ export async function mockRunner(page, options = {}) {
         { id: lesson.metadata.id, version: lesson.metadata.version, title: lesson.metadata.title },
       ]);
     if (path === "/api/lessons/detail") return respond(lesson);
+    if (path === "/api/training/learner/assignment") return respond(training);
+    if (path === "/api/training/learner/start") {
+      training.assignment.status = "in_progress";
+      return respond(training.assignment);
+    }
+    if (path === "/api/training/learner/submissions") {
+      training.assignment.status = "submitted";
+      return respond({ id: "c".repeat(32), evaluation: "pending" }, 201);
+    }
     if (path === "/api/study-sessions") return respond(study, 201);
     if (path === `/api/study-sessions/${study.id}`) {
       if (studyErrorOnce) {
