@@ -89,7 +89,7 @@ function render(focusId) {
     </div>
     <footer>Reprokit · 学習記録とLabの実行状態は別に管理されます。回答の保存は理解度の合格判定ではありません。</footer>`;
   bindEvents();
-  if (focusId) document.getElementById(focusId)?.focus();
+  if (focusId) document.getElementById(focusId)?.focus({ preventScroll: true });
 }
 
 function content() {
