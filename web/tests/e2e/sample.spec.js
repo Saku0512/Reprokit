@@ -111,9 +111,9 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
     "vulnerable log",
   );
   await consoleDialog.getByRole("button", { name: "/tmp を一覧", exact: true }).first().click();
-  await expect(consoleDialog.locator(".console-service").first().locator(".log").last()).toContainText(
-    "success",
-  );
+  await expect(
+    consoleDialog.locator(".console-service").first().locator(".log").last(),
+  ).toContainText("success");
   await consoleDialog.getByRole("button", { name: "検証コンソールを閉じる" }).click();
   await expect(consoleDialog).toBeHidden();
   await page.locator('#phase-0 [data-a="next"]').click();
