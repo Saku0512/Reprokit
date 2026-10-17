@@ -50,8 +50,9 @@ function textElement(name, className, value) {
   return element;
 }
 
-function cell(row, value, className = "") {
+function cell(row, value, className = "", label = "") {
   const item = textElement("td", className, value);
+  if (label) item.dataset.label = label;
   row.append(item);
   return item;
 }
@@ -153,26 +154,28 @@ function renderAssignments() {
   for (const assignment of visible) {
     const row = document.createElement("tr");
     if (assignment.id === selectedAssignmentID) row.setAttribute("aria-current", "true");
-    cell(row, assignment.learnerId);
+    cell(row, assignment.learnerId, "", "対象者");
     const course = courses.find(
       (item) => item.id === assignment.courseId && item.version === assignment.courseVersion,
     );
-    const courseCell = cell(row, "");
+    const courseCell = cell(row, "", "", "コース");
     courseCell.append(
       textElement("strong", "", course?.title ?? assignment.courseId),
       textElement("small", "table-detail", `${assignment.courseId} @ ${assignment.courseVersion}`),
     );
-    const statusCell = cell(row, "");
+    const statusCell = cell(row, "", "", "状態");
     statusCell.append(statusBadge(assignment.status));
     const overdue = assignment.status !== "completed" && new Date(assignment.dueAt) < new Date();
-    cell(row, formatDate(assignment.dueAt), overdue ? "deadline-overdue" : "");
+    cell(row, formatDate(assignment.dueAt), overdue ? "deadline-overdue" : "", "受講期限");
     cell(
       row,
       course?.requiredLessons?.length
         ? `必須教材 ${course.requiredLessons.length}件を承認`
         : "条件不明",
+      "",
+      "完了条件",
     );
-    const action = cell(row, "", "table-action");
+    const action = cell(row, "", "table-action", "操作");
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = "提出を見る";
