@@ -1,4 +1,4 @@
-import { build } from "esbuild";
+import { buildFrontend } from "./frontend.mjs";
 import { readdir } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 const root = new URL("../", import.meta.url);
@@ -15,13 +15,5 @@ for (const file of files.filter(
 }
 console.log("lint: JavaScript syntax checks passed");
 
-await build({
-  entryPoints: [new URL("src/sample-app.jsx", root).pathname],
-  bundle: true,
-  write: false,
-  outdir: new URL("generated/", root).pathname,
-  jsx: "automatic",
-  loader: { ".woff": "dataurl", ".woff2": "dataurl" },
-  logLevel: "error",
-});
-console.log("lint: React JSX and imports passed");
+await buildFrontend({ write: false, logLevel: "error" });
+console.log("lint: React JSX, imports, and Tailwind CSS passed");

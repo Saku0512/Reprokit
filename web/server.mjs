@@ -11,10 +11,8 @@ const files = new Map([
   ["/src/app.js", ["src/app.js", "text/javascript; charset=utf-8"]],
   ["/src/admin.js", ["src/admin.js", "text/javascript; charset=utf-8"]],
   ["/src/admin-model.js", ["src/admin-model.js", "text/javascript; charset=utf-8"]],
-  ["/src/admin.css", ["src/admin.css", "text/css; charset=utf-8"]],
   ["/src/api.js", ["src/api.js", "text/javascript; charset=utf-8"]],
   ["/src/storage.js", ["src/storage.js", "text/javascript; charset=utf-8"]],
-  ["/src/style.css", ["src/style.css", "text/css; charset=utf-8"]],
   ["/assets/reprokit-logo.png", ["assets/reprokit-logo.png", "image/png"]],
 ]);
 
