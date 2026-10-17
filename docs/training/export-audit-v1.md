@@ -9,7 +9,7 @@ Issue #21 の研修管理 API における出力と監査の契約を定める�
 列は次の順で固定する。
 
 ```text
-learner_id,course_id,course_version,status,completed_at,evaluation_result
+learner_id,lesson_id,lesson_version,status,completed_at,evaluation_result
 ```
 
 - `status` は Assignment の状態である。
@@ -25,9 +25,7 @@ CSV には回答本文、Lab Session、コンテナ・ネットワーク・Volum
 
 | action | 記録する契機 |
 | --- | --- |
-| `course_published` | 初めての Course Version を公開したとき |
-| `course_updated` | 同じ Course ID の新しい不変 Version を公開したとき |
 | `assignment_created` | 受講者または Cohort へ割り当てたとき |
 | `assignment_status_changed` | 受講開始、提出、評価によって Assignment 状態が変わったとき |
 
-Course は不変である。更新は既存 Version の上書きではなく、新しい Version の公開として扱う。監査の操作者 ID は、認証済み管理プレーンが `actorId` として渡す。認可は API の呼び出し元で実施し、組織境界をまたぐ閲覧を許可しない。
+Assignment は作成時の Lesson Version を固定する。教材更新後も既存の割り当ては暗黙追従しない。監査の操作者 ID は、認証済み管理プレーンが `actorId` として渡す。認可は API の呼び出し元で実施し、組織境界をまたぐ閲覧を許可しない。

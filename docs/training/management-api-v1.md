@@ -17,20 +17,20 @@ Issue #15 のローカルMVPで、研修管理データをWeb UIと受講画面�
 
 | メソッド | パス | 結果 |
 | --- | --- | --- |
-| `GET` | `/api/training/courses` | 認証済み組織のコース版一覧 |
+| `GET` | `/api/training/materials` | 割り当て可能な教材版一覧 |
 | `GET` | `/api/training/assignments` | 認証済み組織の割り当て一覧 |
 | `GET` | `/api/training/assignments/{id}` | 割り当て1件 |
 | `GET` | `/api/training/assignments/{id}/submissions` | 割り当てに属する提出回答一覧 |
 | `GET` | `/api/training/audit-events` | 監査イベント一覧 |
 | `GET` | `/api/training/exports/results.csv` | 回答本文を含まない結果CSV |
 
-コース、コホート、割り当ての作成と提出評価は既存のPOST操作を使う。ブラウザは組織IDや操作主体を選択しない。
+コホート、割り当ての作成と提出評価は既存のPOST操作を使う。割り当ては `lessonId` と `lessonVersion` を直接固定し、ブラウザは組織IDや操作主体を選択しない。
 
 ## 受講API
 
 | メソッド | パス | 入力 | 結果 |
 | --- | --- | --- | --- |
-| `GET` | `/api/training/learner/assignment` | なし | 固定された割り当てとコース |
+| `GET` | `/api/training/learner/assignment` | なし | 固定された教材版の割り当て |
 | `POST` | `/api/training/learner/start` | `{}` | 割り当てを受講中へ遷移 |
 | `POST` | `/api/training/learner/submissions` | `studySessionId` | 保存済み回答から提出を作成 |
 
