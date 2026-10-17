@@ -58,9 +58,10 @@ for (const width of [1440, 390]) {
     await reference.route("**/reference", (route) =>
       route.fulfill({
         contentType: "text/html",
-        // 章数の表示だけを現行教材へ合わせ、元のレイアウトと比較する。
+        // 章数と削除済みのヘッダー文言を現行仕様へ合わせ、残りのレイアウトを比較する。
         body: sample
           .replaceAll("/ 5</em>", `/ ${PH.length}</em>`)
+          .replace(/<span\b[^>]*>\s*実際のCVEを、自分で試して理解する\s*<\/span\s*>/, "")
           .replace(/<link[\s\S]*?\/>/, '<link rel="stylesheet" href="/generated/app.css" />'),
       }),
     );
