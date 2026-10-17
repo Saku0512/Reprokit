@@ -61,10 +61,12 @@ test("キーボードで教材・Lab・回答・後片付けまで進み、再�
       await keyboardClick(page, page.getByRole("button", { name: "次のヒントを開く" }));
       await expect(page.getByRole("button", { name: "次のヒントを開く" })).toBeDisabled();
     }
-    if (step.id === "observe-marker")
+    if (step.id === "observe-marker") {
+      await keyboardClick(page, page.getByRole("button", { name: "脆弱版のマーカーを確認する" }));
       await expect(
-        page.getByRole("button", { name: "マーカーを観察する（Runner未対応）" }),
-      ).toBeDisabled();
+        page.getByText("マーカーを確認しました。内容: uid=1000(filebrowser)"),
+      ).toBeVisible();
+    }
     if (step.id === "compare-fixed") {
       await keyboardClick(page, fixed(page).getByRole("button", { name: "Labを準備する" }));
       await expect(fixed(page)).toContainText("準備済み");
@@ -77,6 +79,10 @@ test("キーボードで教材・Lab・回答・後片付けまで進み、再�
         page.getByRole("button", { name: "確認してLabを起動する", exact: true }),
       );
       await expect(fixed(page).getByRole("link", { name: /127.0.0.1:18081/ })).toBeVisible();
+      await keyboardClick(page, page.getByRole("button", { name: "修正版のマーカーを確認する" }));
+      await expect(
+        page.getByText("マーカーはありません。修正版ではこの結果が期待値です。"),
+      ).toBeVisible();
     }
     await page
       .getByLabel("観察メモ", { exact: true })

@@ -19,7 +19,8 @@ let lesson,
   drafts = {},
   bindings = {},
   labs = {},
-  labErrors = {};
+  labErrors = {},
+  markers = {};
 let resumeId;
 let generation = 0,
   polling = false;
@@ -134,7 +135,8 @@ function content() {
   const predicted = drafts[`predicted:${page}`];
   const observed = drafts[`observation:${page}`] ?? "";
   const revealed = study.hints?.[page] ?? [];
-  const blockedObservation = ["observe-marker", "compare-fixed"].includes(page);
+  const markerRef =
+    page === "observe-marker" ? "vulnerable" : page === "compare-fixed" ? "fixed" : null;
   return `
     ${step.labRef ? `<span class="tag ${step.labRef === "fixed" ? "fixed" : ""}">対象：${titles[step.labRef]}</span>` : ""}
     <h3>手順</h3>${text(step.instruction)}
@@ -147,11 +149,23 @@ function content() {
       ${predicted ? `<div class="expected"><h3>期待結果</h3>${text(step.expectedResult)}<h3>観察のポイント</h3>${text(step.observation)}</div>` : ""}
     `
     }
-    ${blockedObservation ? `<div class="callout warning"><h3>マーカーの観察は未対応です</h3><p>現行Runnerには/tmp/successを確認する承認済みAPIがありません。観察結果を取得・検証したとは扱いません。</p>${button("observe-unavailable", "マーカーを観察する（Runner未対応）", "disabled")}</div>` : ""}
+    ${markerRef ? markerPanel(markerRef) : ""}
     <section class="hints" aria-label="段階的なヒント"><h3>考えるためのヒント <small>${revealed.length} / ${step.hintCount}</small></h3>${revealed.length ? list(revealed) : '<p class="muted">必要になったら、一つずつ開けます。</p>'}${button("hint", "次のヒントを開く", revealed.length >= step.hintCount ? "disabled" : "")}</section>
     <label for="observation">${page === "cleanup" ? "後片付けの確認メモ" : "観察メモ"}</label><textarea id="observation" data-draft="observation:${page}" rows="4" placeholder="確認した結果、予想との差、未確認の事項を記録してください。">${escape(observed)}</textarea>
     <p class="muted">予想とメモはこのブラウザに下書き保存します。</p>
     <div class="actions">${button("previous", "前の画面へ戻る")}${button("next", "メモを記録して次へ進む", 'class="primary"')}</div>`;
+}
+
+function markerPanel(ref) {
+  const marker = markers[ref];
+  const lab = labs[ref];
+  const ready = lab?.state === "running";
+  const result = !marker
+    ? "固定の/tmp/successだけを確認します。任意のパスやコマンドはRunnerへ渡しません。"
+    : marker.exists
+      ? `マーカーを確認しました。内容: ${escape(marker.content)}`
+      : "マーカーはありません。修正版ではこの結果が期待値です。";
+  return `<div class="callout ${marker?.exists ? "" : "warning"}"><h3>マーカーを観察する</h3><p>${result}</p>${button(`observe-${ref}`, `${titles[ref]}のマーカーを確認する`, `data-lab="${ref}" data-operation="marker" ${ready ? "" : "disabled"}`)}</div>`;
 }
 
 function safeLink(url, title) {
@@ -430,10 +444,17 @@ async function labAction(ref, operation) {
                 ? await api.stop(id)
                 : operation === "delete"
                   ? await api.delete(id, policy)
-                  : await api.status(id);
-        rememberLab(ref, value);
+                  : operation === "marker"
+                    ? await api.marker(id, ref)
+                    : await api.status(id);
+        if (operation === "marker") markers[ref] = value;
+        else rememberLab(ref, value);
         delete labErrors[ref];
-        announce(`${titles[ref]}: ${stateLabels[value.state] ?? value.state}`);
+        announce(
+          operation === "marker"
+            ? `${titles[ref]}: ${value.exists ? "マーカーあり" : "マーカーなし"}`
+            : `${titles[ref]}: ${stateLabels[value.state] ?? value.state}`,
+        );
       } catch (error) {
         if (error.session?.labSessionId) rememberLab(ref, error.session);
         labErrors[ref] = error.message;
@@ -441,7 +462,7 @@ async function labAction(ref, operation) {
       }
     },
     `${operation === "prepare" ? "start" : "refresh"}-${ref}`,
-    true,
+    operation !== "marker" && !["observe-marker", "compare-fixed"].includes(page),
   );
 }
 function rememberLab(ref, value) {
