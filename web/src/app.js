@@ -15,6 +15,7 @@ const errorBox = document.querySelector("#error");
 const dialog = document.querySelector("#confirmation");
 let lesson,
   study,
+  training,
   storageKey,
   drafts = {},
   bindings = {},
@@ -78,12 +79,12 @@ function render(focusId) {
   const items = menu();
   const active = items.find((item) => item.id === page);
   app.innerHTML = `
-    <div class="course-header"><div><p class="eyebrow">実在事例で学ぶ / ${escape(lesson.spec.case.product)}</p>
+    <div class="lesson-header"><div><p class="eyebrow">実在事例で学ぶ / ${escape(lesson.spec.case.product)}</p>
       <h1>${escape(lesson.metadata.title)}</h1>
-      <p class="muted">${lesson.spec.durationMinutes}分 · 開発者向け · 教材 v${escape(lesson.metadata.version)}</p></div>
+      <p class="muted">${lesson.spec.durationMinutes}分 · 開発者向け · 教材 v${escape(lesson.metadata.version)} · 研修状態: ${escape(training?.assignment.status ?? "未取得")}</p></div>
       <div class="progress-summary"><span>学習手順の記録</span><strong>${study?.stepIndex ?? 0}<small> / ${lesson.spec.steps.length}</small></strong><progress aria-label="学習手順の進捗" max="${lesson.spec.steps.length}" value="${study?.stepIndex ?? 0}"></progress></div></div>
     <div class="workspace">
-      <nav class="course-nav" aria-label="学習の順序"><p class="eyebrow">学習の流れ</p><ol>${items.map((item, index) => `<li><button id="nav-${item.id}" data-page="${item.id}" ${unlocked(item) ? "" : "disabled"} ${page === item.id ? 'aria-current="step"' : ""}><span class="step-number">${String(index + 1).padStart(2, "0")}</span><span>${escape(item.title)}</span></button></li>`).join("")}</ol></nav>
+      <nav class="lesson-nav" aria-label="学習の順序"><p class="eyebrow">学習の流れ</p><ol>${items.map((item, index) => `<li><button id="nav-${item.id}" data-page="${item.id}" ${unlocked(item) ? "" : "disabled"} ${page === item.id ? 'aria-current="step"' : ""}><span class="step-number">${String(index + 1).padStart(2, "0")}</span><span>${escape(item.title)}</span></button></li>`).join("")}</ol></nav>
       <main id="content" tabindex="-1"><section class="card lesson-card" aria-labelledby="page-title"><p class="eyebrow">${page === "overview" ? "LESSON OVERVIEW" : "LEARNING WORKSPACE"}</p><h2 id="page-title" tabindex="-1">${escape(active?.title)}</h2>${content()}</section></main>
       <aside id="labs" aria-label="ローカルLabの状態">${labPanel()}</aside>
     </div>
@@ -297,6 +298,7 @@ function bindEvents() {
         resumeId = undefined;
         persist();
       }
+      training.assignment = await api.startTraining();
       const index = Math.min(study.stepIndex, lesson.spec.steps.length - 1);
       page = lesson.spec.steps[index].id;
       announce("受講セッションを読み込みました。");
@@ -351,7 +353,13 @@ function bindEvents() {
           question.id,
           drafts[`answer:${question.id}`] ?? study.answers[question.id],
         );
-      announce("全問の回答をAPIに保存しました。理解度の評価は研修担当者が行います。");
+      if (["assigned", "needs_retry"].includes(training.assignment.status))
+        training.assignment = await api.startTraining();
+      if (training.assignment.status === "in_progress") {
+        await api.submitTraining(study.id);
+        training = await api.trainingAssignment();
+      }
+      announce("全問の回答を提出しました。理解度の評価は研修担当者が行います。");
     }, "save-answers"),
   );
   document.querySelector("#save-reflection")?.addEventListener("click", () => {
@@ -501,12 +509,18 @@ async function load() {
     const summary = catalog.find((item) => item.id === LESSON_ID);
     if (!summary) throw new Error("公開済みのFile Browser教材がありません。");
     lesson = await api.detail(summary.version);
+    training = await api.trainingAssignment();
     if (
       lesson.metadata.id !== LESSON_ID ||
       lesson.metadata.version !== summary.version ||
       !lesson.spec.labs.every((lab) => ["vulnerable", "fixed"].includes(lab.ref))
     )
       throw new Error("未対応の教材またはLab参照です。");
+    if (
+      training.assignment.lessonId !== lesson.metadata.id ||
+      training.assignment.lessonVersion !== lesson.metadata.version
+    )
+      throw new Error("割り当てられた研修と教材が一致しません。");
     storageKey = `${LESSON_ID}@${lesson.metadata.version}`;
     const record = localRecord(storageKey, {});
     drafts = record.drafts ?? {};

@@ -29,7 +29,11 @@ test("キーボードで教材・Lab・回答・後片付けまで進み、再�
   await expect(page.locator("#page-title")).toHaveText("検証の範囲を確認する");
   await keyboardClick(page, vulnerable(page).getByRole("button", { name: "Labを準備する" }));
   await expect(vulnerable(page)).toContainText("準備済み");
-  expect(fixture.calls.filter((call) => call.path.endsWith("/start"))).toHaveLength(0);
+  expect(
+    fixture.calls.filter(
+      (call) => call.path.startsWith("/api/labs/") && call.path.endsWith("/start"),
+    ),
+  ).toHaveLength(0);
   await keyboardClick(
     page,
     vulnerable(page).getByRole("button", { name: "安全性を確認して起動する" }),
@@ -40,7 +44,11 @@ test("キーボードで教材・Lab・回答・後片付けまで進み、再�
   await expect(
     vulnerable(page).getByRole("button", { name: "安全性を確認して起動する" }),
   ).toBeFocused();
-  expect(fixture.calls.filter((call) => call.path.endsWith("/start"))).toHaveLength(0);
+  expect(
+    fixture.calls.filter(
+      (call) => call.path.startsWith("/api/labs/") && call.path.endsWith("/start"),
+    ),
+  ).toHaveLength(0);
   await keyboardClick(
     page,
     vulnerable(page).getByRole("button", { name: "安全性を確認して起動する" }),
@@ -129,7 +137,11 @@ test("キーボードで教材・Lab・回答・後片付けまで進み、再�
   expect(
     fixture.calls.filter((call) => call.path === "/api/labs" && call.method === "POST"),
   ).toHaveLength(2);
-  expect(fixture.calls.filter((call) => call.path.endsWith("/start"))).toHaveLength(2);
+  expect(
+    fixture.calls.filter(
+      (call) => call.path.startsWith("/api/labs/") && call.path.endsWith("/start"),
+    ),
+  ).toHaveLength(2);
   expect(
     fixture.calls
       .filter((call) => call.method === "DELETE")
@@ -284,6 +296,10 @@ test("実比較Labの両serviceを一つのSessionで扱い、接続先と後片
   expect(
     fixture.calls.filter((call) => call.path === "/api/labs" && call.method === "POST"),
   ).toHaveLength(1);
-  expect(fixture.calls.filter((call) => call.path.endsWith("/start"))).toHaveLength(1);
+  expect(
+    fixture.calls.filter(
+      (call) => call.path.startsWith("/api/labs/") && call.path.endsWith("/start"),
+    ),
+  ).toHaveLength(1);
   expect(fixture.calls.filter((call) => call.method === "DELETE")).toHaveLength(1);
 });

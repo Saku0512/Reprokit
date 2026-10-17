@@ -29,24 +29,17 @@ func NewHandler(service *Service) (http.Handler, error) {
 func serve(service *Service, writer http.ResponseWriter, request *http.Request) {
 	path := request.URL.Path
 	switch path {
-	case "/api/training/courses":
-		if !onlyMethod(writer, request, http.MethodPost) {
+	case "/api/training/materials":
+		if !onlyMethod(writer, request, http.MethodGet) {
 			return
 		}
-		var body struct {
-			OrganizationID  string      `json:"organizationId"`
-			ID              string      `json:"id"`
-			Version         string      `json:"version"`
-			Title           string      `json:"title"`
-			Lessons         []LessonRef `json:"lessons"`
-			RequiredLessons []LessonRef `json:"requiredLessons"`
-		}
-		if !decodeRequest(request, &body) {
+		organizationID, ok := organizationQuery(request)
+		if !ok {
 			badRequest(writer)
 			return
 		}
-		course, err := service.CreateCourse(CreateCourseInput{OrganizationID: body.OrganizationID, ID: body.ID, Version: body.Version, Title: body.Title, Lessons: body.Lessons, RequiredLessons: body.RequiredLessons})
-		result(writer, course, err, http.StatusCreated)
+		materials, err := service.ListMaterials(organizationID)
+		result(writer, materials, err, http.StatusOK)
 		return
 	case "/api/training/cohorts":
 		if !onlyMethod(writer, request, http.MethodPost) {
@@ -66,13 +59,24 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 		result(writer, cohort, err, http.StatusCreated)
 		return
 	case "/api/training/assignments":
+		if request.Method == http.MethodGet {
+			organizationID, ok := organizationQuery(request)
+			if !ok {
+				badRequest(writer)
+				return
+			}
+			assignments, err := service.ListAssignments(organizationID)
+			result(writer, assignments, err, http.StatusOK)
+			return
+		}
 		if !onlyMethod(writer, request, http.MethodPost) {
 			return
 		}
 		var body struct {
 			OrganizationID string    `json:"organizationId"`
-			CourseID       string    `json:"courseId"`
-			CourseVersion  string    `json:"courseVersion"`
+			ActorID        string    `json:"actorId"`
+			LessonID       string    `json:"lessonId"`
+			LessonVersion  string    `json:"lessonVersion"`
 			LearnerIDs     []string  `json:"learnerIds"`
 			CohortID       string    `json:"cohortId"`
 			DueAt          time.Time `json:"dueAt"`
@@ -82,12 +86,42 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 			badRequest(writer)
 			return
 		}
-		assignments, err := service.CreateAssignments(CreateAssignmentsInput{OrganizationID: body.OrganizationID, CourseID: body.CourseID, CourseVersion: body.CourseVersion, LearnerIDs: body.LearnerIDs, CohortID: body.CohortID, DueAt: body.DueAt, AllowRetry: body.AllowRetry})
+		assignments, err := service.CreateAssignments(CreateAssignmentsInput{OrganizationID: body.OrganizationID, ActorID: body.ActorID, LessonID: body.LessonID, LessonVersion: body.LessonVersion, LearnerIDs: body.LearnerIDs, CohortID: body.CohortID, DueAt: body.DueAt, AllowRetry: body.AllowRetry})
 		result(writer, assignments, err, http.StatusCreated)
+		return
+	case "/api/training/exports/results.csv":
+		if !onlyMethod(writer, request, http.MethodGet) {
+			return
+		}
+		values := request.URL.Query()
+		organizationID := values.Get("organizationId")
+		if organizationID == "" || len(values) != 1 || len(values["organizationId"]) != 1 || !validID(organizationID) {
+			badRequest(writer)
+			return
+		}
+		writer.Header().Set("Content-Type", "text/csv; charset=utf-8")
+		writer.Header().Set("Content-Disposition", "attachment; filename=\"reprokit-training-results.csv\"")
+		if err := service.WriteResultsCSV(flushingWriter{ResponseWriter: writer}, organizationID); err != nil {
+			return
+		}
 		return
 	}
 
 	parts := strings.Split(strings.TrimPrefix(path, "/api/training/"), "/")
+	if len(parts) == 1 && parts[0] == "audit-events" {
+		if !onlyMethod(writer, request, http.MethodGet) {
+			return
+		}
+		values := request.URL.Query()
+		organizationID := values.Get("organizationId")
+		if organizationID == "" || len(values) != 1 || len(values["organizationId"]) != 1 {
+			badRequest(writer)
+			return
+		}
+		events, err := service.ListAuditEvents(organizationID)
+		result(writer, events, err, http.StatusOK)
+		return
+	}
 	if len(parts) == 3 && parts[0] == "assignments" && parts[2] == "start" {
 		if !onlyMethod(writer, request, http.MethodPost) {
 			return
@@ -105,6 +139,16 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 		return
 	}
 	if len(parts) == 3 && parts[0] == "assignments" && parts[2] == "submissions" {
+		if request.Method == http.MethodGet {
+			organizationID, ok := organizationQuery(request)
+			if !ok {
+				badRequest(writer)
+				return
+			}
+			submissions, err := service.ListSubmissions(organizationID, parts[1])
+			result(writer, submissions, err, http.StatusOK)
+			return
+		}
 		if !onlyMethod(writer, request, http.MethodPost) {
 			return
 		}
@@ -165,6 +209,12 @@ func serve(service *Service, writer http.ResponseWriter, request *http.Request) 
 	http.NotFound(writer, request)
 }
 
+func organizationQuery(request *http.Request) (string, bool) {
+	values := request.URL.Query()
+	organizationID := values.Get("organizationId")
+	return organizationID, organizationID != "" && len(values) == 1 && len(values["organizationId"]) == 1
+}
+
 func decodeRequest(request *http.Request, target any) bool {
 	defer request.Body.Close()
 	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
@@ -215,4 +265,15 @@ func writeJSON(writer http.ResponseWriter, status int, value any) {
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(status)
 	_ = json.NewEncoder(writer).Encode(value)
+}
+
+// flushingWriterはCSVの各レコードをHTTPレスポンスへ順に流す。
+type flushingWriter struct{ http.ResponseWriter }
+
+func (writer flushingWriter) Write(value []byte) (int, error) {
+	count, err := writer.ResponseWriter.Write(value)
+	if flusher, ok := writer.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+	return count, err
 }

@@ -1,10 +1,11 @@
 import { spawn } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import { mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createWebServer, runnerConfig } from "./server.mjs";
+import { createWebServer, managementConfig, runnerConfig } from "./server.mjs";
 
 const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
@@ -15,7 +16,7 @@ export function stateDirectory(env = process.env) {
   );
 }
 
-function childEnvironment(state) {
+function childEnvironment(state, organizationId, administratorId, learnerId) {
   const env = { ...process.env };
   for (const key of Object.keys(env)) if (key.startsWith("GIT_")) delete env[key];
   return {
@@ -23,6 +24,9 @@ function childEnvironment(state) {
     REPROKIT_REPOSITORY_ROOT: repositoryRoot,
     REPROKIT_STATE_DIR: state,
     REPROKIT_BOOTSTRAP_FD: "3",
+    REPROKIT_ORGANIZATION_ID: organizationId,
+    REPROKIT_ADMINISTRATOR_ID: administratorId,
+    REPROKIT_LEARNER_ID: learnerId,
   };
 }
 
@@ -54,9 +58,15 @@ function bootstrap(child) {
       if (!data.includes("\n")) return;
       try {
         const value = JSON.parse(data);
-        const config = runnerConfig(value.origin, value.token);
-        if (!config) throw new Error("missing Runner configuration");
-        finish(null, config);
+        const runner = runnerConfig(value.origin, value.token);
+        const management = managementConfig(
+          value.managementToken,
+          value.organizationId,
+          value.administratorId,
+          value.oidcEnabled,
+        );
+        if (!runner || !management) throw new Error("missing Runner configuration");
+        finish(null, { runner, management });
       } catch {
         finish(new Error("Runnerの初期化応答が不正です。"));
       }
@@ -70,6 +80,11 @@ export async function launch({
   dist = true,
   state = stateDirectory(),
   onRunnerExit = () => {},
+  organizationId = "local",
+  administratorId = "admin",
+  learnerId = "local-learner",
+  adminUsername = process.env.REPROKIT_ADMIN_USERNAME ?? "admin",
+  adminPassword = process.env.REPROKIT_ADMIN_PASSWORD,
 } = {}) {
   const buildDirectory = await mkdtemp(join(tmpdir(), "reprokit-runner-"));
   const binary = join(buildDirectory, "reprokit");
@@ -77,7 +92,9 @@ export async function launch({
     server,
     closing,
     closed = false;
-  const env = childEnvironment(state);
+  const env = childEnvironment(state, organizationId, administratorId, learnerId);
+  const generatedAdminPassword = !adminPassword;
+  const effectiveAdminPassword = adminPassword ?? randomBytes(18).toString("base64url");
   function close() {
     if (closing) return closing;
     closed = true;
@@ -109,8 +126,12 @@ export async function launch({
     const [code] = await once(build, "exit");
     if (code !== 0) throw new Error("Runnerのビルドに失敗しました。");
     child = spawn(binary, [], { env, stdio: ["ignore", "inherit", "inherit", "pipe"] });
-    const runner = await bootstrap(child);
-    server = createWebServer({ runner, dist });
+    const bootstrapConfig = await bootstrap(child);
+    server = createWebServer({
+      ...bootstrapConfig,
+      admin: { username: adminUsername, password: effectiveAdminPassword },
+      dist,
+    });
     child.once("exit", () => {
       if (!closed) {
         onRunnerExit();
@@ -121,7 +142,15 @@ export async function launch({
       server.once("error", reject);
       server.listen(port, "127.0.0.1", resolve);
     });
-    return { origin: `http://127.0.0.1:${server.address().port}`, server, child, close };
+    return {
+      origin: `http://127.0.0.1:${server.address().port}`,
+      server,
+      child,
+      close,
+      adminUsername,
+      adminPassword: effectiveAdminPassword,
+      generatedAdminPassword,
+    };
   } catch (error) {
     await close();
     throw error;
@@ -142,6 +171,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       },
     });
     console.log(`Reprokit Web: ${app.origin}`);
+    console.log(`Reprokit 管理画面: ${app.origin}/admin`);
+    console.log(
+      app.generatedAdminPassword
+        ? `Reprokit 管理ログイン（今回のみ）: ${app.adminUsername} / ${app.adminPassword}`
+        : `Reprokit 管理ログイン: ${app.adminUsername}（パスワードは環境変数設定値）`,
+    );
     for (const signal of ["SIGINT", "SIGTERM"])
       process.once(signal, () => {
         void app.close();

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Reprokit — 研修管理</title>
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="stylesheet" href="/src/admin.css" />
+    <script type="module" src="/src/admin.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">本文へ移動</a>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Reprokit 受講画面">
+        <img class="brand-logo" src="/assets/reprokit-logo.png" alt="" />
+      </a>
+      <span class="product-label">TRAINING ADMINISTRATION</span>
+      <a class="local-badge" href="/">受講画面へ</a>
+    </header>
+    <main id="content" class="admin-shell">
+      <div id="admin-notice" class="notice" role="status" aria-live="polite"></div>
+      <section id="login-panel" class="card admin-card">
+        <p class="eyebrow">MANAGEMENT LOGIN</p>
+        <h1>研修管理へログイン</h1>
+        <form id="login-form">
+          <label for="username">ユーザー名</label>
+          <input id="username" name="username" autocomplete="username" required />
+          <label for="password">パスワード</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+          <button class="primary" type="submit">ログイン</button>
+        </form>
+        <div id="sso-login" class="sso-login" hidden>
+          <span>または</span>
+          <a class="primary" href="/api/admin/oidc/start">SSOでログイン</a>
+        </div>
+      </section>
+      <section id="dashboard" hidden>
+        <div class="admin-heading">
+          <div>
+            <p class="eyebrow">TRAINING OVERVIEW</p>
+            <h1>教材の割り当てと進捗</h1>
+            <p class="heading-copy">CVE単位の教材を対象者へ割り当て、提出回答まで確認します。</p>
+          </div>
+          <div class="heading-actions">
+            <button id="download">結果CSV</button><button id="logout">ログアウト</button>
+          </div>
+        </div>
+        <section class="summary-panel" aria-labelledby="summary-heading">
+          <div class="summary-heading">
+            <div>
+              <p class="eyebrow">CURRENT PROGRESS</p>
+              <h2 id="summary-heading">受講状況</h2>
+            </div>
+            <p id="summary-description" class="muted">割り当てを読み込んでいます。</p>
+          </div>
+          <div class="metric-grid">
+            <article class="metric"><span>全割り当て</span><strong id="metric-total">0</strong></article>
+            <article class="metric"><span>未着手</span><strong id="metric-assigned">0</strong></article>
+            <article class="metric"><span>受講中</span><strong id="metric-in-progress">0</strong></article>
+            <article class="metric"><span>確認待ち</span><strong id="metric-submitted">0</strong></article>
+            <article class="metric metric-success"><span>完了</span><strong id="metric-completed">0</strong></article>
+            <article class="metric metric-danger"><span>要再受講</span><strong id="metric-needs-retry">0</strong></article>
+          </div>
+          <div class="completion-line">
+            <div class="completion-meter" aria-hidden="true"><span id="completion-meter-value"></span></div>
+            <strong id="completion-rate">完了率 0%</strong><span id="overdue-count" class="muted">期限超過 0件</span>
+          </div>
+        </section>
+        <div class="admin-grid">
+          <section class="card admin-card">
+            <p class="eyebrow">MATERIAL CATALOG</p>
+            <h2>割り当て可能な教材</h2>
+            <div id="materials" class="material-list"></div>
+          </section>
+          <section class="card admin-card">
+            <p class="eyebrow">NEW ASSIGNMENT</p>
+            <h2>割り当てを作成</h2>
+            <form id="assignment-form">
+              <label for="material">教材</label><select id="material" required></select>
+              <label for="learners">対象者ID</label>
+              <textarea id="learners" rows="3" placeholder="alice, bob&#10;team-member-03" required></textarea>
+              <p class="field-help">複数指定はカンマまたは改行で区切ります。</p>
+              <label for="due">受講期限</label><input id="due" type="datetime-local" required />
+              <div class="completion-rule">
+                <span>完了条件</span>
+                <output id="completion-rule" for="material">教材を選択してください。</output>
+              </div>
+              <label class="checkbox-label"><input id="retry" type="checkbox" checked /> 不承認時の再受講を許可</label>
+              <button class="primary" type="submit">割り当てる</button>
+            </form>
+          </section>
+        </div>
+        <section class="card admin-card assignments-card" aria-labelledby="assignments-heading">
+          <div class="section-heading">
+            <div><p class="eyebrow">ASSIGNMENTS</p><h2 id="assignments-heading">割り当て・受講状況</h2></div>
+            <span id="assignment-count" class="count-label">0件</span>
+          </div>
+          <div class="assignment-toolbar">
+            <label for="status-filter">状態</label>
+            <select id="status-filter">
+              <option value="">すべて</option>
+              <option value="assigned">未着手</option>
+              <option value="in_progress">受講中</option>
+              <option value="submitted">確認待ち</option>
+              <option value="completed">完了</option>
+              <option value="needs_retry">要再受講</option>
+            </select>
+            <label for="assignment-search">受講者・教材</label>
+            <input id="assignment-search" type="search" placeholder="IDで絞り込み" />
+          </div>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>対象者</th><th>教材</th><th>状態</th><th>期限</th><th>完了条件</th><th><span class="visually-hidden">操作</span></th></tr></thead>
+              <tbody id="assignments"></tbody>
+            </table>
+          </div>
+        </section>
+        <section id="submission-panel" class="card admin-card submissions-card" aria-labelledby="submissions-heading">
+          <div class="section-heading">
+            <div><p class="eyebrow">SUBMISSIONS</p><h2 id="submissions-heading">提出回答</h2></div>
+            <span id="submission-context" class="count-label"></span>
+          </div>
+          <p id="submission-help" class="muted">割り当ての「提出を見る」を選んでください。</p>
+          <p class="privacy-note">原因・影響・修正・再発防止の回答だけを表示します。Labの操作履歴やコマンド履歴は収集しません。</p>
+          <div id="submissions" class="submission-list"></div>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -37,20 +38,28 @@ func TestHandlerCreatesAndCompletesTrainingAssignment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	course := decodeResponse[Course](t, request(t, handler, http.MethodPost, "/api/training/courses", `{"organizationId":"acme","id":"secure-basics","version":"1.0.0","title":"安全な実装の基礎","lessons":[{"lessonId":"filebrowser/hook","lessonVersion":"1.0.0"}],"requiredLessons":[{"lessonId":"filebrowser/hook","lessonVersion":"1.0.0"}]}`), http.StatusCreated)
-	if course.OrganizationID != "acme" || len(course.Lessons) != 1 {
-		t.Fatalf("unexpected course: %#v", course)
+	materials := decodeResponse[[]Material](t, request(t, handler, http.MethodGet, "/api/training/materials?organizationId=acme", ""), http.StatusOK)
+	if len(materials) != 3 || materials[0].LessonID != "command-injection/filebrowser-auth-hook" {
+		t.Fatalf("unexpected material list: %#v", materials)
 	}
-	assignments := decodeResponse[[]Assignment](t, request(t, handler, http.MethodPost, "/api/training/assignments", `{"organizationId":"acme","courseId":"secure-basics","courseVersion":"1.0.0","learnerIds":["alice"],"cohortId":"","dueAt":"2026-11-01T00:00:00Z","allowRetry":true}`), http.StatusCreated)
+	assignments := decodeResponse[[]Assignment](t, request(t, handler, http.MethodPost, "/api/training/assignments", `{"organizationId":"acme","actorId":"trainer","lessonId":"filebrowser/hook","lessonVersion":"1.0.0","learnerIds":["alice"],"cohortId":"","dueAt":"2026-11-01T00:00:00Z","allowRetry":true}`), http.StatusCreated)
 	if len(assignments) != 1 {
 		t.Fatalf("unexpected assignments: %#v", assignments)
 	}
 	assignment := assignments[0]
+	listed := decodeResponse[[]Assignment](t, request(t, handler, http.MethodGet, "/api/training/assignments?organizationId=acme", ""), http.StatusOK)
+	if len(listed) != 1 || listed[0].ID != assignment.ID {
+		t.Fatalf("unexpected assignment list: %#v", listed)
+	}
 	started := decodeResponse[Assignment](t, request(t, handler, http.MethodPost, "/api/training/assignments/"+assignment.ID+"/start", `{"organizationId":"acme","learnerId":"alice"}`), http.StatusOK)
 	if started.Status != StatusInProgress {
 		t.Fatalf("unexpected status: %#v", started)
 	}
 	submission := decodeResponse[Submission](t, request(t, handler, http.MethodPost, "/api/training/assignments/"+assignment.ID+"/submissions", `{"organizationId":"acme","learnerId":"alice","lessonId":"filebrowser/hook","lessonVersion":"1.0.0","answers":{"cause":"認証処理の前に実行される"}}`), http.StatusCreated)
+	submissions := decodeResponse[[]Submission](t, request(t, handler, http.MethodGet, "/api/training/assignments/"+assignment.ID+"/submissions?organizationId=acme", ""), http.StatusOK)
+	if len(submissions) != 1 || submissions[0].ID != submission.ID {
+		t.Fatalf("unexpected submission list: %#v", submissions)
+	}
 	response := decodeResponse[struct {
 		Submission Submission  `json:"submission"`
 		Assignment Assignment  `json:"assignment"`
@@ -63,6 +72,14 @@ func TestHandlerCreatesAndCompletesTrainingAssignment(t *testing.T) {
 	if loaded.Status != StatusCompleted {
 		t.Fatalf("unexpected persisted assignment: %#v", loaded)
 	}
+	csv := request(t, handler, http.MethodGet, "/api/training/exports/results.csv?organizationId=acme", "")
+	if csv.Code != http.StatusOK || csv.Header().Get("Content-Type") != "text/csv; charset=utf-8" || !strings.Contains(csv.Body.String(), "learner_id,lesson_id") || strings.Contains(csv.Body.String(), "認証処理の前に実行される") {
+		t.Fatalf("unexpected CSV response: status=%d header=%q body=%q", csv.Code, csv.Header().Get("Content-Type"), csv.Body.String())
+	}
+	events := decodeResponse[[]AuditEvent](t, request(t, handler, http.MethodGet, "/api/training/audit-events?organizationId=acme", ""), http.StatusOK)
+	if len(events) == 0 || events[0].OrganizationID != "acme" {
+		t.Fatalf("unexpected audit events: %#v", events)
+	}
 }
 
 func TestHandlerRejectsUnknownFieldsAndOrganizationBypass(t *testing.T) {
@@ -71,7 +88,7 @@ func TestHandlerRejectsUnknownFieldsAndOrganizationBypass(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	invalid := request(t, handler, http.MethodPost, "/api/training/courses", `{"organizationId":"acme","id":"secure-basics","version":"1.0.0","title":"研修","lessons":[],"requiredLessons":[],"command":"unsafe"}`)
+	invalid := request(t, handler, http.MethodPost, "/api/training/assignments", `{"organizationId":"acme","actorId":"trainer","lessonId":"filebrowser/hook","lessonVersion":"1.0.0","learnerIds":["alice"],"dueAt":"2026-11-01T00:00:00Z","allowRetry":true,"command":"unsafe"}`)
 	if invalid.Code != http.StatusBadRequest {
 		t.Fatalf("unknown field status = %d", invalid.Code)
 	}

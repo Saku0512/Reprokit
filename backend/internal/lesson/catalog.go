@@ -20,12 +20,13 @@ const maxRunnerPrepareBytes = 4096
 type LabAllowed func(labID string) bool
 
 type Summary struct {
-	ID              string `json:"id"`
-	Version         string `json:"version"`
-	Title           string `json:"title"`
-	Audience        string `json:"audience"`
-	DurationMinutes int    `json:"durationMinutes"`
-	Product         string `json:"product"`
+	ID              string   `json:"id"`
+	Version         string   `json:"version"`
+	Title           string   `json:"title"`
+	Audience        string   `json:"audience"`
+	DurationMinutes int      `json:"durationMinutes"`
+	Product         string   `json:"product"`
+	CVEs            []string `json:"cves,omitempty"`
 }
 
 // Catalogは検証済みのLesson Versionだけを保持する。
@@ -90,6 +91,7 @@ func LoadCatalog(root string, allowed LabAllowed) (*Catalog, []error, error) {
 		catalog.summaries = append(catalog.summaries, Summary{
 			ID: value.Metadata.ID, Version: value.Metadata.Version, Title: value.Metadata.Title,
 			Audience: value.Spec.Audience, DurationMinutes: value.Spec.DurationMinutes, Product: value.Spec.Case.Product,
+			CVEs: append([]string{}, value.Spec.Evidence.CVEs...),
 		})
 	}
 	sort.Slice(catalog.summaries, func(i, j int) bool {
@@ -143,7 +145,11 @@ func readRegularFile(path string, limit int64) ([]byte, error) {
 }
 
 func (catalog *Catalog) List() []Summary {
-	return append([]Summary{}, catalog.summaries...)
+	result := append([]Summary{}, catalog.summaries...)
+	for index := range result {
+		result[index].CVEs = append([]string{}, result[index].CVEs...)
+	}
+	return result
 }
 
 func (catalog *Catalog) Get(id, version string) (Lesson, bool) {

@@ -175,7 +175,7 @@ footer {
   border-radius: 8px;
   overflow-wrap: anywhere;
 }
-.course-header {
+.lesson-header {
   display: flex;
   justify-content: space-between;
   gap: 32px;
@@ -217,18 +217,18 @@ progress {
   margin: auto;
   align-items: start;
 }
-.course-nav {
+.lesson-nav {
   padding-top: 8px;
 }
-.course-nav ol {
+.lesson-nav ol {
   list-style: none;
   padding: 0;
   margin: 0;
 }
-.course-nav li + li {
+.lesson-nav li + li {
   margin-top: 4px;
 }
-.course-nav button {
+.lesson-nav button {
   width: 100%;
   text-align: left;
   display: flex;
@@ -240,7 +240,7 @@ progress {
   font-weight: 400;
   padding: 12px 8px;
 }
-.course-nav button[aria-current] {
+.lesson-nav button[aria-current] {
   background: #eaf0ff;
   color: #1e40af;
   font-weight: 600;
@@ -508,19 +508,19 @@ dialog::backdrop {
   .workspace {
     grid-template-columns: minmax(0, 1fr) 300px;
   }
-  .course-nav {
+  .lesson-nav {
     grid-column: 1 / -1;
   }
-  .course-nav ol {
+  .lesson-nav ol {
     display: flex;
     gap: 8px;
     overflow-x: auto;
     padding-bottom: 12px;
   }
-  .course-nav li {
+  .lesson-nav li {
     flex: 0 0 180px;
   }
-  .course-nav li + li {
+  .lesson-nav li + li {
     margin: 0;
   }
 }
@@ -539,7 +539,7 @@ dialog::backdrop {
   .notice {
     padding-inline: 16px;
   }
-  .course-header {
+  .lesson-header {
     padding: 0 16px;
     gap: 16px;
     margin-top: 16px;
@@ -567,7 +567,7 @@ dialog::backdrop {
   .workspace > * {
     width: 100%;
   }
-  .course-nav {
+  .lesson-nav {
     order: 0;
   }
   #labs {
