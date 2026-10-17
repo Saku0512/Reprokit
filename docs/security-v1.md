@@ -64,6 +64,6 @@ WebはPoC操作例、ヒント、観察結果を表示するが**任意のPoC/OS
 
 [Runtime v0.1の許可リスト](runtime-v1.md)に記載したキーだけを許容する。元Compose YAMLと解決済みComposeの両方を検査し、未知のオプション・変数展開・YAMLアンカー/マージ・ホスト参照を拒否する。対応するのはimage、固定TCP ports、固定値environment、短形式depends_on、project所有のnamed volumesとBridge networksに限る。`guardrails.egress: none`のLabは、Runnerが生成する`internal: true`の専用Bridgeだけに接続する。
 
-検証チェッカーも第三者イメージであるため、`alpine:3`をPrepare時にdigest固定し、Start時はRunnerが定義した引数配列を短命な最小権限コンテナへ渡す。Manifest経由の任意スクリプトは受け付けない。
+検証チェッカーも第三者イメージであるため、`alpine:3`をPrepare時にdigest固定し、Start時はRunnerが定義した引数配列を短命な最小権限コンテナへ渡す。Manifest経由の任意スクリプトは受け付けない。Dockerの書込み上限はストレージドライバごとの`storage_opt`に依存せず、Runnerが固定済み`diskMiB`を監視して超過Sessionを停止する。ただしファイルシステムquotaではないため、高保証の容量隔離は専用VMまたはホスト側quotaで補完する。
 
 Lockfileに全ての参照ファイルを`source.files`として列挙・ハッシュ固定し、起動前に照合する。既定の`127.0.0.1`公開は安全境界ではなく、Bridgeから外部への通信は可能。Docker Engine 28.0.0以上、Compose v2.36.1以上を前提として安全性を再検査する。

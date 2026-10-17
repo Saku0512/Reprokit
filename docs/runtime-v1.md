@@ -99,7 +99,8 @@ guardrails:
 ```
 
 - `maxRuntimeSeconds`は60〜14,400秒、CPUは1〜4コア、メモリは128〜4,096 MiB、PID数は64〜512、ディスクは256〜8,192 MiBに限定する。
-- Runnerは`deploy.resources.limits`でCPU・メモリ・PID数を、`storage_opt.size`でコンテナ書込み層のディスク上限を付与する。Dockerのストレージドライバがディスク上限をサポートしない場合は起動を失敗として扱い、無制限で続行しない。
+- Runnerは`deploy.resources.limits`でCPU・メモリ・PID数を付与する。ディスクはDockerの各コンテナが報告する書込み量（`SizeRw`）をProject単位で2秒ごとに合計し、`diskMiB`を超えたSessionを`disk_limit_exceeded`として停止する。監視値を取得できない場合も`disk_monitor_unavailable`として停止する。
+- Dockerの`storage_opt.size`はファイルシステム依存であり、解決済みComposeへ付与しない。書込み量の監視はファイルシステムquotaではないため、監視頻度の間に上限を超える可能性がある。高い隔離保証が必要な演習は、専用VMと容量制限済みのホストで実行する。
 - `egress`は現時点で`none`だけを許可する。外部通信が必要な教材は、宛先・必要性・実装する隔離方法を別途レビューして対応する。
 - 起動後は期限で自動停止する。Runnerの再起動時には、前回のRunnerが残したrunning/error Sessionを削除して、保持指定のVolumeだけを記録する。
 
