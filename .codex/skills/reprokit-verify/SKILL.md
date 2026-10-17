@@ -36,3 +36,9 @@ If `node_modules` is missing or `package-lock.json` changed, run `npm ci` before
 
 - `scripts/format.sh check|write` applies `gofmt` from `backend/go.mod` to Go and the pinned Prettier to supported repository files.
 - `scripts/verify.sh quick|full` checks formatting and whitespace, then runs available Go checks from `backend/` and Web checks from `web/`. `full` adds the race suite and opted-in harmless Docker integration tests.
+
+## Known failure modes
+
+- 依存関係のインストールと、それを読むlint・ビルド・テストは並列に実行しない。インストールの終了コードを確認してから開始する。展開途中の依存ファイルを読むと、コードの不具合と区別しにくい解決エラーになる。
+- メニューや固定ヘッダーを変更した場合は、本文を下へスクロールしてから開閉し、閉じた後の読書位置と見出しの可視性を確認する。スクロール固定で対象要素が切り替わると位置が先頭へ戻るため、`window.scrollY`だけでなく本文のスクロール要素も検証する。
+- スクロール量を調整する場合は、要求された要素の境界を実座標で検証する。次章の見出しが見えることやフォーカスの移動だけでは、直前の章の下端など指定された位置で止まったことを確認できない。
