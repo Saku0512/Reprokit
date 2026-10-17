@@ -308,6 +308,29 @@ h1.t {
   color: var(--red);
   font-size: 12.5px;
 }
+.tm-logs {
+  @apply [border-top:1px_solid_var(--line)] mt-3 pt-3;
+}
+.tm-logs-heading {
+  @apply flex items-start justify-between gap-3;
+}
+.tm-logs-heading b,
+.tm-log-entry > b {
+  @apply text-[13px];
+}
+.tm-logs-heading p {
+  @apply text-[12px] text-subtle m-[3px_0_0];
+}
+.tm-log-entry {
+  @apply mt-3;
+}
+.tm-log-entry .pill {
+  @apply ml-2;
+}
+.tm-log-entry .log {
+  @apply max-h-64 overflow-auto;
+  @apply mt-1 mb-0;
+}
 .tm .sep {
   @apply w-[1px] h-[18px] bg-line;
 }

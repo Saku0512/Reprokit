@@ -143,7 +143,7 @@ function App() {
 
   async function deployLab() {
     if (state.lab === "deploying") return;
-    update({ lab: "deploying", seg: 2, modal: null, labFailure: null });
+    update({ lab: "deploying", seg: 2, modal: null, labFailure: null, logs: {}, logFailure: null });
     try {
       let runtime = state.runtime;
       if (!canStart(runtime)) runtime = await api.prepare("1.0.0", "vulnerable");
@@ -174,7 +174,7 @@ function App() {
     try {
       const runtime = await api.stop(state.runtime.labSessionId);
       rememberLabSession(runtime);
-      update({ lab: labState(runtime), runtime });
+      update({ lab: labState(runtime), runtime, logs: {}, logFailure: null });
       setMessage("Labを停止しました");
     } catch (error) {
       const runtime = error?.session;
@@ -209,6 +209,24 @@ function App() {
         labFailure: error instanceof Error ? error.message : "Labの削除に失敗しました。",
       });
       setMessage("Labを削除できませんでした。状態を確認してください。");
+    }
+  }
+
+  async function showLogs(service) {
+    if (!state.runtime?.labSessionId || state.lab !== "running") return;
+    update({ logLoading: service, logFailure: null });
+    try {
+      const logs = await api.logs(state.runtime.labSessionId, service);
+      setState((previous) => ({
+        ...previous,
+        logs: { ...previous.logs, [service]: logs },
+        logLoading: null,
+      }));
+    } catch (error) {
+      update({
+        logLoading: null,
+        logFailure: error instanceof Error ? error.message : "ログを取得できませんでした。",
+      });
     }
   }
 
@@ -309,6 +327,12 @@ function App() {
           setMessage("コピーできませんでした");
         }
         break;
+      case "logs":
+        await showLogs(v);
+        break;
+      case "close-logs":
+        update({ logs: {}, logFailure: null });
+        break;
     }
   }
 
@@ -387,7 +411,15 @@ function App() {
 }
 
 function resetLabState() {
-  return { repro: false, runV: false, runF: false, normF: false };
+  return {
+    repro: false,
+    runV: false,
+    runF: false,
+    normF: false,
+    logs: {},
+    logLoading: null,
+    logFailure: null,
+  };
 }
 
 createRoot(document.getElementById("root")).render(<App />);

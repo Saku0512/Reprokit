@@ -92,6 +92,7 @@ export function LessonList({ state: S }) {
 
 function LabBox({ state: S }) {
   const s = S.lab;
+  const logs = Object.values(S.logs ?? {});
   const endpoints = (S.runtime?.endpoints ?? [])
     .map((endpoint) => ({ ...endpoint, url: endpointURL(endpoint) }))
     .filter((endpoint) => endpoint.url);
@@ -170,6 +171,14 @@ function LabBox({ state: S }) {
               <a className="btn sm" href={endpoint.url} target="_blank" rel="noopener noreferrer">
                 {"別タブで開く ↗"}
               </a>
+              <button
+                className="btn sm"
+                data-a="logs"
+                data-v={endpoint.service}
+                disabled={S.logLoading !== null}
+              >
+                {S.logLoading === endpoint.service ? "ログ取得中…" : "ログを見る"}
+              </button>
             </span>
           </Fragment>
         ))}
@@ -221,6 +230,27 @@ function LabBox({ state: S }) {
         </div>
         <div className="r2">{r2}</div>
         {S.labFailure && <p className="lab-failure">{S.labFailure}</p>}
+        {S.logFailure && <p className="lab-failure">{S.logFailure}</p>}
+        {logs.length > 0 && (
+          <section className="tm-logs" aria-label="コンテナログ">
+            <div className="tm-logs-heading">
+              <div>
+                <b>{"コンテナログ"}</b>
+                <p>{"ログにはLabへ入力した値が含まれる場合があります。"}</p>
+              </div>
+              <button className="btn sm" data-a="close-logs">
+                {"閉じる"}
+              </button>
+            </div>
+            {logs.map((snapshot) => (
+              <div key={snapshot.service} className="tm-log-entry">
+                <b>{endpointTitle(snapshot.service)}</b>
+                {snapshot.truncated && <span className="pill amber">{"先頭を省略"}</span>}
+                <pre className="log">{snapshot.content || "（出力はまだありません）"}</pre>
+              </div>
+            ))}
+          </section>
+        )}
       </div>
     </>
   );
