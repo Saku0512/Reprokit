@@ -52,6 +52,14 @@ type Failure struct {
 	Message   string `json:"message"`
 }
 
+// MarkerObservation はFile Browser比較Labで固定した無害なマーカーの観察結果である。
+// 任意のコンテナ、パス、コマンドを受け取る用途には使わない。
+type MarkerObservation struct {
+	Service string `json:"service"`
+	Exists  bool   `json:"exists"`
+	Content string `json:"content,omitempty"`
+}
+
 type Session struct {
 	ID                 string     `json:"labSessionId"`
 	LabID              string     `json:"labId"`
@@ -90,6 +98,12 @@ type Provider interface {
 	Stop(context.Context, string, []byte) error
 	Delete(context.Context, string, []byte, bool) error
 	Inspect(context.Context, string, []byte) (Resources, error)
+}
+
+// MarkerReader は承認済みの比較Labだけでマーカーを読むProviderの追加機能である。
+// Lifecycleの基本Providerに読取り権限を要求しないため、無害なテストProviderを保てる。
+type MarkerReader interface {
+	ReadMarker(context.Context, string, []byte, string) (string, error)
 }
 
 type Store interface {
@@ -237,6 +251,36 @@ func (manager *Manager) Status(ctx context.Context, id string) (Session, error) 
 		}
 		return err
 	})
+}
+
+// ObserveMarker は実行中のFile Browser比較Labにある固定マーカーだけを返す。
+func (manager *Manager) ObserveMarker(ctx context.Context, id, service string) (MarkerObservation, error) {
+	if !idPattern.MatchString(id) {
+		return MarkerObservation{}, errors.New("invalid Lab session ID")
+	}
+	if service != "vulnerable" && service != "fixed" {
+		return MarkerObservation{}, errors.New("unknown File Browser comparison service")
+	}
+	lockValue, _ := manager.locks.LoadOrStore(id, &sync.Mutex{})
+	lock := lockValue.(*sync.Mutex)
+	lock.Lock()
+	defer lock.Unlock()
+	session, err := manager.store.Load(ctx, id)
+	if err != nil {
+		return MarkerObservation{}, err
+	}
+	if session.LabID != "vulhub/filebrowser-cve-2026-54088" || session.State != Running {
+		return MarkerObservation{}, ErrInvalidState
+	}
+	reader, ok := manager.provider.(MarkerReader)
+	if !ok {
+		return MarkerObservation{}, errors.New("the configured Lab provider cannot observe the marker")
+	}
+	content, err := reader.ReadMarker(ctx, session.Project, session.Compose, service)
+	if err != nil {
+		return MarkerObservation{}, err
+	}
+	return MarkerObservation{Service: service, Exists: content != "", Content: content}, nil
 }
 
 func (manager *Manager) startFailure(ctx context.Context, session *Session, startErr error) error {

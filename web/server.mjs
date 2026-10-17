@@ -70,7 +70,7 @@ export function createWebServer({ runner = null, dist = false } = {}) {
       }
       if (
         !/^(GET|POST|PUT|DELETE)$/.test(request.method) ||
-        !/^\/api\/(lessons(?:\/detail)?|study-sessions(?:\/[a-f0-9]{32}(?:\/advance|\/(?:hints|answers|labs)\/[a-z0-9-]+)?)?|labs(?:\/[a-f0-9-]{36}(?:\/(?:start|stop))?)?)$/.test(
+        !/^\/api\/(lessons(?:\/detail)?|study-sessions(?:\/[a-f0-9]{32}(?:\/advance|\/(?:hints|answers|labs)\/[a-z0-9-]+)?)?|labs(?:\/[a-f0-9-]{36}(?:\/(?:start|stop|markers\/(?:vulnerable|fixed)))?)?)$/.test(
           url.pathname,
         )
       ) {

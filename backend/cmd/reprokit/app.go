@@ -169,3 +169,6 @@ func (service *lazyService) Delete(ctx context.Context, id string, remove bool) 
 func (service *lazyService) Status(ctx context.Context, id string) (runtime.Session, error) {
 	return service.manager.Status(ctx, id)
 }
+func (service *lazyService) ObserveMarker(ctx context.Context, id, reference string) (runtime.MarkerObservation, error) {
+	return service.manager.ObserveMarker(ctx, id, reference)
+}

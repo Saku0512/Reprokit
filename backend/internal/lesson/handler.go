@@ -280,6 +280,10 @@ func (handler *apiHandler) lab(writer http.ResponseWriter, request *http.Request
 				badRequest(writer)
 				return
 			}
+		} else if len(parts) == 3 && parts[1] == "markers" && (parts[2] == "vulnerable" || parts[2] == "fixed") {
+			if !method(writer, request, http.MethodGet) || !query(request) {
+				return
+			}
 		} else {
 			http.NotFound(writer, request)
 			return

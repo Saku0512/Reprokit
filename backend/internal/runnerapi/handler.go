@@ -27,6 +27,7 @@ type Service interface {
 	Stop(context.Context, string) (runtime.Session, error)
 	Delete(context.Context, string, bool) (runtime.Session, error)
 	Status(context.Context, string) (runtime.Session, error)
+	ObserveMarker(context.Context, string, string) (runtime.MarkerObservation, error)
 }
 
 func NewHandler(service Service, sessionToken string) http.Handler {
@@ -63,6 +64,24 @@ func NewHandler(service Service, sessionToken string) http.Handler {
 		if request.Method == http.MethodGet && len(parts) == 1 {
 			session, err := service.Status(request.Context(), id)
 			respond(writer, session, err)
+			return
+		}
+		if request.Method == http.MethodGet && len(parts) == 3 && parts[1] == "markers" && (parts[2] == "vulnerable" || parts[2] == "fixed") {
+			observation, err := service.ObserveMarker(request.Context(), id, parts[2])
+			if err != nil {
+				status := http.StatusInternalServerError
+				if errors.Is(err, runtime.ErrNotFound) {
+					status = http.StatusNotFound
+				} else if errors.Is(err, runtime.ErrInvalidState) {
+					status = http.StatusConflict
+				}
+				writer.Header().Set("Content-Type", "application/json")
+				writer.WriteHeader(status)
+				_ = json.NewEncoder(writer).Encode(map[string]string{"failure": err.Error()})
+				return
+			}
+			writer.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(writer).Encode(observation)
 			return
 		}
 		if request.Method == http.MethodPost && len(parts) == 2 && parts[1] == "start" {

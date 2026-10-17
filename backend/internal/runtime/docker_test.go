@@ -74,6 +74,22 @@ func TestDockerComposeProviderInspectsProjectLabels(t *testing.T) {
 	}
 }
 
+func TestDockerComposeProviderReadsOnlyFixedMarker(t *testing.T) {
+	runner := &recordingDockerRunner{outputs: [][]byte{[]byte("uid=1000(filebrowser)\n")}}
+	provider := newDockerComposeProviderForTest(runner)
+	marker, err := provider.ReadMarker(context.Background(), "reprokit_0123456789ab", []byte("services: {}\n"), "vulnerable")
+	if err != nil || marker != "uid=1000(filebrowser)" {
+		t.Fatalf("marker=%q err=%v", marker, err)
+	}
+	call := runner.calls[0]
+	if !slices.Contains(call, "exec") || !slices.Contains(call, "vulnerable") || !slices.Contains(call, "/bin/sh") || !slices.Contains(call, "if [ -r /tmp/success ]; then head -c 512 /tmp/success; fi") {
+		t.Fatalf("unexpected marker command: %#v", call)
+	}
+	if _, err := provider.ReadMarker(context.Background(), "reprokit_0123456789ab", nil, "other"); err == nil {
+		t.Fatal("unknown service was accepted")
+	}
+}
+
 type recordingDockerRunner struct {
 	calls   [][]string
 	outputs [][]byte

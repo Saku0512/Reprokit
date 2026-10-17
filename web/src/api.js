@@ -93,6 +93,10 @@ export class StudyApi {
   status(id) {
     return this.call(`/api/labs/${identifier(id, labPattern)}`);
   }
+  marker(id, ref) {
+    if (!["vulnerable", "fixed"].includes(ref)) throw new Error("未定義の比較対象です。");
+    return this.call(`/api/labs/${identifier(id, labPattern)}/markers/${ref}`);
+  }
   start(id) {
     return this.call(`/api/labs/${identifier(id, labPattern)}/start`, "POST", { confirmed: true });
   }

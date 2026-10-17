@@ -117,6 +117,12 @@ export async function mockRunner(page, options = {}) {
         networks: ["lab-network"],
         volumes: ["lab-data"],
       };
+    } else if (path.includes("/markers/")) {
+      return respond({
+        service: path.endsWith("/vulnerable") ? "vulnerable" : "fixed",
+        exists: path.endsWith("/vulnerable"),
+        ...(path.endsWith("/vulnerable") ? { content: "uid=1000(filebrowser)" } : {}),
+      });
     } else if (path.endsWith("/stop")) {
       lab.state = "stopped";
       lab.failure = null;

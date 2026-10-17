@@ -82,6 +82,8 @@ npm --prefix web exec -- playwright install chromium
 npm --prefix web run test:e2e
 # インストール済みChromeを使う場合
 REPROKIT_TEST_BROWSER=chrome npm --prefix web run test:e2e
+# 専用環境でのみ、実LabをWeb UIから起動して比較する
+npm --prefix web run test:e2e:filebrowser
 npm run verify:full
 ```
 
@@ -91,7 +93,7 @@ lintはJavaScript構文検査。
 macOS標準Bash 3の場合は、Bash 4以上の `bin/` をPATHの先頭に指定して実行する。
 
 HTTPテストはloopbackの一時サーバーだけを使う。
-ブラウザテストは #9/#10 と同じ形式の受講者向けレスポンスをテスト内で返し、実際のDockerや脆弱Labを起動しない。
+通常のブラウザテストは #9/#10 と同じ形式の受講者向けレスポンスをテスト内で返し、実際のDockerや脆弱Labを起動しない。
 キーボードでの通し操作、明示起動のキャンセル、状態復元、失敗理由、Volume方針、小画面、非同期更新中のメモ保持を検証する。
 スクリーンショットはシステム一時ディレクトリ内の `reprokit-web-<worktreeのhash>/learner-desktop.png` と `learner-mobile.png` に生成する。
 生成JSONをルートのPrettier検査対象へ混ぜないため、テスト出力をソースツリー外に置く。
@@ -132,11 +134,13 @@ Docker統合テストは明示的なオプトインをしていないためス�
   一つの固定参照を使う現行 #9 でも準備リクエストを重複させない。
 - 比較用の接続先がなければ修正版として推定しない。
   別Sessionの準備がRunnerで許可されない場合は失敗理由を表示する。
-- `/tmp/success` の有無、内容を取得する承認済みAPIは現行契約にない。
-  該当画面は観察ボタンを無効にし、観察結果を取得、検証済みとは表示しない。
+- `GET /api/labs/{id}/markers/{vulnerable|fixed}` は実行中のFile Browser比較Labに限定して
+  `/tmp/success` を最大512 byte読む。service、パス、コマンドは固定であり、受講者入力をDocker操作へ渡さない。
+  UIはこの承認済みの読取りだけで、脆弱版のマーカー作成と修正版での不在を表示する。
 - 固定HTTP例はLessonの手順として表示する。
   送信先、コマンドを入力する画面やPoCの自動送信機能はない。
-- 実Labの起動、CVE再現、修正版の挙動比較は専用環境で別途検証する。
-  今回の接続検証時はDocker Engineが停止中であり、実コンテナは起動していない。
+- `test:e2e:filebrowser` は `REPROKIT_RUN_FILEBROWSER_E2E=1` が必要な専用環境用テストである。
+  Web UIからのPrepare/Start/Stop/Delete、固定ログイン入力、固定マーカーの脆弱版・修正版比較を行う。
+  通常の`test:e2e`や`npm run verify:full`では起動しない。
 
 このため、ブラウザテストの成功は実LabでCVEを再現、修正確認できたという意味ではない。
