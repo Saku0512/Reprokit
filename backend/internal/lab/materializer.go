@@ -155,6 +155,7 @@ func (materializer Materializer) Materialize(ctx context.Context, resolved Resol
 		result.Files = append(result.Files, SourceFile{Path: relative, SHA256: digestText})
 		if relative == resolved.Runtime.File {
 			result.ComposeSHA256 = digestText
+			result.RuntimeCompose = slices.Clone(contents)
 		}
 	}
 	if result.ComposeSHA256 == "" {

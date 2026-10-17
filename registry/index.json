@@ -1,11 +1,11 @@
 {
   "registryVersion": 1,
   "cves": {
-    "CVE-2021-44228": ["vulhub/log4j-solr"]
+    "CVE-2026-54088": ["vulhub/filebrowser-cve-2026-54088"]
   },
   "labs": {
-    "vulhub/log4j-solr": {
-      "manifest": "manifests/vulhub/log4j-solr.yaml"
+    "vulhub/filebrowser-cve-2026-54088": {
+      "manifest": "manifests/vulhub/filebrowser-cve-2026-54088.yaml"
     }
   }
 }
