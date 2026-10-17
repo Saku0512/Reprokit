@@ -54,6 +54,7 @@ func (artifactProvider) Delete(context.Context, string, []byte, bool) error {
 func (artifactProvider) Inspect(context.Context, string, []byte) (runtime.Resources, error) {
 	return runtime.Resources{}, nil
 }
+func (artifactProvider) DiskUsage(context.Context, string) (int64, error) { return 0, nil }
 
 func TestToPreparedLabRejectsTamperedMaterializedCompose(t *testing.T) {
 	resolved := ResolvedLab{ID: "vulhub/filebrowser-cve-2026-54088", Source: Source{URL: "https://github.com/Saku0512/vulhub.git", Revision: strings.Repeat("a", 40), Subdirectory: "filebrowser/CVE-2026-54088"}}

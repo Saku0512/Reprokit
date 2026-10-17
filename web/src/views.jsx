@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef } from "react";
 import { L, PH, NODES } from "./data.js";
+import { endpointURL } from "./api.js";
 export function LessonList({ state: S }) {
   const cats = [
     ["all", "すべて", L.length],
@@ -89,10 +90,13 @@ export function LessonList({ state: S }) {
   );
 }
 
-function LabBox({ lesson: l, state: S }) {
-  const s = S.lab,
-    ps = l.ports;
-  const open = (port) => `http://127.0.0.1:${port}/`;
+function LabBox({ state: S }) {
+  const s = S.lab;
+  const endpoints = (S.runtime?.endpoints ?? [])
+    .map((endpoint) => ({ ...endpoint, url: endpointURL(endpoint) }))
+    .filter((endpoint) => endpoint.url);
+  const endpointTitle = (service) =>
+    service === "vulnerable" ? "脆弱版" : service === "fixed" ? "修正版" : "Lab";
   let r1, r2;
   if (s === "ready") {
     r1 = (
@@ -115,8 +119,8 @@ function LabBox({ lesson: l, state: S }) {
     ];
     r1 = (
       <>
-        <button className="btn danger" data-a="cancel">
-          {"✕ CANCEL"}
+        <button className="btn" disabled>
+          {"処理中…"}
         </button>
       </>
     );
@@ -141,9 +145,6 @@ function LabBox({ lesson: l, state: S }) {
   } else if (s === "running") {
     r1 = (
       <>
-        <button className="btn danger" data-a="reset">
-          {"⟲ RESET"}
-        </button>
         <button className="btn danger" data-a="stop">
           {"■ STOP"}
         </button>
@@ -156,25 +157,38 @@ function LabBox({ lesson: l, state: S }) {
       <>
         <span className="st run">{"RUNNING"}</span>
         <span className="sep"></span>
-        {ps.map((p, i) => (
-          <Fragment key={p}>
+        {endpoints.map((endpoint, i) => (
+          <Fragment key={`${endpoint.service}:${endpoint.port}`}>
             {i > 0 && <span className="sep" />}
             <span>
-              {ps.length > 1 ? (i ? "修正版" : "脆弱版") : "脆弱版"}
+              {endpointTitle(endpoint.service)}
               {"："}
-              <span className="mono">
-                {"127.0.0.1:"}
-                {p}
-              </span>{" "}
-              <button className="btn sm" data-a="copy" data-v={"127.0.0.1:" + p}>
+              <span className="mono">{endpoint.url}</span>{" "}
+              <button className="btn sm" data-a="copy" data-v={endpoint.url}>
                 {"コピー"}
               </button>{" "}
-              <a className="btn sm" href={open(p)} target="_blank" rel="noopener">
+              <a className="btn sm" href={endpoint.url} target="_blank" rel="noopener noreferrer">
                 {"別タブで開く ↗"}
               </a>
             </span>
           </Fragment>
         ))}
+        {!endpoints.length && <span>{"安全な接続先を確認できませんでした。"}</span>}
+      </>
+    );
+  } else if (s === "failed") {
+    r1 = (
+      <>
+        <button className="btn danger" data-a="destroy" disabled={!S.runtime?.labSessionId}>
+          {"🗑 DESTROY"}
+        </button>
+      </>
+    );
+    r2 = (
+      <>
+        <span className="st stp">{"FAILED"}</span>
+        <span className="sep" />
+        <span>{"状態を確認して削除してください"}</span>
       </>
     );
   } else {
@@ -206,6 +220,7 @@ function LabBox({ lesson: l, state: S }) {
           </div>
         </div>
         <div className="r2">{r2}</div>
+        {S.labFailure && <p className="lab-failure">{S.labFailure}</p>}
       </div>
     </>
   );
@@ -802,7 +817,7 @@ export function LessonDetail({ state: S, onPhaseChange }) {
               </div>
             </div>
             {"\n             "}
-            <LabBox lesson={l} state={S} />
+            <LabBox state={S} />
             {"\n             "}
             <div className="pro">
               <h2>{"概要"}</h2>

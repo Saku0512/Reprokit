@@ -60,3 +60,4 @@ func (runnerProvider) Delete(context.Context, string, []byte, bool) error {
 func (runnerProvider) Inspect(context.Context, string, []byte) (runtime.Resources, error) {
 	return runtime.Resources{}, nil
 }
+func (runnerProvider) DiskUsage(context.Context, string) (int64, error) { return 0, nil }

@@ -102,6 +102,13 @@ type Provider interface {
 	Stop(context.Context, string, []byte) error
 	Delete(context.Context, string, []byte, bool) error
 	Inspect(context.Context, string, []byte) (Resources, error)
+	DiskUsage(context.Context, string) (int64, error)
+}
+
+// EndpointChecker はDockerが要求されたloopback公開を実際に作成したか確認する追加境界である。
+// Engineが設定を受理してもポート転送を作らない場合、起動成功として扱わない。
+type EndpointChecker interface {
+	CheckEndpoints(context.Context, string, []byte) error
 }
 
 // MarkerReader は承認済みの比較Labだけでマーカーを読むProviderの追加機能である。
@@ -151,17 +158,19 @@ func (store *MemoryStore) Save(_ context.Context, session Session) error {
 }
 
 type Manager struct {
-	store    Store
-	provider Provider
-	locks    sync.Map
-	timers   sync.Map
+	store             Store
+	provider          Provider
+	locks             sync.Map
+	timers            sync.Map
+	diskTimers        sync.Map
+	diskCheckInterval time.Duration
 }
 
 func NewManager(store Store, provider Provider) (*Manager, error) {
 	if store == nil || provider == nil {
 		return nil, errors.New("runtime store and provider are required")
 	}
-	return &Manager{store: store, provider: provider}, nil
+	return &Manager{store: store, provider: provider, diskCheckInterval: 2 * time.Second}, nil
 }
 
 // Prepare は安全性検査済みの固定Labを登録するだけで、コンテナを起動しない。
@@ -207,9 +216,21 @@ func (manager *Manager) Start(ctx context.Context, id string) (Session, error) {
 		if err := manager.provider.Start(ctx, session.Project, compose); err != nil {
 			return manager.startFailure(ctx, session, err)
 		}
+		if checker, ok := manager.provider.(EndpointChecker); ok {
+			if err := checker.CheckEndpoints(ctx, session.Project, compose); err != nil {
+				return manager.startFailure(ctx, session, err)
+			}
+		}
 		resources, err := manager.provider.Inspect(ctx, session.Project, session.Compose)
 		if err != nil {
 			return manager.startFailure(ctx, session, err)
+		}
+		usage, err := manager.provider.DiskUsage(ctx, session.Project)
+		if err != nil {
+			return manager.startFailure(ctx, session, err)
+		}
+		if usage > int64(session.Guardrails.DiskMiB)*1024*1024 {
+			return manager.startFailure(ctx, session, errors.New("Lab disk usage exceeds the fixed limit"))
 		}
 		expiresAt := time.Now().UTC().Add(time.Duration(session.Guardrails.MaxRuntimeSeconds) * time.Second)
 		session.State, session.Resources, session.Failure, session.ExpiresAt, session.StopReason = Running, resources, nil, &expiresAt, ""
@@ -217,6 +238,7 @@ func (manager *Manager) Start(ctx context.Context, id string) (Session, error) {
 	})
 	if err == nil && session.State == Running {
 		manager.scheduleExpiration(session)
+		manager.scheduleDiskLimit(session)
 	}
 	return session, err
 }
@@ -243,6 +265,7 @@ func (manager *Manager) stop(ctx context.Context, id, reason string) (Session, e
 	})
 	if session.State != Running {
 		manager.cancelExpiration(id)
+		manager.cancelDiskLimit(id)
 	}
 	return session, err
 }
@@ -272,6 +295,7 @@ func (manager *Manager) Delete(ctx context.Context, id string, removeVolumes boo
 	})
 	if session.State != Running {
 		manager.cancelExpiration(id)
+		manager.cancelDiskLimit(id)
 	}
 	return session, err
 }
@@ -289,6 +313,7 @@ func (manager *Manager) Recover(ctx context.Context) error {
 			continue
 		}
 		manager.cancelExpiration(candidate.ID)
+		manager.cancelDiskLimit(candidate.ID)
 		_, err := manager.change(ctx, candidate.ID, func(session *Session) error {
 			if err := manager.provider.Delete(ctx, session.Project, session.Compose, false); err != nil {
 				session.State, session.Failure = Failed, &Failure{Operation: "recovery", Message: err.Error()}
@@ -330,6 +355,47 @@ func (manager *Manager) scheduleExpiration(session Session) {
 
 func (manager *Manager) cancelExpiration(id string) {
 	if value, loaded := manager.timers.LoadAndDelete(id); loaded {
+		value.(*time.Timer).Stop()
+	}
+}
+
+// scheduleDiskLimit はDockerの書込み量を定期的に確認し、固定済み上限を超えたLabを止める。
+// Dockerのストレージドライバ依存のquotaには頼らず、監視できない場合も安全側で停止する。
+func (manager *Manager) scheduleDiskLimit(session Session) {
+	if session.State != Running {
+		return
+	}
+	manager.cancelDiskLimit(session.ID)
+	interval := manager.diskCheckInterval
+	if interval <= 0 {
+		interval = 2 * time.Second
+	}
+	timer := time.AfterFunc(interval, func() {
+		manager.enforceDiskLimit(session.ID)
+	})
+	manager.diskTimers.Store(session.ID, timer)
+}
+
+func (manager *Manager) enforceDiskLimit(id string) {
+	session, err := manager.store.Load(context.Background(), id)
+	if err != nil || session.State != Running {
+		return
+	}
+	usage, err := manager.provider.DiskUsage(context.Background(), session.Project)
+	if err != nil {
+		_, _ = manager.stop(context.Background(), id, "disk_monitor_unavailable")
+		return
+	}
+	limit := int64(session.Guardrails.DiskMiB) * 1024 * 1024
+	if usage > limit {
+		_, _ = manager.stop(context.Background(), id, "disk_limit_exceeded")
+		return
+	}
+	manager.scheduleDiskLimit(session)
+}
+
+func (manager *Manager) cancelDiskLimit(id string) {
+	if value, loaded := manager.diskTimers.LoadAndDelete(id); loaded {
 		value.(*time.Timer).Stop()
 	}
 }
@@ -408,7 +474,8 @@ func (manager *Manager) change(ctx context.Context, id string, operation func(*S
 func endpoints(compose []byte) ([]Endpoint, error) {
 	var document struct {
 		Services map[string]struct {
-			Ports []string `yaml:"ports"`
+			DependsOn []string `yaml:"depends_on"`
+			Ports     []string `yaml:"ports"`
 		} `yaml:"services"`
 	}
 	if err := yaml.Unmarshal(compose, &document); err != nil {
@@ -416,6 +483,13 @@ func endpoints(compose []byte) ([]Endpoint, error) {
 	}
 	var result []Endpoint
 	for service, definition := range document.Services {
+		if !strings.HasPrefix(service, "reprokit_proxy_") {
+			continue
+		}
+		if len(definition.DependsOn) != 1 || definition.DependsOn[0] == "" {
+			return nil, errors.New("invalid Runner ingress proxy service")
+		}
+		originalService := definition.DependsOn[0]
 		for _, value := range definition.Ports {
 			parts := strings.Split(value, ":")
 			if len(parts) != 3 || parts[0] != "127.0.0.1" {
@@ -425,7 +499,7 @@ func endpoints(compose []byte) ([]Endpoint, error) {
 			if _, err := fmt.Sscanf(parts[1], "%d", &port); err != nil {
 				return nil, err
 			}
-			result = append(result, Endpoint{Service: service, Address: parts[0], Port: port})
+			result = append(result, Endpoint{Service: originalService, Address: parts[0], Port: port})
 		}
 	}
 	return result, nil

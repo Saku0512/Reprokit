@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/jphacks/sd_2601/internal/network"
@@ -18,6 +19,7 @@ import (
 )
 
 var projectPattern = regexp.MustCompile(`^reprokit_[0-9a-f]{12}$`)
+var containerIDPattern = regexp.MustCompile(`^[0-9a-f]{12,64}$`)
 
 type dockerCommandRunner interface {
 	Run(context.Context, []string, ...string) ([]byte, error)
@@ -87,6 +89,23 @@ func (provider *DockerComposeProvider) Start(ctx context.Context, project string
 	return err
 }
 
+// CheckEndpoints はComposeが返す実際の公開先を確認する。
+// Docker Engineがinternal Bridge上の公開指定を黙って無視する場合を起動失敗として扱う。
+func (provider *DockerComposeProvider) CheckEndpoints(ctx context.Context, project string, compose []byte) error {
+	for _, endpoint := range ingressEndpoints(compose) {
+		output, err := provider.withCompose(ctx, project, compose, "port", endpoint.service, "80")
+		if err != nil {
+			return fmt.Errorf("verify loopback endpoint %s: %w", endpoint.service, err)
+		}
+		actual := strings.TrimSpace(string(output))
+		expected := "127.0.0.1:" + strconv.Itoa(endpoint.port)
+		if actual != expected {
+			return fmt.Errorf("verify loopback endpoint %s: got %q, want %q", endpoint.service, actual, expected)
+		}
+	}
+	return nil
+}
+
 func (provider *DockerComposeProvider) Stop(ctx context.Context, project string, compose []byte) error {
 	_, err := provider.withCompose(ctx, project, compose, "stop")
 	return err
@@ -136,6 +155,34 @@ func (provider *DockerComposeProvider) Inspect(ctx context.Context, project stri
 		Networks:   decodeNames(networks),
 		Volumes:    decodeNames(volumes),
 	}, nil
+}
+
+// DiskUsage はRunner自身のCompose Projectに属するコンテナの書込み量だけを合計する。
+func (provider *DockerComposeProvider) DiskUsage(ctx context.Context, project string) (int64, error) {
+	if !projectPattern.MatchString(project) {
+		return 0, errors.New("invalid Runner project name")
+	}
+	filter := "label=com.docker.compose.project=" + project
+	containers, err := provider.runner.Run(ctx, provider.env, "ps", "--all", "--filter", filter, "--format", "{{.ID}}")
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	for _, id := range strings.Fields(string(containers)) {
+		if !containerIDPattern.MatchString(id) {
+			return 0, errors.New("invalid Docker container ID")
+		}
+		output, err := provider.runner.Run(ctx, provider.env, "inspect", "--size", "--format", "{{.SizeRw}}", id)
+		if err != nil {
+			return 0, err
+		}
+		usage, err := strconv.ParseInt(strings.TrimSpace(string(output)), 10, 64)
+		if err != nil || usage < 0 || total > (1<<63-1)-usage {
+			return 0, errors.New("invalid Docker writable layer size")
+		}
+		total += usage
+	}
+	return total, nil
 }
 
 func (provider *DockerComposeProvider) withCompose(ctx context.Context, project string, compose []byte, action ...string) ([]byte, error) {
@@ -205,6 +252,45 @@ func registryHosts(compose []byte) []string {
 	}
 	slices.Sort(hosts)
 	return hosts
+}
+
+type ingressEndpoint struct {
+	service string
+	port    int
+}
+
+func ingressEndpoints(compose []byte) []ingressEndpoint {
+	var document struct {
+		Services map[string]struct {
+			Ports []string `yaml:"ports"`
+		} `yaml:"services"`
+	}
+	if yaml.Unmarshal(compose, &document) != nil {
+		return nil
+	}
+	var result []ingressEndpoint
+	for service, definition := range document.Services {
+		if !strings.HasPrefix(service, "reprokit_proxy_") {
+			continue
+		}
+		for _, value := range definition.Ports {
+			parts := strings.Split(value, ":")
+			if len(parts) != 3 || parts[0] != "127.0.0.1" || parts[2] != "80" {
+				continue
+			}
+			port, err := strconv.Atoi(parts[1])
+			if err == nil && port >= 1 && port <= 65535 {
+				result = append(result, ingressEndpoint{service: service, port: port})
+			}
+		}
+	}
+	slices.SortFunc(result, func(left, right ingressEndpoint) int {
+		if left.service != right.service {
+			return strings.Compare(left.service, right.service)
+		}
+		return left.port - right.port
+	})
+	return result
 }
 
 func decodeContainers(output []byte) []Container {

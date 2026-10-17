@@ -30,6 +30,23 @@ func TestDockerComposeProviderUsesRunnerOwnedProjectAndTemporaryCompose(t *testi
 	}
 }
 
+func TestDockerComposeProviderChecksRunnerIngressIsActuallyPublished(t *testing.T) {
+	runner := &recordingDockerRunner{outputs: [][]byte{[]byte("127.0.0.1:8080\n")}}
+	provider := newDockerComposeProviderForTest(runner)
+	compose := []byte("services:\n  reprokit_proxy_app_1:\n    image: caddy@sha256:d8c17a862962def15cde69863a3a463f25a2664942eafd7bdbf050e9c3116b83\n    ports:\n      - \"127.0.0.1:8080:80\"\n")
+	if err := provider.CheckEndpoints(context.Background(), "reprokit_0123456789ab", compose); err != nil {
+		t.Fatal(err)
+	}
+	if len(runner.calls) != 1 || !slices.Contains(runner.calls[0], "port") || !slices.Contains(runner.calls[0], "reprokit_proxy_app_1") {
+		t.Fatalf("unexpected Docker command: %#v", runner.calls)
+	}
+	runner = &recordingDockerRunner{outputs: [][]byte{[]byte("\n")}}
+	provider = newDockerComposeProviderForTest(runner)
+	if err := provider.CheckEndpoints(context.Background(), "reprokit_0123456789ab", compose); err == nil {
+		t.Fatal("missing Docker port publication was accepted")
+	}
+}
+
 func TestDockerComposeProviderUsesTemporaryCredentialsAndExplainsConnectionFailure(t *testing.T) {
 	runner := &recordingDockerRunner{err: errors.New("pull timeout")}
 	config := network.Config{RegistryCredentials: []network.RegistryCredential{{Registry: "registry.example", Username: "learner", Password: "secret"}}}
@@ -71,6 +88,30 @@ func TestDockerComposeProviderInspectsProjectLabels(t *testing.T) {
 		if !slices.Contains(call, "label=com.docker.compose.project=reprokit_0123456789ab") {
 			t.Fatalf("missing project label filter: %#v", call)
 		}
+	}
+}
+
+func TestDockerComposeProviderMeasuresOnlyProjectWritableLayers(t *testing.T) {
+	runner := &recordingDockerRunner{outputs: [][]byte{
+		[]byte("0123456789ab\nabcdef012345\n"),
+		[]byte("1024\n"),
+		[]byte("2048\n"),
+	}}
+	provider := newDockerComposeProviderForTest(runner)
+	usage, err := provider.DiskUsage(context.Background(), "reprokit_0123456789ab")
+	if err != nil || usage != 3072 {
+		t.Fatalf("DiskUsage = %d, %v", usage, err)
+	}
+	if len(runner.calls) != 3 || !slices.Contains(runner.calls[0], "label=com.docker.compose.project=reprokit_0123456789ab") {
+		t.Fatalf("unexpected Docker commands: %#v", runner.calls)
+	}
+}
+
+func TestDockerComposeProviderRejectsInvalidWritableLayerSize(t *testing.T) {
+	runner := &recordingDockerRunner{outputs: [][]byte{[]byte("0123456789ab\n"), []byte("unknown\n")}}
+	provider := newDockerComposeProviderForTest(runner)
+	if _, err := provider.DiskUsage(context.Background(), "reprokit_0123456789ab"); err == nil {
+		t.Fatal("invalid writable layer size was accepted")
 	}
 }
 

@@ -77,6 +77,22 @@ func TestStartFailureCleansUp(t *testing.T) {
 	}
 }
 
+func TestStartFailsClosedWhenDiskUsageCannotBeMeasured(t *testing.T) {
+	provider := &fakeProvider{diskUsageErr: errors.New("Docker unavailable")}
+	manager, err := NewManager(NewMemoryStore(), provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := manager.Prepare(context.Background(), validLab())
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := manager.Start(context.Background(), session.ID)
+	if err == nil || result.State != Failed || provider.starts != 1 || provider.deletes != 1 {
+		t.Fatalf("Start = %#v, %v, starts=%d, deletes=%d", result, err, provider.starts, provider.deletes)
+	}
+}
+
 func TestExpirationStopsTheLabAndReportsTheReason(t *testing.T) {
 	provider := &fakeProvider{stopSignal: make(chan struct{})}
 	store := NewMemoryStore()
@@ -133,6 +149,50 @@ func TestRecoverCleansUpRunningLabAfterRunnerRestart(t *testing.T) {
 	}
 }
 
+func TestDiskLimitStopsRunningLab(t *testing.T) {
+	provider := &fakeProvider{resources: Resources{Containers: []Container{{Name: "app", State: "running"}}}}
+	manager, err := NewManager(NewMemoryStore(), provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.diskCheckInterval = time.Hour
+	session, err := manager.Prepare(context.Background(), validLab())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Start(context.Background(), session.ID); err != nil {
+		t.Fatal(err)
+	}
+	provider.diskUsage = int64(session.Guardrails.DiskMiB)*1024*1024 + 1
+	manager.enforceDiskLimit(session.ID)
+	stopped, err := manager.Status(context.Background(), session.ID)
+	if err != nil || stopped.State != Stopped || stopped.StopReason != "disk_limit_exceeded" || provider.stops != 1 {
+		t.Fatalf("disk limit result = %#v, %v, stops=%d", stopped, err, provider.stops)
+	}
+}
+
+func TestDiskMonitorFailureStopsRunningLab(t *testing.T) {
+	provider := &fakeProvider{resources: Resources{Containers: []Container{{Name: "app", State: "running"}}}}
+	manager, err := NewManager(NewMemoryStore(), provider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.diskCheckInterval = time.Hour
+	session, err := manager.Prepare(context.Background(), validLab())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Start(context.Background(), session.ID); err != nil {
+		t.Fatal(err)
+	}
+	provider.diskUsageErr = errors.New("Docker unavailable")
+	manager.enforceDiskLimit(session.ID)
+	stopped, err := manager.Status(context.Background(), session.ID)
+	if err != nil || stopped.State != Stopped || stopped.StopReason != "disk_monitor_unavailable" || provider.stops != 1 {
+		t.Fatalf("disk monitor result = %#v, %v, stops=%d", stopped, err, provider.stops)
+	}
+}
+
 func TestStartRejectsTamperedLockArtifact(t *testing.T) {
 	provider := &fakeProvider{}
 	store := NewMemoryStore()
@@ -179,13 +239,30 @@ func TestOfflineArtifactsListsOnlyFixedSourceAndImages(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(artifacts) != 2 || artifacts[0].Kind != "git-source" || artifacts[0].Revision != session.SourceRevision || artifacts[1].Kind != "container-image" || artifacts[1].Digest == "" {
+	if len(artifacts) != 3 || artifacts[0].Kind != "git-source" || artifacts[0].Revision != session.SourceRevision || artifacts[1].Kind != "container-image" || artifacts[1].Digest == "" || artifacts[2].Reference != "caddy" || artifacts[2].Digest == "" {
 		t.Fatalf("unexpected offline artifacts: %#v", artifacts)
 	}
 	for _, artifact := range artifacts {
 		if strings.Contains(strings.ToLower(artifact.Reference), "password") || strings.Contains(strings.ToLower(artifact.Reference), "token") {
 			t.Fatalf("credential leaked into offline artifacts: %#v", artifact)
 		}
+	}
+}
+
+func TestPreparePublishesRunnerProxyAsTheOriginalService(t *testing.T) {
+	manager, err := NewManager(NewMemoryStore(), &fakeProvider{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := manager.Prepare(context.Background(), validLab())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(session.Endpoints) != 1 || session.Endpoints[0] != (Endpoint{Service: "app", Address: "127.0.0.1", Port: 8080}) {
+		t.Fatalf("endpoints = %#v", session.Endpoints)
+	}
+	if !strings.Contains(string(session.Compose), "reprokit_proxy_app_1") || !strings.Contains(string(session.Lockfile), "caddy") {
+		t.Fatalf("Runner ingress proxy was not fixed in the stored artifacts")
 	}
 }
 
@@ -259,6 +336,8 @@ type fakeProvider struct {
 	starts, stops, deletes int
 	startErr               error
 	resources              Resources
+	diskUsage              int64
+	diskUsageErr           error
 	marker                 string
 	markerReads            int
 	stopSignal             chan struct{}
@@ -285,6 +364,9 @@ func (provider *fakeProvider) Delete(context.Context, string, []byte, bool) erro
 }
 func (provider *fakeProvider) Inspect(context.Context, string, []byte) (Resources, error) {
 	return provider.resources, nil
+}
+func (provider *fakeProvider) DiskUsage(context.Context, string) (int64, error) {
+	return provider.diskUsage, provider.diskUsageErr
 }
 func (provider *fakeProvider) ReadMarker(context.Context, string, []byte, string) (string, error) {
 	provider.markerReads++

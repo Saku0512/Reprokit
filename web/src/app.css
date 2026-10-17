@@ -303,6 +303,11 @@ h1.t {
   @apply [border-top:1px_solid_var(--line)];
   @apply mt-3 pt-3 text-[13.5px];
 }
+.lab-failure {
+  margin: 2px 0 0;
+  color: var(--red);
+  font-size: 12.5px;
+}
 .tm .sep {
   @apply w-[1px] h-[18px] bg-line;
 }

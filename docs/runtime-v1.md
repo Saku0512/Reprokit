@@ -28,7 +28,7 @@ Docker Hubの`vulhub/*`はupstream管理の名前空間であり、独自Lab用�
 | コンテナ起動 | デタッチ |
 | ポートのバインド | `127.0.0.1`のみ |
 | ポート競合 | 起動を中止してエラー |
-| ネットワーク | インスタンス専用の内部Bridge（外向き通信なし） |
+| ネットワーク | Lab本体はインスタンス専用の内部Bridge（外向き通信なし）。公開時だけRunner所有の固定プロキシを経由 |
 | Image | digest固定、プラットフォーム明示 |
 | 自動再起動 | 無効化（`no`相当） |
 | 起動/基本チェックの全体タイムアウト | 60秒 |
@@ -82,7 +82,7 @@ v0.1は元のCompose YAMLを**厳格な許可リスト**で検証し、正規化
 | 最上位`volumes` | `name: {}` | 外部指定・driver_opts・明示名を禁止 |
 | 最上位`networks` | `name: {}` | project専用Bridgeのみ。`external`/`ipam`/driver_opts禁止 |
 
-`volumes`・`networks`の省略は可能。入力Composeのネットワークはproject専用Bridgeだけを許可する。`guardrails.egress: none`を指定したLabでは、解決済みComposeにRunnerが`internal: true`の専用Bridgeを付与し、全サービスをそこへ接続する。`restart`は未指定か`"no"`だけを許し、実効Composeでは`restart: "no"`に固定。`expose`・`user`・`container_name`・`command`・`entrypoint`・`healthcheck`・`build`・`secrets`・`configs`・`include`・`extends`・`env_file`・`profiles`・`deploy`・`storage_opt`その他許可外の属性は拒否する。YAMLアンカー、マージ、エイリアスもv0.1では拒否する。
+`volumes`・`networks`の省略は可能。入力Composeのネットワークはproject専用Bridgeだけを許可する。`guardrails.egress: none`を指定したLabでは、解決済みComposeにRunnerが`internal: true`の専用Bridgeを付与し、Labサービスをそこへ接続する。Docker Engine 29系では内部Bridgeだけに接続したコンテナの公開ポートが無視されるため、Runnerは各公開ポートについて固定digestのCaddyプロキシを生成する。プロキシだけが通常Bridgeと内部Bridgeの両方へ接続し、`127.0.0.1`公開を受け、固定した対応LabサービスのHTTPポートへだけ中継する。プロキシのイメージ、コマンド、宛先、ポートはRunner定数であり、利用者・Manifest・元Composeから指定できない。Labサービス自身は通常Bridgeへ接続しない。`restart`は未指定か`"no"`だけを許し、実効Composeでは`restart: "no"`に固定。`expose`・`user`・`container_name`・`command`・`entrypoint`・`healthcheck`・`build`・`secrets`・`configs`・`include`・`extends`・`env_file`・`profiles`・`deploy`・`storage_opt`その他許可外の属性は拒否する。YAMLアンカー、マージ、エイリアスもv0.1では拒否する。
 
 ## 実行ガードレール
 
@@ -99,8 +99,10 @@ guardrails:
 ```
 
 - `maxRuntimeSeconds`は60〜14,400秒、CPUは1〜4コア、メモリは128〜4,096 MiB、PID数は64〜512、ディスクは256〜8,192 MiBに限定する。
-- Runnerは`deploy.resources.limits`でCPU・メモリ・PID数を、`storage_opt.size`でコンテナ書込み層のディスク上限を付与する。Dockerのストレージドライバがディスク上限をサポートしない場合は起動を失敗として扱い、無制限で続行しない。
+- Runnerは`deploy.resources.limits`でCPU・メモリ・PID数を付与する。ディスクはDockerの各コンテナが報告する書込み量（`SizeRw`）をProject単位で2秒ごとに合計し、`diskMiB`を超えたSessionを`disk_limit_exceeded`として停止する。監視値を取得できない場合も`disk_monitor_unavailable`として停止する。
+- Dockerの`storage_opt.size`はファイルシステム依存であり、解決済みComposeへ付与しない。書込み量の監視はファイルシステムquotaではないため、監視頻度の間に上限を超える可能性がある。高い隔離保証が必要な演習は、専用VMと容量制限済みのホストで実行する。
 - `egress`は現時点で`none`だけを許可する。外部通信が必要な教材は、宛先・必要性・実装する隔離方法を別途レビューして対応する。
+- Runner生成の入口プロキシはLabサービスではない。プロキシの通常Bridge接続はloopback公開を実現するためだけに使い、Labサービスの外向き通信を許可しない。プロキシの固定イメージ参照もLockfileの`images`へ記録し、起動前に再照合する。
 - 起動後は期限で自動停止する。Runnerの再起動時には、前回のRunnerが残したrunning/error Sessionを削除して、保持指定のVolumeだけを記録する。
 
 明示的な`0.0.0.0`/外部IP/IPv6バインド、UDP、ポート範囲・省略・動的割当・長形式は非対応。ループバック公開は外向き通信を阻止しない。Docker Image本来のENTRYPOINTは第三者コードとして実行されるため、元Composeによる上書きを拒否しても安全性は保証できない。

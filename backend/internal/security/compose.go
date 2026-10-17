@@ -23,6 +23,15 @@ var (
 	volumePattern       = regexp.MustCompile(`^([a-zA-Z0-9][a-zA-Z0-9_.-]*):(/[^:]+?)(?::(ro|rw))?$`)
 )
 
+const (
+	isolatedNetworkName = "reprokit_isolated"
+	ingressNetworkName  = "reprokit_ingress"
+	ingressProxyPrefix  = "reprokit_proxy_"
+	// ingressProxyImage はRunnerだけが生成するloopback入口用のCaddy linux/amd64 digestである。
+	// Lab入力からイメージや起動引数を指定する経路は持たない。
+	ingressProxyImage = "caddy@sha256:d8c17a862962def15cde69863a3a463f25a2664942eafd7bdbf050e9c3116b83"
+)
+
 // Inspection is the accepted Compose document in the form the runtime must
 // persist and start. Compose inputs that omit a host address are normalized to
 // 127.0.0.1 so a caller cannot accidentally publish them externally.
@@ -472,17 +481,24 @@ func applyGuardrails(root *yaml.Node, guardrails Guardrails) error {
 	if services == nil || services.Kind != yaml.MappingNode {
 		return errors.New("Compose services are missing after validation")
 	}
-	const networkName = "reprokit_isolated"
 	setMapping(root, "networks", mappingNode(map[string]*yaml.Node{
-		networkName: mappingNode(map[string]*yaml.Node{"internal": boolNode(true)}),
+		isolatedNetworkName: mappingNode(map[string]*yaml.Node{"internal": boolNode(true)}),
+		ingressNetworkName:  mappingNode(map[string]*yaml.Node{}),
 	}))
 	serviceFields := rawMapping(services)
+	proxies := map[string]*yaml.Node{}
 	for _, name := range sortedKeys(serviceFields) {
 		service := serviceFields[name]
 		if service.Kind != yaml.MappingNode {
 			return fmt.Errorf("service %q is invalid after validation", name)
 		}
-		setMapping(service, "networks", sequenceNode(stringNode(networkName)))
+		if strings.HasPrefix(name, ingressProxyPrefix) {
+			return fmt.Errorf("service %q uses the reserved Runner ingress proxy prefix", name)
+		}
+		fields := rawMapping(service)
+		ports := fields["ports"]
+		removeMapping(service, "ports")
+		setMapping(service, "networks", sequenceNode(stringNode(isolatedNetworkName)))
 		setMapping(service, "deploy", mappingNode(map[string]*yaml.Node{
 			"resources": mappingNode(map[string]*yaml.Node{
 				"limits": mappingNode(map[string]*yaml.Node{
@@ -492,11 +508,73 @@ func applyGuardrails(root *yaml.Node, guardrails Guardrails) error {
 				}),
 			}),
 		}))
-		setMapping(service, "storage_opt", mappingNode(map[string]*yaml.Node{
-			"size": stringNode(strconv.Itoa(guardrails.DiskMiB) + "M"),
-		}))
+		if ports != nil {
+			for index, port := range ports.Content {
+				proxyName := fmt.Sprintf("%s%s_%d", ingressProxyPrefix, name, index+1)
+				proxies[proxyName] = ingressProxy(name, sequenceNode(port))
+			}
+		}
+	}
+	for _, name := range sortedKeys(proxies) {
+		setMapping(services, name, proxies[name])
 	}
 	return nil
+}
+
+// ingressProxy は内部Bridge上の承認済みサービスへだけ中継するRunner所有の入口である。
+// Lab本体を通常Bridgeに接続せず、Docker Engine 29系のinternal Bridge公開不具合を回避する。
+func ingressProxy(target string, ports *yaml.Node) *yaml.Node {
+	return mappingNode(map[string]*yaml.Node{
+		"command": sequenceNode(
+			stringNode("caddy"),
+			stringNode("reverse-proxy"),
+			stringNode("--from"),
+			stringNode(":80"),
+			stringNode("--to"),
+			stringNode(target+":"+containerPort(ports)),
+		),
+		"depends_on": sequenceNode(stringNode(target)),
+		"deploy": mappingNode(map[string]*yaml.Node{
+			"resources": mappingNode(map[string]*yaml.Node{
+				"limits": mappingNode(map[string]*yaml.Node{
+					"cpus":   stringNode("0.25"),
+					"memory": stringNode("64M"),
+					"pids":   intNode(64),
+				}),
+			}),
+		}),
+		"image":    stringNode(ingressProxyImage),
+		"networks": sequenceNode(stringNode(ingressNetworkName), stringNode(isolatedNetworkName)),
+		"ports":    ingressPorts(ports),
+		"restart":  stringNode("no"),
+	})
+}
+
+func containerPort(ports *yaml.Node) string {
+	if ports == nil || len(ports.Content) == 0 {
+		return ""
+	}
+	parts := strings.Split(ports.Content[0].Value, ":")
+	if len(parts) != 3 {
+		return ""
+	}
+	return parts[2]
+}
+
+// ingressPorts は利用者に見せるloopbackホストポートを保持し、Caddy自身の固定HTTP待受80番へ対応付ける。
+func ingressPorts(ports *yaml.Node) *yaml.Node {
+	result := sequenceNode()
+	if ports == nil {
+		return result
+	}
+	for _, port := range ports.Content {
+		parts := strings.Split(port.Value, ":")
+		if len(parts) != 3 {
+			continue
+		}
+		result.Content = append(result.Content, stringNode(parts[0]+":"+parts[1]+":80"))
+	}
+	return result
 }
 
 func rawMapping(node *yaml.Node) map[string]*yaml.Node {
@@ -520,6 +598,15 @@ func setMapping(node *yaml.Node, key string, value *yaml.Node) {
 		}
 	}
 	node.Content = append(node.Content, stringNode(key), value)
+}
+
+func removeMapping(node *yaml.Node, key string) {
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		if node.Content[index].Value == key {
+			node.Content = append(node.Content[:index], node.Content[index+2:]...)
+			return
+		}
+	}
 }
 
 func mappingNode(fields map[string]*yaml.Node) *yaml.Node {
