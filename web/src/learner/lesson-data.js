@@ -128,7 +128,7 @@ export const initialState = {
   vol: "keep",
   repro: false,
   hint: 0,
-  pos: 5,
+  pos: 0,
   pick: null,
   found: null,
   diffHl: null,
