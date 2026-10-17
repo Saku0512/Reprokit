@@ -30,6 +30,7 @@ const (
 type configuration struct {
 	repository, state                          string
 	organizationID, administratorID, learnerID string
+	administratorSubject                       string
 	oidcIssuer, oidcClientID, oidcClientSecret string
 	oidcRedirectURL                            string
 }
@@ -59,6 +60,12 @@ func newApplication(ctx context.Context, config configuration, provider runtime.
 	oidcEnabled, err := validOIDCConfiguration(config)
 	if err != nil {
 		return nil, err
+	}
+	if config.administratorSubject == "" {
+		if oidcEnabled {
+			return nil, errors.New("OIDC administrator subject is required")
+		}
+		config.administratorSubject = "local:" + config.administratorID
 	}
 	for _, directory := range []string{config.state, filepath.Join(config.state, "labs"), filepath.Join(config.state, "study"), filepath.Join(config.state, "training"), filepath.Join(config.state, "identity")} {
 		if err := privateDirectory(directory); err != nil {
@@ -153,6 +160,11 @@ func newApplication(ctx context.Context, config configuration, provider runtime.
 	}
 	var oidcAuthenticator *identity.OIDCAuthenticator
 	if oidcEnabled {
+		administrator, err := identityService.PrincipalForSubject(config.organizationID, config.administratorSubject)
+		if err != nil || identityService.Authorize(administrator, identity.PermissionManageIdentity) != nil {
+			server.Listener.Close()
+			return nil, errors.New("OIDC administrator subject must identify an organization administrator")
+		}
 		if err := ensureOIDCConfiguration(identityService, config); err != nil {
 			server.Listener.Close()
 			return nil, err
@@ -228,7 +240,7 @@ func ensureLocalIdentities(service *identity.Service, config configuration) erro
 			OrganizationID:   config.organizationID,
 			OrganizationName: "Local organization",
 			UserID:           config.administratorID,
-			Subject:          "local:" + config.administratorID,
+			Subject:          config.administratorSubject,
 			Email:            config.administratorID + "@local.invalid",
 			DisplayName:      "Local administrator",
 		})

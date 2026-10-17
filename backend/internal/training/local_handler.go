@@ -67,7 +67,8 @@ func NewLocalHandler(service *Service, study *lesson.SessionStore, next http.Han
 func (handler *localHandler) serveHTTP(writer http.ResponseWriter, request *http.Request) {
 	isTraining := strings.HasPrefix(request.URL.Path, "/api/training/")
 	isOIDC := request.URL.Path == "/api/auth/oidc/start" || request.URL.Path == "/api/auth/oidc/callback"
-	if !isTraining && !isOIDC {
+	isIdentity := strings.HasPrefix(request.URL.Path, "/api/identity/")
+	if !isTraining && !isOIDC && !isIdentity {
 		handler.next.ServeHTTP(writer, request)
 		return
 	}
@@ -83,6 +84,19 @@ func (handler *localHandler) serveHTTP(writer http.ResponseWriter, request *http
 			return
 		}
 		handler.serveOIDC(writer, request)
+		return
+	}
+	if isIdentity {
+		if !constantToken(request.Header.Get("X-Reprokit-Management-Session"), handler.config.ManagementToken) {
+			http.Error(writer, "invalid management session", http.StatusUnauthorized)
+			return
+		}
+		principal, ok := handler.managementPrincipal(request)
+		if !ok {
+			http.Error(writer, "invalid management principal", http.StatusForbidden)
+			return
+		}
+		handler.serveIdentity(writer, request, principal)
 		return
 	}
 	if strings.HasPrefix(request.URL.Path, "/api/training/learner/") {
@@ -120,6 +134,90 @@ func (handler *localHandler) serveHTTP(writer http.ResponseWriter, request *http
 		return
 	}
 	handler.management.ServeHTTP(writer, request)
+}
+
+func (handler *localHandler) serveIdentity(writer http.ResponseWriter, request *http.Request, principal identity.Principal) {
+	path := request.URL.Path
+	if path == "/api/identity/users" {
+		if request.Method == http.MethodGet {
+			if request.URL.RawQuery != "" {
+				badRequest(writer)
+				return
+			}
+			users, err := handler.config.Identity.ListUsers(principal)
+			identityResult(writer, users, err, http.StatusOK)
+			return
+		}
+		if !onlyMethod(writer, request, http.MethodPost) {
+			return
+		}
+		var body identity.CreateUserInput
+		if request.URL.RawQuery != "" || !decodeRequest(request, &body) {
+			badRequest(writer)
+			return
+		}
+		user, err := handler.config.Identity.CreateUser(principal, body)
+		identityResult(writer, user, err, http.StatusCreated)
+		return
+	}
+	if path == "/api/identity/audit-events" {
+		if !onlyMethod(writer, request, http.MethodGet) {
+			return
+		}
+		if request.URL.RawQuery != "" {
+			badRequest(writer)
+			return
+		}
+		events, err := handler.config.Identity.ListAuditEvents(principal)
+		identityResult(writer, events, err, http.StatusOK)
+		return
+	}
+	parts := strings.Split(strings.TrimPrefix(path, "/api/identity/users/"), "/")
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "roles" {
+		if !onlyMethod(writer, request, http.MethodPut) {
+			return
+		}
+		var body struct {
+			Roles []identity.Role `json:"roles"`
+		}
+		if request.URL.RawQuery != "" || !decodeRequest(request, &body) {
+			badRequest(writer)
+			return
+		}
+		user, err := handler.config.Identity.SetRoles(principal, parts[0], body.Roles)
+		identityResult(writer, user, err, http.StatusOK)
+		return
+	}
+	if len(parts) == 2 && parts[0] != "" && parts[1] == "disable" {
+		if !onlyMethod(writer, request, http.MethodPost) {
+			return
+		}
+		if request.URL.RawQuery != "" || !decodeRequest(request, &struct{}{}) {
+			badRequest(writer)
+			return
+		}
+		user, err := handler.config.Identity.DisableUser(principal, parts[0])
+		identityResult(writer, user, err, http.StatusOK)
+		return
+	}
+	http.NotFound(writer, request)
+}
+
+func identityResult(writer http.ResponseWriter, value any, err error, status int) {
+	if err == nil {
+		writeJSON(writer, status, value)
+		return
+	}
+	switch {
+	case errors.Is(err, identity.ErrForbidden):
+		http.Error(writer, "identity permission denied", http.StatusForbidden)
+	case errors.Is(err, identity.ErrNotFound):
+		http.Error(writer, "identity resource not found", http.StatusNotFound)
+	case errors.Is(err, identity.ErrInvalid):
+		badRequest(writer)
+	default:
+		http.Error(writer, "could not access identity state", http.StatusInternalServerError)
+	}
 }
 
 func (handler *localHandler) serveOIDC(writer http.ResponseWriter, request *http.Request) {

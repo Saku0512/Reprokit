@@ -114,6 +114,21 @@ func TestLocalHandlerSeparatesManagementAndLearnerAuthorization(t *testing.T) {
 	if status := callAs(http.MethodGet, "/api/training/courses?organizationId=local", "", "other", "admin").Code; status != http.StatusForbidden {
 		t.Fatalf("cross-organization principal status = %d", status)
 	}
+	localUsers := decodeResponse[[]identity.User](t, callAs(http.MethodGet, "/api/identity/users", "", "local", "admin"), http.StatusOK)
+	if len(localUsers) != 3 {
+		t.Fatalf("unexpected local users: %#v", localUsers)
+	}
+	otherUsers := decodeResponse[[]identity.User](t, callAs(http.MethodGet, "/api/identity/users", "", "other", "admin"), http.StatusOK)
+	if len(otherUsers) != 1 || otherUsers[0].OrganizationID != "other" {
+		t.Fatalf("identity API crossed organization boundary: %#v", otherUsers)
+	}
+	if status := callAs(http.MethodGet, "/api/identity/users", "", "local", "reviewer").Code; status != http.StatusForbidden {
+		t.Fatalf("reviewer user-management status = %d", status)
+	}
+	createdUser := decodeResponse[identity.User](t, callAs(http.MethodPost, "/api/identity/users", `{"id":"manager","subject":"idp-manager","email":"manager@local.test","displayName":"研修担当","roles":["training_manager"]}`, "local", "admin"), http.StatusCreated)
+	if createdUser.OrganizationID != "local" || len(createdUser.Roles) != 1 || createdUser.Roles[0] != identity.RoleTrainingManager {
+		t.Fatalf("unexpected created identity: %#v", createdUser)
+	}
 	start := decodeResponse[struct {
 		AuthorizationURL string `json:"authorizationUrl"`
 	}](t, call(http.MethodPost, "/api/auth/oidc/start", `{}`, "X-Reprokit-Management-Session", "management-session-token"), http.StatusOK)
