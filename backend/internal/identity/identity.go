@@ -21,10 +21,11 @@ import (
 const maxStateBytes = 2 << 20
 
 var (
-	idPattern    = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,62}$`)
-	ErrInvalid   = errors.New("invalid identity operation")
-	ErrNotFound  = errors.New("identity resource not found")
-	ErrForbidden = errors.New("identity operation forbidden")
+	idPattern         = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,62}$`)
+	ErrInvalid        = errors.New("invalid identity operation")
+	ErrNotFound       = errors.New("identity resource not found")
+	ErrForbidden      = errors.New("identity operation forbidden")
+	ErrAuthentication = errors.New("identity authentication failed")
 )
 
 type Role string
