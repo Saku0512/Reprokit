@@ -51,9 +51,6 @@ for (const width of [1440, 390]) {
     await editor.fill(fixed);
     await check.click();
     await expect(result).toContainText("抜粋の修正条件を満たしました");
-    await page
-      .getByLabel("修正した理由", { exact: true })
-      .fill("資格情報を引数へ展開せず、環境変数に分離した。");
     await page.locator('#phase-3 [data-a="next"]').click();
     await expect(
       page.getByRole("heading", { name: "公式パッチと照らす", exact: true }),
@@ -82,9 +79,6 @@ for (const width of [1440, 390]) {
     });
     await page.locator('#phase-4 [data-a="prev"]').click();
     await expect(editor).toHaveValue(fixed);
-    await expect(page.getByLabel("修正した理由", { exact: true })).toHaveValue(
-      "資格情報を引数へ展開せず、環境変数に分離した。",
-    );
     expect(
       await page
         .locator(".detail")

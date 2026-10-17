@@ -37,7 +37,6 @@ export interface LearnerState {
   pos: number;
   pick: number | null;
   found: number | null;
-  diffHl: string | null;
   runV: boolean;
   runF: boolean;
   note: string;
@@ -185,7 +184,6 @@ export const initialState: LearnerState = {
   pos: 0,
   pick: null,
   found: null,
-  diffHl: null,
   runV: false,
   runF: false,
   note: "",

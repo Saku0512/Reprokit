@@ -429,9 +429,6 @@ function App() {
       case "fwd":
         update({ pos: Math.min(5, state.pos + 1), pick: Math.min(5, state.pos + 1) });
         break;
-      case "hl":
-        update({ diffHl: v ?? null });
-        break;
       case "runV":
       case "runF":
         update({ [a]: true });
@@ -499,9 +496,6 @@ function App() {
           <button className="logo" data-a="home" aria-label="Reprokit ホーム">
             <img src="/assets/reprokit-logo.png" alt="Reprokit" />
           </button>
-          <span className="header-tagline" style={{ color: "var(--sub)", fontSize: "13.5px" }}>
-            実際のCVEを、自分で試して理解する
-          </span>
           <div className="hd">
             {state.lab === "running" && (
               <button

@@ -193,10 +193,8 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await expect(page.getByLabel("修正するコード（Go）")).toBeVisible();
   await page.locator('#phase-3 [data-a="next"]').click();
   await atNextBoundary(page, 3);
-  await page.locator('.diff [data-v="a"]').first().click();
-  await expect(page.locator(".diff .hl")).toHaveCount(16);
-  await page.locator('.diff [data-v="b"]').first().click();
-  await expect(page.locator(".diff .hl")).toHaveCount(4);
+  await expect(page.locator('.diff [data-change="removed"]')).toHaveCount(16);
+  await expect(page.locator('.diff [data-change="context"]')).toHaveCount(4);
   await page.locator('#phase-4 [data-a="next"]').click();
   await atNextBoundary(page, 4);
   for (const action of ["runV", "runF"]) await page.locator(`[data-a="${action}"]`).click();

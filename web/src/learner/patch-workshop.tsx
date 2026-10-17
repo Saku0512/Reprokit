@@ -6,7 +6,6 @@ export function PatchWorkshop() {
   const [code, setCode] = useState(starterPatch);
   const [hint, setHint] = useState(0);
   const [result, setResult] = useState<PatchResult | null>(null);
-  const [reason, setReason] = useState("");
 
   return (
     <div className="patch-workshop">
@@ -72,6 +71,9 @@ export function PatchWorkshop() {
           この章は抜粋の構造をチェックします。Goのビルド、コードの実行、Labへの反映は行いません。
           実際の挙動は、後の章で公式の修正版Labを使って比較します。
         </p>
+        <p className="console-empty">
+          教材一覧へ戻るか、ページを再読み込みすると、コードは初期化されます。
+        </p>
       </div>
       <section className="card" aria-label="修正チェックの結果" aria-live="polite">
         <h3>修正チェックの結果</h3>
@@ -97,18 +99,6 @@ export function PatchWorkshop() {
         ) : (
           <p className="console-empty">コードを編集してチェックすると、結果が表示されます。</p>
         )}
-        <label className="patch-label" htmlFor="patch-reason">
-          修正した理由
-        </label>
-        <textarea
-          id="patch-reason"
-          placeholder="どの処理を変え、資格情報をどう渡すようにしたか"
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-        />
-        <p className="console-empty">
-          教材一覧へ戻るか、ページを再読み込みすると、コードとメモは初期化されます。
-        </p>
       </section>
     </div>
   );

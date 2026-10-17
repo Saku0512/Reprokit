@@ -578,7 +578,6 @@ h2.ph {
 .diff div {
   @apply py-0 px-[14px];
   white-space: pre;
-  @apply cursor-pointer;
   @apply [border-left:3px_solid_transparent];
 }
 .diff .del {
@@ -586,10 +585,6 @@ h2.ph {
 }
 .diff .add {
   @apply bg-[#173a26] text-[#a5e6b6];
-}
-.diff .hl {
-  @apply border-l-[#f6c26b];
-  @apply [outline:1px_solid_#f6c26b];
 }
 .cmp {
   @apply grid grid-cols-[1fr_1fr] gap-3;

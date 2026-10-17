@@ -557,8 +557,7 @@ function RequestTrace({ state: S }: StateProps) {
   );
 }
 
-function PatchComparison({ state: S }: StateProps) {
-  const h = S.diffHl;
+function PatchComparison() {
   return (
     <>
       <div className="stage">
@@ -567,25 +566,20 @@ function PatchComparison({ state: S }: StateProps) {
           {"\n            "}
           <p style={{ margin: "0 0 10px", fontSize: "14px" }}>
             {
-              "赤い「−」の行が削除された処理です。この抜粋には追加行はありません。記号のない行は修正前からある処理です。行をクリックすると、削除した処理と残した処理をそれぞれ確認できます。"
+              "赤い「−」の行が削除された処理です。この抜粋には追加行はありません。記号のない行は修正前からある処理です。"
             }
           </p>
           {"\n            "}
           <div className="diff" aria-label="演習コードの修正差分">
-            {patchComparisonLines.map((line, index) => {
-              const group = line.removed ? "a" : "b";
-              return (
-                <div
-                  key={index}
-                  className={`${line.removed ? "del" : ""} ${h === group ? "hl" : ""}`}
-                  data-a="hl"
-                  data-v={group}
-                  data-change={line.removed ? "removed" : "context"}
-                >
-                  {`${line.removed ? "- " : "  "}${line.code}`}
-                </div>
-              );
-            })}
+            {patchComparisonLines.map((line, index) => (
+              <div
+                key={index}
+                className={line.removed ? "del" : undefined}
+                data-change={line.removed ? "removed" : "context"}
+              >
+                {`${line.removed ? "- " : "  "}${line.code}`}
+              </div>
+            ))}
           </div>
           {"\n            "}
           <p style={{ fontSize: "12.5px", color: "var(--sub)", margin: "8px 0 0" }}>
@@ -627,34 +621,6 @@ function PatchComparison({ state: S }: StateProps) {
                 "を削除しました。exec.Commandの呼び出しと、資格情報をcmd.Envへ設定する2行は修正前からあり、そのまま残っています。環境変数を渡す処理を新設したわけではありません。"
               }
             </p>
-            {"\n            "}
-            {h === "a" ? (
-              <>
-                <div className="reveal">
-                  {"赤い行が原因に対応します。特に"}
-                  <code>{"os.Expand"}</code>
-                  {
-                    "の行で入力値を引数へ混ぜていました。展開ループと、不要になったenvMappingの定義を削除しています。"
-                  }
-                </div>
-              </>
-            ) : h === "b" ? (
-              <>
-                <div className="reveal">
-                  {
-                    "強調した行は修正前後で共通です。管理者が設定したコマンドの起動と、USERNAMEおよびPASSWORDを環境変数で渡す処理を残しています。"
-                  }
-                </div>
-              </>
-            ) : (
-              <>
-                <p style={{ color: "var(--sub)", fontSize: "13.5px", margin: "8px 0 0" }}>
-                  {
-                    "赤い行は削除した展開処理です。記号のない行は残した処理で、資格情報の環境変数も修正前から設定されていました。"
-                  }
-                </p>
-              </>
-            )}
           </div>
         </div>
       </div>
