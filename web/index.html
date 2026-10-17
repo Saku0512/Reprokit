@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="reprokit-session" content="" />
+    <title>Reprokit — 実在事例から学ぶセキュア開発</title>
+    <link rel="stylesheet" href="/src/style.css" />
+    <script type="module" src="/src/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">学習内容へ移動する</a>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Reprokit ホーム"
+        ><span class="brand-icon" aria-hidden="true">R</span> Reprokit</a
+      >
+      <span class="product-label">DEVELOPER SECURITY TRAINING</span>
+      <span class="local-badge">ローカル演習</span>
+    </header>
+    <div id="notice" class="notice" role="status" aria-live="polite"></div>
+    <div id="error" class="error-banner" role="alert" hidden></div>
+    <div id="app">
+      <main id="content" class="loading" tabindex="-1">教材を読み込んでいます…</main>
+    </div>
+    <dialog id="confirmation" aria-labelledby="dialog-title">
+      <form method="dialog">
+        <h2 id="dialog-title"></h2>
+        <div id="dialog-body"></div>
+        <div class="actions">
+          <button value="cancel" autofocus>戻る</button>
+          <button id="dialog-confirm" class="primary" value="confirm">確認して実行する</button>
+        </div>
+      </form>
+    </dialog>
+    <noscript>この受講画面を使うにはJavaScriptを有効にしてください。</noscript>
+  </body>
+</html>
