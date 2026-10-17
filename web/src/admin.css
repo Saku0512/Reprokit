@@ -11,6 +11,19 @@
   max-width: 480px;
   margin: 40px auto;
 }
+.sso-login {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  text-align: center;
+}
+.sso-login[hidden] {
+  display: none;
+}
+.sso-login a {
+  display: block;
+  text-decoration: none;
+}
 .admin-heading,
 .admin-grid {
   display: flex;

@@ -3,6 +3,9 @@ const dashboard = document.querySelector("#dashboard");
 const notice = document.querySelector("#admin-notice");
 let courses = [];
 
+const adminConfig = await call("/api/admin/config");
+document.querySelector("#sso-login").hidden = !adminConfig.oidcEnabled;
+
 async function run(task) {
   try {
     await task();

@@ -63,6 +63,7 @@ function bootstrap(child) {
           value.managementToken,
           value.organizationId,
           value.administratorId,
+          value.oidcEnabled,
         );
         if (!runner || !management) throw new Error("missing Runner configuration");
         finish(null, { runner, management });

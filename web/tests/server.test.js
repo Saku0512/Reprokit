@@ -35,6 +35,7 @@ test("接続先とトークンは起動設定で固定し、外部URLを拒否�
     token: "management_token_value",
     organizationId: "local",
     administratorId: "admin",
+    oidcEnabled: false,
   });
   assert.throws(() => managementConfig("short", "local", "admin"));
 });
@@ -47,6 +48,8 @@ test("管理ログイン後だけ管理トークンで研修APIへ接続する",
         url: req.url,
         management: req.headers["x-reprokit-management-session"],
         learner: req.headers["x-reprokit-session"],
+        organizationId: req.headers["x-reprokit-organization-id"],
+        userId: req.headers["x-reprokit-user-id"],
       });
       res.setHeader("Content-Type", "application/json");
       res.end("[]");
@@ -80,10 +83,12 @@ test("管理ログイン後だけ管理トークンで研修APIへ接続する",
   });
   assert.equal(login.status, 204);
   const cookie = login.headers.get("set-cookie").split(";")[0];
-  const courses = await fetch(`${origin}/api/training/courses`, { headers: { Cookie: cookie } });
-  assert.equal(courses.status, 200);
+  const users = await fetch(`${origin}/api/identity/users`, { headers: { Cookie: cookie } });
+  assert.equal(users.status, 200);
   assert.equal(received[0].management, management.token);
   assert.equal(received[0].learner, undefined);
+  assert.equal(received[0].organizationId, "local");
+  assert.equal(received[0].userId, "admin");
   assert.equal(
     (
       await fetch(`${origin}/api/training/learner/assignment`, {
@@ -94,6 +99,72 @@ test("管理ログイン後だけ管理トークンで研修APIへ接続する",
   );
   assert.equal(received[1].management, undefined);
   assert.equal(received[1].learner, token);
+});
+
+test("OIDCログイン主体をサーバー側セッションへ保存して管理APIへ渡す", async (t) => {
+  const received = [];
+  const upstream = await start(
+    http.createServer(async (req, res) => {
+      let body = "";
+      for await (const chunk of req) body += chunk;
+      received.push({
+        url: req.url,
+        method: req.method,
+        management: req.headers["x-reprokit-management-session"],
+        organizationId: req.headers["x-reprokit-organization-id"],
+        userId: req.headers["x-reprokit-user-id"],
+        body,
+      });
+      res.setHeader("Content-Type", "application/json");
+      if (req.url === "/api/auth/oidc/start") {
+        res.end(
+          JSON.stringify({
+            authorizationUrl:
+              "https://idp.example.test/authorize?state=opaque-state&nonce=opaque-nonce",
+          }),
+        );
+        return;
+      }
+      if (req.url === "/api/auth/oidc/callback") {
+        res.end(JSON.stringify({ organizationId: "local", userId: "reviewer" }));
+        return;
+      }
+      res.end("[]");
+    }),
+    t,
+  );
+  const management = managementConfig("management_token_value", "local", "admin", true);
+  const origin = await start(
+    createWebServer({ runner: runnerConfig(upstream, token), management }),
+    t,
+  );
+  const config = await (await fetch(`${origin}/api/admin/config`)).json();
+  assert.deepEqual(config, { oidcEnabled: true });
+  const startResponse = await fetch(`${origin}/api/admin/oidc/start`, { redirect: "manual" });
+  assert.equal(startResponse.status, 303);
+  assert.equal(
+    startResponse.headers.get("location"),
+    "https://idp.example.test/authorize?state=opaque-state&nonce=opaque-nonce",
+  );
+  assert.equal(received[0].management, management.token);
+  const oidcCookie = startResponse.headers.get("set-cookie").split(";")[0];
+  const callback = await fetch(
+    `${origin}/api/admin/oidc/callback?state=opaque-state&code=authorization-code`,
+    { headers: { "Sec-Fetch-Site": "cross-site", Cookie: oidcCookie }, redirect: "manual" },
+  );
+  assert.equal(callback.status, 303);
+  assert.equal(callback.headers.get("location"), "/admin");
+  const cookie = callback.headers.getSetCookie()[0].split(";")[0];
+  assert.match(callback.headers.get("set-cookie"), /SameSite=Lax/);
+  assert.deepEqual(JSON.parse(received[1].body), {
+    state: "opaque-state",
+    code: "authorization-code",
+  });
+  const courses = await fetch(`${origin}/api/training/courses`, { headers: { Cookie: cookie } });
+  assert.equal(courses.status, 200);
+  assert.equal(received[2].organizationId, "local");
+  assert.equal(received[2].userId, "reviewer");
+  assert.equal(received[2].management, management.token);
 });
 
 test("静的ファイルを限定し、API未設定を成功表示しない", async (t) => {
