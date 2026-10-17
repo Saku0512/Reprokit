@@ -10,12 +10,15 @@ import (
 const testRegistryRevision = "1111111111111111111111111111111111111111"
 
 func TestResolverResolvesRepositoryRegistry(t *testing.T) {
-	resolved, err := (Resolver{}).Resolve("../../../registry", testRegistryRevision, "vulhub/log4j-solr")
+	resolved, err := (Resolver{}).Resolve("../../../registry", testRegistryRevision, "vulhub/filebrowser-cve-2026-54088")
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
-	if resolved.Source.URL != "https://github.com/vulhub/vulhub.git" {
+	if resolved.Source.URL != "https://github.com/Saku0512/vulhub.git" || resolved.Source.Revision != "00dff09cf33abbc0099cc16c8b4298c4921d93aa" {
 		t.Fatalf("Source.URL = %q", resolved.Source.URL)
+	}
+	if len(resolved.Manifest.Bytes) == 0 {
+		t.Fatal("Manifest.Bytes is empty")
 	}
 }
 

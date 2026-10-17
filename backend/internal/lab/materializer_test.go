@@ -50,6 +50,9 @@ func TestMaterializerCopiesOnlySelectedSubtreeAndHashesFiles(t *testing.T) {
 	if result.ComposeSHA256 != hex.EncodeToString(wantDigest[:]) {
 		t.Fatalf("ComposeSHA256 = %q", result.ComposeSHA256)
 	}
+	if string(result.RuntimeCompose) != string(compose) {
+		t.Fatalf("RuntimeCompose = %q", result.RuntimeCompose)
+	}
 	if len(result.Files) != 2 || result.Files[0].Path != "README.md" || result.Files[1].Path != "docker-compose.yml" {
 		t.Fatalf("Files = %#v", result.Files)
 	}

@@ -24,6 +24,7 @@ type RegistryReference struct {
 // ManifestReference records the exact manifest bytes used for resolution.
 type ManifestReference struct {
 	SHA256 string
+	Bytes  []byte
 }
 
 // ResolvedLab is the validated, immutable input to source materialization.
@@ -46,9 +47,10 @@ type SourceFile struct {
 // MaterializedSource contains the hashes needed for the source section of a
 // Reprokit lockfile.
 type MaterializedSource struct {
-	URL           string
-	Revision      string
-	Subdirectory  string
-	ComposeSHA256 string
-	Files         []SourceFile
+	URL            string
+	Revision       string
+	Subdirectory   string
+	ComposeSHA256  string
+	RuntimeCompose []byte
+	Files          []SourceFile
 }

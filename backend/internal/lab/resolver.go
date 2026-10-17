@@ -132,7 +132,7 @@ func (Resolver) Resolve(registryRoot, registryRevision, labID string) (ResolvedL
 			Revision:     registryRevision,
 			ManifestPath: entry.Manifest,
 		},
-		Manifest: ManifestReference{SHA256: hex.EncodeToString(manifestDigest[:])},
+		Manifest: ManifestReference{SHA256: hex.EncodeToString(manifestDigest[:]), Bytes: slices.Clone(manifestBytes)},
 	}, nil
 }
 
