@@ -1,0 +1,78 @@
+{
+  "apiVersion": "reprokit.dev/v1alpha1",
+  "kind": "Lesson",
+  "metadata": {
+    "id": "path-normalization/non-public-file-access",
+    "version": "1.0.0",
+    "title": "URLの正規化不備により非公開ファイルを読み取られる"
+  },
+  "spec": {
+    "audience": "Webアプリケーション開発者",
+    "prerequisites": ["HTTPのURLパスとアクセス制御の基礎"],
+    "durationMinutes": 45,
+    "objectives": ["パス正規化とアクセス制御の順序を説明できる"],
+    "case": {
+      "product": "Apache HTTP Server",
+      "affectedVersions": "2.4.49",
+      "background": "URLパスの正規化処理に不備があり、設定によって非公開ファイルへ到達する。"
+    },
+    "evidence": {
+      "cves": ["CVE-2021-41773"],
+      "references": [
+        {
+          "type": "vendor-advisory",
+          "title": "Apache HTTP Server security vulnerabilities",
+          "url": "https://httpd.apache.org/security/vulnerabilities_24.html"
+        }
+      ]
+    },
+    "license": {
+      "name": "Apache-2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "attribution": "Apache Software Foundationの資料を出典として記載。教材本文はReprokit作成。"
+    },
+    "labs": [
+      {
+        "ref": "vulnerable",
+        "labId": "https://example.com/lab",
+        "purpose": "reproduce"
+      },
+      {
+        "ref": "fixed",
+        "labId": "reprokit/httpd-cve-2021-41773-fixed",
+        "purpose": "compare-fix"
+      }
+    ],
+    "steps": [
+      {
+        "id": "observe-marker",
+        "title": "検証用マーカーを観察する",
+        "labRef": "vulnerable",
+        "instruction": "承認済みLabのローカル接続先で、教材に示された無害なマーカーを確認する。",
+        "expectedResult": "検証用マーカーがレスポンスに含まれる。",
+        "observation": "正規化後のパスが想定ディレクトリから外れることを確認する。",
+        "hints": ["URLデコードとアクセス制御の順序を考える。"]
+      }
+    ],
+    "analysis": {
+      "cause": "パスの正規化とアクセス制御の組み合わせが不適切だった。",
+      "impact": "設定によって非公開ファイルを読み取れる。",
+      "remediation": "修正版へ更新し、アクセス制御設定も確認する。"
+    },
+    "comparison": {
+      "vulnerable": "脆弱版では検証用マーカーが返る。",
+      "fixed": "修正版ではアクセスが拒否される。",
+      "difference": "修正版ではパスを適切に正規化してからアクセス制御を適用する。",
+      "fixedLabRef": "fixed"
+    },
+    "prevention": ["正規化の前後を含むアクセス制御テストを追加する。"],
+    "assessment": [
+      {
+        "id": "explain-cause",
+        "question": "原因と修正方針を説明してください。",
+        "answerExample": "正規化不備を修正し、アクセス制御を確認する。",
+        "criteria": ["入力からファイルパスまでの経路を説明する", "修正と再発防止を区別する"]
+      }
+    ]
+  }
+}
