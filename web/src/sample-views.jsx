@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { L, PH, NODES } from "./sample-data.js";
 export function LessonList({ state: S }) {
   const cats = [
@@ -700,96 +700,177 @@ function Remediation({ lesson: l, state: S }) {
   );
 }
 
-export function LessonDetail({ state: S }) {
-  const l = L.find((x) => x.id === "fb"),
-    Phase = [NormalUsage, Reproduction, RequestTrace, PatchComparison, Remediation][S.p];
-  const lead = [
-    "まず、このプロダクトが本来どう動くかを確認します。",
-    "ガイドに沿って検証し、観察結果と、影響を受ける架空データを確認します。",
-    "結果から処理をたどり、入力値がコマンドとして扱われる流れを確認します。",
-    "実際の修正差分と、自分が見つけた原因との対応を確認します。",
-    "修正版で同じ操作をもう一度行い、防がれることと通常利用の成功を確認します。",
-  ][S.p];
+const phases = [NormalUsage, Reproduction, RequestTrace, PatchComparison, Remediation];
+const phaseLeads = [
+  "まず、このプロダクトが本来どう動くかを確認します。",
+  "ガイドに沿って検証し、観察結果と、影響を受ける架空データを確認します。",
+  "結果から処理をたどり、入力値がコマンドとして扱われる流れを確認します。",
+  "実際の修正差分と、自分が見つけた原因との対応を確認します。",
+  "修正版で同じ操作をもう一度行い、防がれることと通常利用の成功を確認します。",
+];
+
+export function LessonOutline({ state: S, id = "lesson-outline" }) {
+  return (
+    <nav id={id} className="lesson-outline" aria-label="学習の流れ">
+      <p className="outline-title">学習の流れ</p>
+      <p className="outline-progress">
+        {Object.keys(S.done).length} / {PH.length} ステップ完了
+      </p>
+      <ol>
+        {PH.map((phase, i) => (
+          <li key={phase[0]}>
+            <button
+              className={`outline-step ${S.done[i] ? "done" : ""}`}
+              data-a="go"
+              data-i={i}
+              disabled={i > S.revealed}
+              aria-current={i === S.p ? "step" : undefined}
+              aria-controls={i <= S.revealed ? `phase-${i}` : undefined}
+            >
+              <span className="step-number" aria-hidden="true">
+                {S.done[i] ? "✓" : i + 1}
+              </span>
+              <span>
+                <b>{phase[0]}</b>
+                <small>{phase[1]}</small>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+export function LessonDetail({ state: S, onPhaseChange }) {
+  const l = L.find((x) => x.id === "fb");
+  const detail = useRef(null);
+
+  useEffect(() => {
+    const container = detail.current;
+    let frame;
+    const updatePosition = () => {
+      const bounds = container.getBoundingClientRect();
+      const top = Math.max(0, bounds.top) + Math.min(window.innerHeight * 0.25, 160);
+      let phase = -1;
+      for (const section of container.querySelectorAll("[data-phase]")) {
+        if (section.getBoundingClientRect().top <= top) phase = Number(section.dataset.phase);
+      }
+      onPhaseChange(phase);
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(updatePosition);
+    };
+    container.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(frame);
+      container.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [onPhaseChange]);
+
   return (
     <>
-      <div className="detail">
-        <div className="in">
-          <button className="back" data-a="home">
-            {"← 教材一覧へ"}
+      <div className="detail" ref={detail}>
+        <div className="lesson-layout">
+          <button className="back lesson-back" data-a="home">
+            ← 教材一覧へ戻る
           </button>
-          <h1 className="t">{l.title}</h1>
-          {"\n             "}
-          <div className="facts" style={{ marginTop: "8px" }}>
-            <div>
-              <span>{"CVE"}</span>
-              {l.cve}
+          <LessonOutline state={S} />
+          <div className="in">
+            <h1 className="t">{l.title}</h1>
+            {"\n             "}
+            <div className="facts" style={{ marginTop: "8px" }}>
+              <div>
+                <span>{"CVE"}</span>
+                {l.cve}
+              </div>
+              <div>
+                <span>{"製品"}</span>
+                {l.product}
+              </div>
+              <div>
+                <span>{"Labの出どころ"}</span>
+                {l.src}
+                {"（"}
+                {l.sha}
+                {"）"}
+              </div>
             </div>
-            <div>
-              <span>{"製品"}</span>
-              {l.product}
+            {"\n             "}
+            <LabBox lesson={l} state={S} />
+            {"\n             "}
+            <div className="pro">
+              <h2>{"概要"}</h2>
             </div>
-            <div>
-              <span>{"Labの出どころ"}</span>
-              {l.src}
-              {"（"}
-              {l.sha}
-              {"）"}
+            {"\n             "}
+            <div className="prb">
+              <p>
+                {
+                  "File Browser 2.63.5 は、ブラウザからファイルを管理できるWebアプリケーションです。"
+                }
+              </p>
+              <p>
+                {l.cve}
+                {
+                  " は、フック認証の設定でユーザー名やパスワードを外部コマンドへ渡す際、入力値がコマンドとして解釈されるコマンドインジェクションの脆弱性です。認証処理を通じて、意図しないコマンドが実行されるおそれがあります。"
+                }
+              </p>
+              <p>
+                {"この教材では脆弱版での挙動を観察し、原因と修正版での変化を確認します。"}
+                <b>{"Labの画面は別タブで開きます。"}</b>
+                {"実在のサイトには試さないでください。"}
+              </p>
             </div>
-          </div>
-          {"\n             "}
-          <LabBox lesson={l} state={S} />
-          {"\n             "}
-          <div className="pro">
-            <h2>{"概要"}</h2>
-          </div>
-          {"\n             "}
-          <div className="prb">
-            <p>
-              {"File Browser 2.63.5 は、ブラウザからファイルを管理できるWebアプリケーションです。"}
-            </p>
-            <p>
-              {l.cve}
-              {
-                " は、フック認証の設定でユーザー名やパスワードを外部コマンドへ渡す際、入力値がコマンドとして解釈されるコマンドインジェクションの脆弱性です。認証処理を通じて、意図しないコマンドが実行されるおそれがあります。"
-              }
-            </p>
-            <p>
-              {"この教材では脆弱版での挙動を観察し、原因と修正版での変化を確認します。"}
-              <b>{"Labの画面は別タブで開きます。"}</b>
-              {"実在のサイトには試さないでください。"}
-            </p>
-          </div>
-          {"\n             "}
-          <nav className="tabs" aria-label="学習の流れ">
-            {PH.map((p, i) => (
-              <Fragment key={i}>
-                <button
-                  className={"tab " + (S.done[i] && i !== S.p ? "done" : "")}
-                  data-a="go"
-                  data-i={i}
-                  aria-current={i === S.p ? "step" : undefined}
+            {"\n             "}
+            <div className="nav overview-actions">
+              <button className="btn primary" data-a="begin">
+                {S.revealed < 0 ? "学習を開始する ↓" : "Step 1を読み返す ↓"}
+              </button>
+            </div>
+            <div className="lesson-sections">
+              {phases.slice(0, S.revealed + 1).map((Phase, i) => (
+                <section
+                  key={PH[i][0]}
+                  id={`phase-${i}`}
+                  data-phase={i}
+                  className="lesson-phase"
+                  aria-labelledby={`phase-title-${i}`}
                 >
-                  <i>{S.done[i] && i !== S.p ? "✓" : i + 1}</i>
-                  <span>
-                    <b>{p[0]}</b>
-                    <small>{p[1]}</small>
-                  </span>
-                </button>
-              </Fragment>
-            ))}
-          </nav>
-          {"\n             "}
-          <h2 className="ph">{PH[S.p][0]}</h2>
-          <p className="lead2">{lead}</p>
-          <Phase lesson={l} state={S} />
-          {"\n             "}
-          <div className="nav">
-            <button className="btn" data-a="prev" disabled={S.p === 0}>
-              {"前へ"}
-            </button>
-            <button className="btn primary" data-a="next">
-              {S.p === 4 ? "完了する" : "次のフェーズへ"}
-            </button>
+                  <p className="phase-kicker">
+                    STEP {String(i + 1).padStart(2, "0")} / {PH.length}
+                  </p>
+                  <h2 className="ph" id={`phase-title-${i}`} tabIndex={-1}>
+                    {PH[i][0]}
+                  </h2>
+                  <p className="lead2">{phaseLeads[i]}</p>
+                  <div className="phase-body">
+                    <Phase lesson={l} state={S} />
+                  </div>
+                  <div className="nav">
+                    <button className="btn" data-a="prev" data-i={i} disabled={i === 0}>
+                      前の内容へ
+                    </button>
+                    <button
+                      className="btn primary"
+                      data-a="next"
+                      data-i={i}
+                      disabled={i === 4 && S.done[i]}
+                    >
+                      {i === 4
+                        ? S.done[i]
+                          ? "学習を完了しました"
+                          : "完了する"
+                        : `次へ：${PH[i + 1][0]} ↓`}
+                    </button>
+                  </div>
+                </section>
+              ))}
+            </div>
           </div>
         </div>
       </div>

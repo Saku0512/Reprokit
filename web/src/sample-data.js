@@ -54,7 +54,8 @@ export const NODES = [
 export const initialState = {
   view: "list",
   cat: "all",
-  p: 0,
+  p: -1,
+  revealed: -1,
   done: {},
   lab: "ready",
   seg: 0,

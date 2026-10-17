@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { initialState } from "./sample-data.js";
-import { LessonList, LessonDetail } from "./sample-views.jsx";
+import { LessonList, LessonDetail, LessonOutline } from "./sample-views.jsx";
 import { LabModal } from "./sample-modal.jsx";
 import "@fontsource/noto-sans-jp/400.css";
 import "@fontsource/noto-sans-jp/500.css";
@@ -14,8 +14,59 @@ function App() {
   const [state, setState] = useState(initialState);
   const [dark, setDark] = useState(false);
   const [message, setMessage] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menu = useRef(null);
   const view = useRef(null);
+  const pendingPhase = useRef(null);
   const update = (patch) => setState((previous) => ({ ...previous, ...patch }));
+  const trackPhase = useCallback((phase) => {
+    setState((previous) => (previous.p === phase ? previous : { ...previous, p: phase }));
+  }, []);
+
+  useEffect(() => {
+    if (menuOpen) menu.current?.showModal();
+    else menu.current?.close();
+  }, [menuOpen]);
+
+  useEffect(() => {
+    const compact = window.matchMedia("(max-width: 1000px)");
+    const resize = () => {
+      if (!compact.matches) {
+        menu.current?.close();
+        setMenuOpen(false);
+      }
+    };
+    compact.addEventListener("change", resize);
+    return () => compact.removeEventListener("change", resize);
+  }, []);
+
+  // 章の追加後に移動し、通常のスクロールやLab状態更新では位置を変えない。
+  useLayoutEffect(() => {
+    if (pendingPhase.current === null) return;
+    const { phase, previous } = pendingPhase.current;
+    const heading = view.current?.querySelector(`#phase-title-${phase}`);
+    pendingPhase.current = null;
+    if (!heading) return;
+    heading.focus({ preventScroll: true });
+    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "instant"
+      : "smooth";
+    const previousBlock =
+      previous === undefined ? null : view.current.querySelector(`#phase-${previous}`);
+    if (previousBlock) {
+      // 「次へ」は読み終えた章の下端を基準にし、次章の余白と導入を残す。
+      const detail = previousBlock.closest(".detail");
+      detail.scrollTo({
+        top:
+          detail.scrollTop +
+          previousBlock.getBoundingClientRect().bottom -
+          detail.getBoundingClientRect().top,
+        behavior,
+      });
+    } else {
+      heading.scrollIntoView({ behavior, block: "start" });
+    }
+  }, [state]);
 
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
@@ -25,9 +76,6 @@ function App() {
     const timer = setTimeout(() => setMessage(""), 2200);
     return () => clearTimeout(timer);
   }, [message]);
-  useEffect(() => {
-    view.current?.querySelector(".detail")?.scrollTo(0, 0);
-  }, [state.view, state.p]);
   useEffect(() => {
     if (!state.modal) return;
     const escape = (event) => {
@@ -63,20 +111,38 @@ function App() {
         update({ view: "list" });
         break;
       case "open":
-        update({ view: "detail", p: 0 });
+        update({ view: "detail", p: -1 });
+        break;
+      case "begin":
+        pendingPhase.current = { phase: 0 };
+        setState((previous) => ({ ...previous, p: 0, revealed: Math.max(0, previous.revealed) }));
         break;
       case "cat":
         update({ cat: v });
         break;
       case "go":
+        if (Number(i) > state.revealed) break;
+        menu.current?.close();
+        setMenuOpen(false);
+        pendingPhase.current = { phase: Number(i) };
         update({ p: Number(i) });
         break;
-      case "next":
-        update({ done: { ...state.done, [state.p]: true }, p: Math.min(4, state.p + 1) });
-        if (state.p === 4) setMessage("お疲れさまでした。DESTROYでLabを片付けましょう");
+      case "next": {
+        const phase = Number(i);
+        const next = Math.min(4, phase + 1);
+        if (phase < 4) pendingPhase.current = { phase: next, previous: phase };
+        setState((previous) => ({
+          ...previous,
+          done: { ...previous.done, [phase]: true },
+          revealed: Math.max(previous.revealed, next),
+          p: next,
+        }));
+        if (phase === 4) setMessage("お疲れさまでした。DESTROYでLabを片付けましょう");
         break;
+      }
       case "prev":
-        update({ p: Math.max(0, state.p - 1) });
+        pendingPhase.current = { phase: Math.max(0, Number(i) - 1) };
+        update({ p: Math.max(0, Number(i) - 1) });
         break;
       case "lg":
         update({ login: v });
@@ -148,12 +214,27 @@ function App() {
 
   return (
     <div onClick={action}>
-      <div className="app">
+      <div className={`app ${state.view === "detail" ? "learning" : ""}`}>
         <header>
+          {state.view === "detail" && (
+            <button
+              className="menu-toggle"
+              aria-label="学習メニューを開く"
+              aria-expanded={menuOpen}
+              aria-controls="learning-menu"
+              onClick={() => setMenuOpen(true)}
+            >
+              <span aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+            </button>
+          )}
           <button className="logo" data-a="home">
             Reprokit
           </button>
-          <span style={{ color: "var(--sub)", fontSize: "13.5px" }}>
+          <span className="header-tagline" style={{ color: "var(--sub)", fontSize: "13.5px" }}>
             実際のCVEを、自分で試して理解する
           </span>
           <div className="hd">
@@ -163,9 +244,38 @@ function App() {
           </div>
         </header>
         <div id="view" ref={view} style={{ minHeight: 0, overflow: "hidden" }}>
-          {state.view === "list" ? <LessonList state={state} /> : <LessonDetail state={state} />}
+          {state.view === "list" ? (
+            <LessonList state={state} />
+          ) : (
+            <LessonDetail state={state} onPhaseChange={trackPhase} />
+          )}
         </div>
       </div>
+      {state.view === "detail" && (
+        <dialog
+          ref={menu}
+          id="learning-menu"
+          className="outline-dialog"
+          aria-labelledby="learning-menu-title"
+          onClose={() => setMenuOpen(false)}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) menu.current?.close();
+          }}
+        >
+          <div className="outline-dialog-header">
+            <h2 id="learning-menu-title">学習メニュー</h2>
+            <button
+              className="menu-close"
+              aria-label="学習メニューを閉じる"
+              onClick={() => menu.current?.close()}
+              autoFocus
+            >
+              ×
+            </button>
+          </div>
+          <LessonOutline state={state} id="mobile-lesson-outline" />
+        </dialog>
+      )}
       <div id="modal">
         <LabModal state={state} onChange={update} />
       </div>
