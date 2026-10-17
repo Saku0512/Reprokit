@@ -124,7 +124,12 @@ test("CVE教材を複数対象者へ割り当て、状態と4観点の回答を�
   await page.getByLabel("対象者ID").fill("alice, bob\nteam-member-03");
   await page.getByLabel("受講期限").fill("2027-02-01T18:00");
   await page.getByRole("button", { name: "割り当てる" }).click();
-  await expect(page.locator("#admin-notice")).toContainText("3名へ");
+  const toast = page.locator("#assignment-toast");
+  await expect(toast).toHaveText("3名に「File Browser / CVE-2026-54088」を割り当てました。");
+  await expect(toast).toHaveCSS("opacity", "1");
+  await page.screenshot({ path: join(testOutputDir, "admin-assignment-toast.png") });
+  await expect(toast).toBeEmpty({ timeout: 7000 });
+  await expect(toast).toHaveCSS("opacity", "0");
   const createCall = fixture.calls.find(
     (call) => call.path === "/api/training/assignments" && call.method === "POST",
   );

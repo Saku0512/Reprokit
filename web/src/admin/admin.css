@@ -7,6 +7,23 @@ body {
 .admin-shell {
   @apply max-w-320 my-0 mx-auto [padding:28px_32px_64px] overflow-x-clip;
 }
+.admin-toast {
+  @apply fixed bottom-6 left-1/2 z-50 -translate-x-1/2;
+  @apply w-max max-w-[calc(100vw-32px)] rounded-xl px-5 py-4;
+  @apply bg-[#166534] text-white text-sm leading-relaxed shadow-lg wrap-anywhere;
+  @apply opacity-0 translate-y-2 pointer-events-none;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+.admin-toast.is-visible {
+  @apply opacity-100 translate-y-0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-toast {
+    transition: none;
+  }
+}
 #dashboard,
 .admin-card,
 .table-scroll {

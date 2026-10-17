@@ -11,6 +11,8 @@ import {
 const loginPanel = document.querySelector("#login-panel");
 const dashboard = document.querySelector("#dashboard");
 const notice = document.querySelector("#admin-notice");
+const assignmentToast = document.querySelector("#assignment-toast");
+let assignmentToastTimer;
 const assignmentForm = document.querySelector("#assignment-form");
 const materialSelect = document.querySelector("#material");
 const dueInput = document.querySelector("#due");
@@ -343,7 +345,13 @@ assignmentForm.addEventListener("submit", async (event) => {
       }),
     });
     document.querySelector("#learners").value = "";
-    notice.textContent = `${created.length}名へ「${materialName(material)}」を割り当てました。`;
+    clearTimeout(assignmentToastTimer);
+    assignmentToast.textContent = `${created.length}名に「${materialName(material)}」を割り当てました。`;
+    assignmentToast.classList.add("is-visible");
+    assignmentToastTimer = setTimeout(() => {
+      assignmentToast.classList.remove("is-visible");
+      assignmentToast.textContent = "";
+    }, 5000);
     await refreshAssignments();
   });
 });
