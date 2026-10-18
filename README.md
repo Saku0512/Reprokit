@@ -15,14 +15,13 @@ Reprokitは、脆弱性の説明を読むだけでなく、管理されたロー
 
 必要なものはNode.js 22以上、`backend/go.mod`で指定したGo toolchain、Gitです。Labを実際に起動する場合は、Docker Engine 28以上とDocker Compose v2.36.1以上も必要です。教材の閲覧だけではDockerを操作しません。
 
-リポジトリ直下で、依存関係の導入、Web成果物の生成、ローカル起動を順に行います。
+リポジトリ直下で、依存関係の導入、Web成果物の生成、ローカル起動をまとめて行います。
 
 ```sh
-npm ci
-npm run web:install
-npm run web:build
-npm run web:start
+npm run start
 ```
+
+個別に実行する場合は、`npm ci`、`npm run web:install`、`npm run web:build`、`npm run web:start`の順です。
 
 起動後に表示される `http://127.0.0.1:4173` をブラウザで開いてください。Webシェルは同時にGo Runnerを起動し、接続先と認証トークンを専用パイプで受け渡します。URLやトークンを手入力する必要はありません。
 
