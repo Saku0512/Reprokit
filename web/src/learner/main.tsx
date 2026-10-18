@@ -1,12 +1,12 @@
-import type { MouseEvent } from "react";
 import type { LearnerState } from "./lesson-data.ts";
 import { requiredElement } from "../shared/dom.ts";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { initialState, PH } from "./lesson-data.ts";
+import { initialState } from "./lesson-data.ts";
 import { LearnerShell } from "./learner-shell.tsx";
 import { StudyApi } from "../shared/study-api.ts";
 import { useLearnerLab } from "./use-learner-lab.ts";
+import { createLearnerActionHandler } from "./use-learner-actions.ts";
 import "@fontsource/noto-sans-jp/400.css";
 import "@fontsource/noto-sans-jp/500.css";
 import "@fontsource/noto-sans-jp/700.css";
@@ -35,6 +35,23 @@ function App() {
   }, []);
   const { deployLab, stopLab, destroyLab, showLogs, readMarker, observeService, compareMarker } =
     useLearnerLab({ api, state, update, setState, setMessage });
+  const action = createLearnerActionHandler({
+    state,
+    update,
+    setState,
+    setMessage,
+    setMenuOpen,
+    menuRef: menu,
+    pendingPhaseRef: pendingPhase,
+    deployLab,
+    stopLab,
+    destroyLab,
+    showLogs,
+    readMarker,
+    observeService,
+    compareMarker,
+    setConsoleOpen,
+  });
 
   useEffect(() => {
     if (menuOpen) menu.current?.showModal();
@@ -104,111 +121,6 @@ function App() {
     document.addEventListener("keydown", escape);
     return () => document.removeEventListener("keydown", escape);
   }, [state.modal]);
-  async function action(event: MouseEvent<HTMLDivElement>) {
-    const target =
-      event.target instanceof Element ? event.target.closest<HTMLElement>("[data-a]") : null;
-    if (!target || (target instanceof HTMLButtonElement && target.disabled)) return;
-    const { a, v, i } = target.dataset;
-    switch (a) {
-      case "home":
-        update({ view: "list" });
-        break;
-      case "open":
-        update({ view: "detail", p: -1 });
-        break;
-      case "begin":
-        pendingPhase.current = { phase: 0 };
-        setState((previous) => ({ ...previous, p: 0, revealed: Math.max(0, previous.revealed) }));
-        break;
-      case "cat":
-        update({ cat: v ?? "all" });
-        break;
-      case "go":
-        if (Number(i) > state.revealed) break;
-        menu.current?.close();
-        setMenuOpen(false);
-        pendingPhase.current = { phase: Number(i) };
-        update({ p: Number(i) });
-        break;
-      case "next": {
-        const phase = Number(i);
-        const next = Math.min(PH.length - 1, phase + 1);
-        if (phase < PH.length - 1) pendingPhase.current = { phase: next, previous: phase };
-        setState((previous) => ({
-          ...previous,
-          done: { ...previous.done, [phase]: true },
-          revealed: Math.max(previous.revealed, next),
-          p: next,
-        }));
-        if (phase === PH.length - 1) setMessage("お疲れさまでした。DESTROYでLabを片付けましょう");
-        break;
-      }
-      case "prev":
-        pendingPhase.current = { phase: Math.max(0, Number(i) - 1) };
-        update({ p: Math.max(0, Number(i) - 1) });
-        break;
-      case "hint":
-        update({ hint: Math.min(3, state.hint + 1) });
-        break;
-      case "repro":
-        await observeService("vulnerable");
-        break;
-      case "rst":
-        update({ repro: false, hint: 0 });
-        break;
-      case "pick":
-        if (Number(i) <= state.pos) update({ pick: Number(i) });
-        break;
-      case "back":
-        update({ pos: Math.max(0, state.pos - 1), pick: Math.max(0, state.pos - 1) });
-        break;
-      case "fwd":
-        update({ pos: Math.min(5, state.pos + 1), pick: Math.min(5, state.pos + 1) });
-        break;
-      case "compare":
-        if (v === "vulnerable" || v === "fixed") await compareMarker(v);
-        break;
-      case "deploy":
-        update({ modal: "deploy", ok: false });
-        break;
-      case "mc":
-        update({ modal: null });
-        break;
-      case "go-deploy":
-        if (state.ok) await deployLab();
-        break;
-      case "stop":
-        await stopLab();
-        break;
-      case "destroy":
-        update({ modal: "destroy" });
-        break;
-      case "go-destroy":
-        await destroyLab();
-        break;
-      case "copy":
-        try {
-          await navigator.clipboard.writeText(v ?? "");
-          setMessage("コピーしました");
-        } catch {
-          setMessage("コピーできませんでした");
-        }
-        break;
-      case "console":
-        setConsoleOpen(true);
-        break;
-      case "close-console":
-        setConsoleOpen(false);
-        break;
-      case "logs":
-        if (v === "vulnerable" || v === "fixed") await showLogs(v);
-        break;
-      case "marker":
-        if (v === "vulnerable" || v === "fixed") await readMarker(v);
-        break;
-    }
-  }
-
   return (
     <LearnerShell
       state={state}
