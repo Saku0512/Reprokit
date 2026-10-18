@@ -95,9 +95,12 @@ export function LessonList({ state: S }: StateProps) {
 
 function LabBox({ state: S }: StateProps) {
   const s = S.lab;
+  const endpointRank = (service: string) =>
+    service === "fixed" ? 0 : service === "vulnerable" ? 1 : 2;
   const endpoints = (S.runtime?.endpoints ?? [])
     .map((endpoint) => ({ ...endpoint, url: endpointURL(endpoint) }))
-    .filter((endpoint) => endpoint.url);
+    .filter((endpoint) => endpoint.url)
+    .sort((left, right) => endpointRank(left.service) - endpointRank(right.service));
   const endpointTitle = (service: string) =>
     service === "vulnerable" ? "脆弱版" : service === "fixed" ? "修正版" : "Lab";
   let r1, r2;
