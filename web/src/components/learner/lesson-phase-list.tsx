@@ -1,5 +1,5 @@
-import type { LearnerState, SampleLesson } from "./lesson-data.ts";
-import { PH } from "./lesson-data.ts";
+import type { LearnerState, SampleLesson } from "../../learner/lesson-data.ts";
+import { PH } from "../../learner/lesson-data.ts";
 import { lessonPhaseLeads, lessonPhases } from "./lesson-phases.tsx";
 
 interface LessonPhaseListProps {

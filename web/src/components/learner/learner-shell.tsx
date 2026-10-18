@@ -1,5 +1,5 @@
 import type { MouseEvent, RefObject } from "react";
-import type { LearnerState } from "./lesson-data.ts";
+import type { LearnerState } from "../../learner/lesson-data.ts";
 import { LessonList } from "./lesson-catalog.tsx";
 import { ConsoleDialog, LearnerHeader, LearnerMenuDialog } from "./learner-chrome.tsx";
 import { LabModal } from "./lab-modal.tsx";

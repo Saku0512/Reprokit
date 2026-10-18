@@ -1,6 +1,6 @@
 import { Fragment } from "react";
-import type { StateProps } from "./lesson-data.ts";
-import { L, PH } from "./lesson-data.ts";
+import type { StateProps } from "../../learner/lesson-data.ts";
+import { L, PH } from "../../learner/lesson-data.ts";
 
 export function LessonList({ state: S }: StateProps) {
   const cats = [

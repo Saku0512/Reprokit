@@ -1,5 +1,5 @@
 import type { RefObject } from "react";
-import type { LearnerState } from "./lesson-data.ts";
+import type { LearnerState } from "../../learner/lesson-data.ts";
 import { LabConsole } from "./lab-console.tsx";
 import { LessonOutline } from "./lesson-outline.tsx";
 

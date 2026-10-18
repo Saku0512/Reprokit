@@ -1,4 +1,4 @@
-import type { StateProps } from "./lesson-data.ts";
+import type { StateProps } from "../../learner/lesson-data.ts";
 
 export function LabConsole({
   state: S,

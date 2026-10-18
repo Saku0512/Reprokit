@@ -1,5 +1,5 @@
-import type { StateProps } from "./lesson-data.ts";
-import { PH } from "./lesson-data.ts";
+import type { StateProps } from "../../learner/lesson-data.ts";
+import { PH } from "../../learner/lesson-data.ts";
 
 type LessonOutlineProps = StateProps & { id?: string };
 

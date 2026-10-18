@@ -1,6 +1,6 @@
 import { Fragment } from "react";
-import type { StateProps } from "./lesson-data.ts";
-import { endpointURL } from "../shared/study-api.ts";
+import type { StateProps } from "../../learner/lesson-data.ts";
+import { endpointURL } from "../../shared/study-api.ts";
 
 export function LessonEnvironment({ state: S }: StateProps) {
   const s = S.lab;

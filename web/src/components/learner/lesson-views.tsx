@@ -1,6 +1,6 @@
-import type { StateProps } from "./lesson-data.ts";
+import type { StateProps } from "../../learner/lesson-data.ts";
 import { useEffect, useRef } from "react";
-import { L } from "./lesson-data.ts";
+import { L } from "../../learner/lesson-data.ts";
 import { LessonEnvironment } from "./lesson-environment.tsx";
 import { LessonOutline } from "./lesson-outline.tsx";
 import { LessonPhaseList } from "./lesson-phase-list.tsx";

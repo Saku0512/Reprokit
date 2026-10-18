@@ -1,9 +1,9 @@
-import type { PhaseProps, StateProps } from "./lesson-data.ts";
+import type { PhaseProps, StateProps } from "../../learner/lesson-data.ts";
 import { Fragment } from "react";
-import { NODES, TRACE_DETAILS } from "./lesson-data.ts";
+import { NODES, TRACE_DETAILS } from "../../learner/lesson-data.ts";
 import { BehaviorComparison } from "./behavior-comparison.tsx";
 import { LabConsole } from "./lab-console.tsx";
-import { patchComparisonLines } from "./patch-exercise.ts";
+import { patchComparisonLines } from "../../learner/patch-exercise.ts";
 import { PatchWorkshop } from "./patch-workshop.tsx";
 
 export function NormalUsage() {

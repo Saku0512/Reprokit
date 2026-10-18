@@ -3,7 +3,7 @@ import { requiredElement } from "../shared/dom.ts";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { initialState } from "./lesson-data.ts";
-import { LearnerShell } from "./learner-shell.tsx";
+import { LearnerShell } from "../components/learner/learner-shell.tsx";
 import { StudyApi } from "../shared/study-api.ts";
 import { useLearnerLab } from "./use-learner-lab.ts";
 import { createLearnerActionHandler } from "./use-learner-actions.ts";

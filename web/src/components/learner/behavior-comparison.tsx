@@ -1,7 +1,7 @@
-import type { StateProps } from "./lesson-data.ts";
-import { markerCredentials } from "./lesson-data.ts";
-import type { LabRef } from "../shared/types.ts";
-import { endpointURL } from "../shared/study-api.ts";
+import type { StateProps } from "../../learner/lesson-data.ts";
+import { markerCredentials } from "../../learner/lesson-data.ts";
+import type { LabRef } from "../../shared/types.ts";
+import { endpointURL } from "../../shared/study-api.ts";
 
 const variants = [
   {
