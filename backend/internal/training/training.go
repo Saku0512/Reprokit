@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jphacks/sd_2601/internal/training/model"
+	"github.com/jphacks/sd_2601/internal/model"
 )
 
 const (
