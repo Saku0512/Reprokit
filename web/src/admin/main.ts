@@ -15,7 +15,7 @@ import {
   statusBadge,
   tableCell,
   textElement,
-} from "./admin-presenters.ts";
+} from "../components/admin/admin-presenters.ts";
 
 const loginPanel = requiredElement("#login-panel");
 const dashboard = requiredElement("#dashboard");

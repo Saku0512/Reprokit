@@ -1,5 +1,5 @@
-import type { AssignmentStatus, Material } from "../shared/types.ts";
-import { STATUS_META } from "./assignment-model.ts";
+import type { AssignmentStatus, Material } from "../../shared/types.ts";
+import { STATUS_META } from "../../admin/assignment-model.ts";
 
 export function textElement<K extends keyof HTMLElementTagNameMap>(
   name: K,
