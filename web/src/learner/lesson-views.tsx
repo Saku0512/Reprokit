@@ -96,7 +96,7 @@ export function LessonList({ state: S }: StateProps) {
 function LabBox({ state: S }: StateProps) {
   const s = S.lab;
   const endpointRank = (service: string) =>
-    service === "fixed" ? 0 : service === "vulnerable" ? 1 : 2;
+    service === "vulnerable" ? 0 : service === "fixed" ? 1 : 2;
   const endpoints = (S.runtime?.endpoints ?? [])
     .map((endpoint) => ({ ...endpoint, url: endpointURL(endpoint) }))
     .filter((endpoint) => endpoint.url)
