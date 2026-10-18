@@ -1,4 +1,4 @@
-import type { PhaseProps, StateProps } from "../../learner/lesson-data.ts";
+import { markerCredentials, type PhaseProps, type StateProps } from "../../learner/lesson-data.ts";
 import { Fragment } from "react";
 import { NODES, TRACE_DETAILS } from "../../learner/lesson-data.ts";
 import { BehaviorComparison } from "./behavior-comparison.tsx";
@@ -67,8 +67,18 @@ export function Reproduction({ lesson, state: S }: PhaseProps) {
             <li>{"ログインが拒否された後、「観察結果を取得」を押す"}</li>
           </ol>
           <div className="log" style={{ marginTop: "10px" }}>
-            {"Username: id > /tmp/success; echo hook.action=block\n"}
-            {"Password: anything"}
+            {"Username: "}
+            {markerCredentials.username}
+            {"\nPassword: "}
+            {markerCredentials.password}
+          </div>
+          <div className="act">
+            <button className="btn sm" data-a="copy" data-v={markerCredentials.username}>
+              {"Usernameをコピー"}
+            </button>
+            <button className="btn sm" data-a="copy" data-v={markerCredentials.password}>
+              {"Passwordをコピー"}
+            </button>
           </div>
           <p className="console-empty">
             {

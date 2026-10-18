@@ -108,13 +108,19 @@ export function BehaviorComparison({ state: S }: StateProps) {
           <div>
             <dt>Username</dt>
             <dd>
-              <code>{markerCredentials.username}</code>
+              <code>{markerCredentials.username}</code>{" "}
+              <button className="btn sm" data-a="copy" data-v={markerCredentials.username}>
+                Usernameをコピー
+              </button>
             </dd>
           </div>
           <div>
             <dt>Password</dt>
             <dd>
-              <code>{markerCredentials.password}</code>
+              <code>{markerCredentials.password}</code>{" "}
+              <button className="btn sm" data-a="copy" data-v={markerCredentials.password}>
+                Passwordをコピー
+              </button>
             </dd>
           </div>
         </dl>
