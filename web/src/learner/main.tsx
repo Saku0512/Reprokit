@@ -4,7 +4,10 @@ import type { LabSession, LabRef } from "../shared/types.ts";
 import { requiredElement } from "../shared/dom.ts";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { initialState, PH } from "./lesson-data.ts";
+import { initialState, PH, L } from "./lesson-data.ts";
+import { NoteEditor, NoteLibrary } from "./learning-notes.tsx";
+import { readNote, writeNote, finishNote } from "./learning-note.ts";
+import type { LearningNote, NoteAnswerID } from "./learning-note.ts";
 import { LabConsole, LessonList, LessonDetail, LessonOutline } from "./lesson-views.tsx";
 import { LabModal } from "./lab-modal.tsx";
 import { ApiError, StudyApi, canStart } from "../shared/study-api.ts";
@@ -19,6 +22,11 @@ const api = new StudyApi(
   document.querySelector<HTMLMetaElement>('meta[name="reprokit-session"]')?.content ?? "",
 );
 const labSessionStorageKey = "reprokit:sample:filebrowser:lab-session";
+const noteLesson = {
+  lessonId: "command-injection/filebrowser-auth-hook",
+  lessonVersion: "1.0.0",
+};
+const sampleLesson = L.find((lesson) => lesson.id === "fb")!;
 
 function labState(session: LabSession | null): LearnerState["lab"] {
   if (session?.state === "running") return "running";
@@ -46,6 +54,8 @@ function forgetLabSession() {
 
 function App() {
   const [state, setState] = useState(initialState);
+  const [noteState, setNoteState] = useState(() => readNote(noteLesson));
+  const [noteStatus, setNoteStatus] = useState("");
   const [dark, setDark] = useState(false);
   const [message, setMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -62,6 +72,41 @@ function App() {
   const trackPhase = useCallback((phase: number) => {
     setState((previous) => (previous.p === phase ? previous : { ...previous, p: phase }));
   }, []);
+
+  function persistNote(note: LearningNote, status = "下書きをこのブラウザに保存しました") {
+    const saved = writeNote(note);
+    setNoteState({
+      note,
+      failure: saved
+        ? ""
+        : "ブラウザに保存できませんでした。画面を閉じずに、保存設定や空き容量を確認して再試行してください。",
+    });
+    setNoteStatus(saved ? status : "変更はこの画面内にのみ保持されています。");
+    return saved;
+  }
+
+  function answerNote(id: NoteAnswerID, answer: string) {
+    persistNote({ ...noteState.note, draft: { ...noteState.note.draft, [id]: answer } });
+  }
+
+  function saveNote() {
+    const next = finishNote(noteState.note);
+    if (!next) return;
+    // 永続化できた場合だけカードを更新し、失敗時は編集中の回答を残す。
+    if (!writeNote(next)) {
+      setNoteState((previous) => ({
+        ...previous,
+        failure:
+          "カードを保存できませんでした。画面を閉じずに、ブラウザの保存設定や空き容量を確認して再試行してください。",
+      }));
+      setNoteStatus("変更はこの画面内にのみ保持されています。");
+      return;
+    }
+    setNoteState({ note: next, failure: "" });
+    setNoteStatus("");
+    update({ view: "notes" });
+    setMessage("まとめをカードに保存しました");
+  }
 
   useEffect(() => {
     if (menuOpen) menu.current?.showModal();
@@ -422,6 +467,13 @@ function App() {
       case "home":
         update({ view: "list" });
         break;
+      case "notes":
+        setMenuOpen(false);
+        update({ view: "notes" });
+        break;
+      case "write-note":
+        update({ view: "note" });
+        break;
       case "open":
         update({ view: "detail", p: -1 });
         break;
@@ -559,8 +611,28 @@ function App() {
         <div id="view" ref={view} style={{ minHeight: 0, overflow: "hidden" }}>
           {state.view === "list" ? (
             <LessonList state={state} />
-          ) : (
+          ) : state.view === "detail" ? (
             <LessonDetail state={state} onPhaseChange={trackPhase} />
+          ) : state.view === "notes" ? (
+            <NoteLibrary
+              lesson={sampleLesson}
+              note={noteState.note}
+              failure={noteState.failure}
+              onEdit={() => update({ view: "note" })}
+              onRead={() => update({ view: "detail", p: -1 })}
+            />
+          ) : (
+            <NoteEditor
+              lesson={sampleLesson}
+              note={noteState.note}
+              status={noteStatus}
+              failure={noteState.failure}
+              onAnswer={answerNote}
+              onStep={(step) => persistNote({ ...noteState.note, step })}
+              onSave={saveNote}
+              onRetry={() => persistNote(noteState.note)}
+              onBack={() => update({ view: "notes" })}
+            />
           )}
         </div>
       </div>
