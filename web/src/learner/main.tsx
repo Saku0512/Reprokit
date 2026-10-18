@@ -56,6 +56,7 @@ function App() {
   const pendingPhase = useRef<{ phase: number; previous?: number } | null>(null);
   const deployProgressTimer = useRef<number | null>(null);
   const deployProgressValue = useRef(0);
+  const comparisonRequests = useRef({ vulnerable: 0, fixed: 0 });
   const update = (patch: Partial<LearnerState>) =>
     setState((previous) => ({ ...previous, ...patch }));
   const trackPhase = useCallback((phase: number) => {
@@ -201,6 +202,7 @@ function App() {
 
   async function deployLab() {
     if (state.lab === "deploying") return;
+    resetComparison();
     deployProgressValue.current = 0;
     update({
       lab: "deploying",
@@ -240,6 +242,7 @@ function App() {
 
   async function stopLab() {
     if (!state.runtime?.labSessionId || state.lab === "deploying") return;
+    resetComparison();
     update({ lab: "deploying", seg: 16, labFailure: null });
     try {
       const runtime = await api.stop(state.runtime.labSessionId);
@@ -267,6 +270,7 @@ function App() {
 
   async function destroyLab() {
     if (!state.runtime?.labSessionId || state.lab === "deploying") return;
+    resetComparison();
     update({ lab: "deploying", seg: 18, modal: null, labFailure: null });
     try {
       const runtime = await api.delete(
@@ -368,6 +372,50 @@ function App() {
     }));
   }
 
+  function resetComparison() {
+    // 停止・削除・再起動前の遅延レスポンスを比較結果へ戻さない。
+    comparisonRequests.current.vulnerable++;
+    comparisonRequests.current.fixed++;
+    update({ comparison: {} });
+  }
+
+  async function compareMarker(service: LabRef) {
+    if (
+      !state.runtime?.labSessionId ||
+      state.lab !== "running" ||
+      state.comparison[service]?.loading
+    )
+      return;
+    const sessionID = state.runtime.labSessionId;
+    const requestID = ++comparisonRequests.current[service];
+    setState((previous) => ({
+      ...previous,
+      comparison: { ...previous.comparison, [service]: { loading: true } },
+    }));
+    try {
+      const marker = await api.marker(sessionID, service);
+      if (marker.service !== service || typeof marker.exists !== "boolean")
+        throw new Error("対象のマーカーを確認できませんでした。再取得してください。");
+      if (requestID !== comparisonRequests.current[service]) return;
+      setState((previous) => ({
+        ...previous,
+        comparison: { ...previous.comparison, [service]: { loading: false, marker } },
+      }));
+    } catch (error) {
+      if (requestID !== comparisonRequests.current[service]) return;
+      setState((previous) => ({
+        ...previous,
+        comparison: {
+          ...previous.comparison,
+          [service]: {
+            loading: false,
+            failure: error instanceof Error ? error.message : "マーカーを取得できませんでした。",
+          },
+        },
+      }));
+    }
+  }
+
   async function action(event: MouseEvent<HTMLDivElement>) {
     const target =
       event.target instanceof Element ? event.target.closest<HTMLElement>("[data-a]") : null;
@@ -429,9 +477,8 @@ function App() {
       case "fwd":
         update({ pos: Math.min(5, state.pos + 1), pick: Math.min(5, state.pos + 1) });
         break;
-      case "runV":
-      case "runF":
-        update({ [a]: true });
+      case "compare":
+        if (v === "vulnerable" || v === "fixed") await compareMarker(v);
         break;
       case "deploy":
         update({ modal: "deploy", ok: false });
@@ -580,8 +627,7 @@ function App() {
 function resetLabState(): Partial<LearnerState> {
   return {
     repro: false,
-    runV: false,
-    runF: false,
+    comparison: {},
     logs: {},
     logLoading: null,
     logFailure: null,
