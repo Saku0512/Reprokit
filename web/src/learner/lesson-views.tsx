@@ -4,6 +4,7 @@ import { L, PH, NODES, TRACE_DETAILS } from "./lesson-data.ts";
 import { endpointURL } from "../shared/study-api.ts";
 import { PatchWorkshop } from "./patch-workshop.tsx";
 import { patchComparisonLines } from "./patch-exercise.ts";
+import { BehaviorComparison } from "./behavior-comparison.tsx";
 export function LessonList({ state: S }: StateProps) {
   const cats = [
     ["all", "すべて", L.length],
@@ -633,82 +634,9 @@ function PatchComparison() {
 }
 
 function Remediation({ state: S }: StateProps) {
-  const none = (
-    <>
-      <span style={{ color: "var(--sub)" }}>{"未実行"}</span>
-    </>
-  );
   return (
     <>
-      <div className="card">
-        <h3>{"同じ操作を、修正版（2.63.6・8081）で再実行"}</h3>
-        <p style={{ margin: "0", fontSize: "14px" }}>
-          {
-            "フェーズ2と同じ入力を使い、両版でログインが拒否される一方、脆弱版だけに副作用が残ることを確かめます。"
-          }
-        </p>
-        {"\n            "}
-        <div className="cmp" style={{ marginTop: "12px" }}>
-          <div>
-            <b style={{ fontSize: "14px" }}>{"脆弱版 2.63.5"}</b>
-            <div className={"res " + (S.runV ? "bad" : "")} style={{ marginTop: "6px" }}>
-              {S.runV ? (
-                <>
-                  <span className="pill red">{"マーカーが作られた"}</span>
-                  <br />
-                  {"ログインは拒否されますが、入力が危険な実行経路に届きました。"}
-                </>
-              ) : (
-                none
-              )}
-            </div>
-            <div className="act">
-              <button className="btn" data-a="runV" disabled={S.lab === "running" ? false : true}>
-                {"脆弱版の結果を確認"}
-              </button>
-            </div>
-          </div>
-          {"\n            "}
-          <div>
-            <b style={{ fontSize: "14px" }}>{"修正版 2.63.6"}</b>
-            <div className={"res " + (S.runF ? "good" : "")} style={{ marginTop: "6px" }}>
-              {S.runF ? (
-                <>
-                  <span className="pill green">{"防がれた"}</span>
-                  <br />
-                  {"ログインは拒否され、マーカーも作られません。"}
-                </>
-              ) : (
-                none
-              )}
-            </div>
-            <div className="act">
-              <button
-                className="btn primary"
-                data-a="runF"
-                disabled={S.lab === "running" ? false : true}
-              >
-                {"修正版の結果を確認"}
-              </button>
-            </div>
-          </div>
-        </div>
-        {"\n            "}
-        {S.runV && S.runF ? (
-          <>
-            <div className="reveal">
-              <b>{"確認できました。"}</b>
-              <br />
-              {
-                "両版ともログインは拒否されます。違いは、拒否される前に脆弱版だけでマーカーが作られることです。最後にDESTROYでLabを片付けましょう。"
-              }
-            </div>
-          </>
-        ) : (
-          ""
-        )}
-      </div>
-      {"\n            "}
+      <BehaviorComparison state={S} />
       <div className="card" style={{ marginTop: "14px" }}>
         <h3>{"実運用での対策"}</h3>
         <p style={{ margin: "0", fontSize: "14px" }}>
