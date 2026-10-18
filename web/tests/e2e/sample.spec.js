@@ -14,6 +14,10 @@ async function startLesson(page) {
   await expect(page.locator("#phase-title-0")).toBeFocused();
 }
 
+function labEndpoints(page) {
+  return page.locator(".tm .r2 > span").filter({ has: page.locator(".mono") });
+}
+
 async function atPhase(page, phase) {
   await expect
     .poll(() =>
@@ -102,6 +106,10 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await page.getByRole("button", { name: "起動する", exact: true }).click();
   await expect(page.locator(".st")).toHaveText("RUNNING");
   await expect(page.locator('a[href="http://127.0.0.1:18080"]')).toBeVisible();
+  const endpoints = labEndpoints(page);
+  await expect(endpoints).toHaveCount(2);
+  await expect(endpoints.nth(0)).toContainText("脆弱版：http://127.0.0.1:18080");
+  await expect(endpoints.nth(1)).toContainText("修正版：http://127.0.0.1:18081");
   await page.getByRole("button", { name: "検証コンソール", exact: true }).click();
   const consoleDialog = page.getByRole("dialog", { name: "検証コンソール" });
   await expect(consoleDialog).toBeVisible();
@@ -230,6 +238,26 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
     "?volumePolicy=delete",
   );
   expect(errors).toEqual([]);
+});
+
+test("半画面でも脆弱版を修正版より先に表示する", async ({ page }) => {
+  await page.setViewportSize({ width: 708, height: 900 });
+  await mockRunner(page, { paired: true });
+  await page.goto("/");
+  await page.locator('[data-a="open"]').first().click();
+  await startLesson(page);
+  await page.locator('[data-a="deploy"]').click();
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "起動する", exact: true }).click();
+
+  const endpoints = labEndpoints(page);
+  await expect(endpoints).toHaveCount(2);
+  await expect(endpoints.nth(0)).toContainText("脆弱版：http://127.0.0.1:18080");
+  await expect(endpoints.nth(1)).toContainText("修正版：http://127.0.0.1:18081");
+  const positions = await endpoints.evaluateAll((elements) =>
+    elements.map((element) => element.getBoundingClientRect().top),
+  );
+  expect(positions[0]).toBeLessThan(positions[1]);
 });
 
 test("Deployの進捗バーは目盛りごとに増える", async ({ page }) => {
