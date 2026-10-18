@@ -1,9 +1,9 @@
 import type { StateProps } from "./lesson-data.ts";
 import { useEffect, useRef } from "react";
-import { L, PH } from "./lesson-data.ts";
+import { L } from "./lesson-data.ts";
 import { LessonEnvironment } from "./lesson-environment.tsx";
 import { LessonOutline } from "./lesson-outline.tsx";
-import { lessonPhaseLeads, lessonPhases } from "./lesson-phases.tsx";
+import { LessonPhaseList } from "./lesson-phase-list.tsx";
 
 export function LessonDetail({
   state: S,
@@ -91,45 +91,7 @@ export function LessonDetail({
               {S.revealed < 0 ? "学習を開始する ↓" : "Step 1を読み返す ↓"}
             </button>
           </div>
-          <div className="lesson-sections">
-            {lessonPhases.slice(0, S.revealed + 1).map((Phase, index) => (
-              <section
-                key={PH[index][0]}
-                id={`phase-${index}`}
-                data-phase={index}
-                className="lesson-phase"
-                aria-labelledby={`phase-title-${index}`}
-              >
-                <p className="phase-kicker">
-                  STEP {String(index + 1).padStart(2, "0")} / {PH.length}
-                </p>
-                <h2 className="ph" id={`phase-title-${index}`} tabIndex={-1}>
-                  {PH[index][0]}
-                </h2>
-                <p className="lead2">{lessonPhaseLeads[index]}</p>
-                <div className="phase-body">
-                  <Phase lesson={lesson} state={S} />
-                </div>
-                <div className="nav">
-                  <button className="btn" data-a="prev" data-i={index} disabled={index === 0}>
-                    前の内容へ
-                  </button>
-                  <button
-                    className="btn primary"
-                    data-a="next"
-                    data-i={index}
-                    disabled={index === PH.length - 1 && S.done[index]}
-                  >
-                    {index === PH.length - 1
-                      ? S.done[index]
-                        ? "学習を完了しました"
-                        : "完了する"
-                      : `次へ：${PH[index + 1][0]} ↓`}
-                  </button>
-                </div>
-              </section>
-            ))}
-          </div>
+          <LessonPhaseList lesson={lesson} state={S} />
         </div>
       </div>
     </div>
