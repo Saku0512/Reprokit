@@ -5,8 +5,7 @@ import { requiredElement } from "../shared/dom.ts";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { initialState, PH } from "./lesson-data.ts";
-import { LabConsole, LessonList, LessonDetail, LessonOutline } from "./lesson-views.tsx";
-import { LabModal } from "./lab-modal.tsx";
+import { LearnerShell } from "./learner-shell.tsx";
 import { ApiError, StudyApi, canStart } from "../shared/study-api.ts";
 import "@fontsource/noto-sans-jp/400.css";
 import "@fontsource/noto-sans-jp/500.css";
@@ -519,105 +518,23 @@ function App() {
   }
 
   return (
-    <div onClick={action}>
-      <div className={`app ${state.view === "detail" ? "learning" : ""}`}>
-        <header>
-          {state.view === "detail" && (
-            <button
-              className="menu-toggle"
-              aria-label="学習メニューを開く"
-              aria-expanded={menuOpen}
-              aria-controls="learning-menu"
-              onClick={() => setMenuOpen(true)}
-            >
-              <span aria-hidden="true">
-                <i />
-                <i />
-                <i />
-              </span>
-            </button>
-          )}
-          <button className="logo" data-a="home" aria-label="Reprokit ホーム">
-            <img src="/assets/reprokit-logo.png" alt="Reprokit" />
-          </button>
-          <div className="hd">
-            {state.lab === "running" && (
-              <button
-                className="btn sm"
-                data-a="console"
-                aria-haspopup="dialog"
-                aria-expanded={consoleOpen}
-              >
-                {"検証コンソール"}
-              </button>
-            )}
-            <button className="btn sm" id="theme" onClick={() => setDark(!dark)}>
-              表示切替
-            </button>
-          </div>
-        </header>
-        <div id="view" ref={view} style={{ minHeight: 0, overflow: "hidden" }}>
-          {state.view === "list" ? (
-            <LessonList state={state} />
-          ) : (
-            <LessonDetail state={state} onPhaseChange={trackPhase} />
-          )}
-        </div>
-      </div>
-      {state.view === "detail" && (
-        <dialog
-          ref={menu}
-          id="learning-menu"
-          className="outline-dialog"
-          aria-labelledby="learning-menu-title"
-          onClose={() => setMenuOpen(false)}
-          onClick={(event) => {
-            if (event.target === event.currentTarget) menu.current?.close();
-          }}
-        >
-          <div className="outline-dialog-header">
-            <h2 id="learning-menu-title">学習メニュー</h2>
-            <button
-              className="menu-close"
-              aria-label="学習メニューを閉じる"
-              onClick={() => menu.current?.close()}
-              autoFocus
-            >
-              ×
-            </button>
-          </div>
-          <LessonOutline state={state} id="mobile-lesson-outline" />
-        </dialog>
-      )}
-      <dialog
-        ref={consoleDialog}
-        className="console-dialog"
-        aria-labelledby="console-title"
-        onClose={() => setConsoleOpen(false)}
-        onClick={(event) => {
-          if (event.target === event.currentTarget) consoleDialog.current?.close();
-        }}
-      >
-        <div className="console-dialog-header">
-          <h2 id="console-title">{"検証コンソール"}</h2>
-          <button
-            className="menu-close"
-            data-a="close-console"
-            aria-label="検証コンソールを閉じる"
-            autoFocus
-          >
-            ×
-          </button>
-        </div>
-        <LabConsole state={state} idPrefix="dialog-console" />
-      </dialog>
-      <div id="modal">
-        <LabModal state={state} onChange={update} />
-      </div>
-      <div className={`toast ${message ? "on" : ""}`} id="toast" role="status">
-        {message}
-      </div>
-    </div>
+    <LearnerShell
+      state={state}
+      dark={dark}
+      message={message}
+      menuOpen={menuOpen}
+      consoleOpen={consoleOpen}
+      menuRef={menu}
+      consoleDialogRef={consoleDialog}
+      viewRef={view}
+      onAction={action}
+      onMenuOpen={() => setMenuOpen(true)}
+      onMenuOpenChange={setMenuOpen}
+      onConsoleOpenChange={setConsoleOpen}
+      onDarkToggle={() => setDark((previous) => !previous)}
+      onPhaseChange={trackPhase}
+      onStateChange={update}
+    />
   );
 }
 
