@@ -212,6 +212,11 @@ html:has(.outline-dialog[open]) {
   @apply text-[12.5px] text-subtle [margin:16px_6px_0] pt-3;
   @apply [border-top:1px_dashed_var(--line)];
 }
+.sidebar-notes {
+  border-top: 1px dashed var(--line);
+  margin-top: 16px;
+  padding-top: 16px;
+}
 .cards {
   @apply py-[26px] px-[34px] overflow-auto;
 }
@@ -886,7 +891,21 @@ html:has(.console-dialog[open]) {
 .notes-page {
   height: 100%;
   overflow-y: auto;
-  padding: 28px 32px 72px;
+  padding: 28px 40px 72px;
+}
+.notes-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  max-width: 1360px;
+  margin: 0 auto;
+}
+.notes-layout > .notes-inner {
+  width: 100%;
+  min-width: 0;
+}
+.notes-layout > .notes-inner h1 {
+  margin-top: 0;
 }
 .notes-inner {
   max-width: 800px;
@@ -1012,7 +1031,7 @@ html:has(.console-dialog[open]) {
 }
 @media (max-width: 1000px) {
   .note-question {
-    scroll-margin-top: 74px;
+    scroll-margin-top: calc(88px + env(safe-area-inset-top, 0px));
   }
   .notes-page {
     padding: 18px 18px 48px;
@@ -1022,7 +1041,8 @@ html:has(.console-dialog[open]) {
   .app.learning {
     @apply grid h-[100dvh] grid-rows-[calc(64px_+_env(safe-area-inset-top,_0px))_minmax(0,_1fr)];
   }
-  .learning > header {
+  .learning > header,
+  .notes > header {
     @apply h-[calc(64px_+_env(safe-area-inset-top,_0px))] [padding:env(safe-area-inset-top,_0px)_16px_0] gap-3;
   }
   .learning .header-tagline {

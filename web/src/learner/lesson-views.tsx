@@ -25,9 +25,11 @@ export function LessonList({ state: S }: StateProps) {
               </button>
             </Fragment>
           ))}
-          <button className="cat" data-a="notes">
-            まとめノート →
-          </button>
+          <nav className="sidebar-notes" aria-label="学習の振り返り">
+            <button className="cat" data-a="notes">
+              まとめノート →
+            </button>
+          </nav>
           {"\n             "}
           <p className="note2">
             {
