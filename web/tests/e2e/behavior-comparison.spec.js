@@ -47,10 +47,17 @@ for (const width of [1440, 390]) {
     await expect
       .poll(() => page.evaluate(() => navigator.clipboard.readText()))
       .toBe("id > /tmp/success; echo hook.action=block");
+    await page
+      .locator(".comparison-input")
+      .getByRole("button", { name: "Passwordをコピー" })
+      .click();
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("anything");
     await page.locator("#phase-1").getByRole("button", { name: "Usernameをコピー" }).click();
     await expect
       .poll(() => page.evaluate(() => navigator.clipboard.readText()))
       .toBe("id > /tmp/success; echo hook.action=block");
+    await page.locator("#phase-1").getByRole("button", { name: "Passwordをコピー" }).click();
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toBe("anything");
     await expect(variant(page, "vulnerable")).toContainText("シェルが入力を命令として解釈");
     await expect(variant(page, "fixed")).toContainText("入力をシェル構文に再解釈しない");
     expect(fixture.calls.filter((call) => call.path.includes("/markers/"))).toHaveLength(0);

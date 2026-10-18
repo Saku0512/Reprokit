@@ -3,19 +3,16 @@
 package training
 
 import (
-	"bytes"
 	"crypto/rand"
 	"encoding/csv"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"io"
-	"os"
-	"path/filepath"
 	"regexp"
 	"sort"
-	"sync"
 	"time"
+
+	"github.com/jphacks/sd_2601/internal/model"
 )
 
 const (
@@ -30,104 +27,29 @@ var (
 	ErrInvalid      = errors.New("invalid training operation")
 )
 
-type AssignmentStatus string
+// modelパッケージへ移動した値オブジェクトとエンティティを、既存利用者向けに再公開する。
+type AssignmentStatus = model.AssignmentStatus
+type EvaluationStatus = model.EvaluationStatus
+type AuditAction = model.AuditAction
+type Material = model.Material
+type Cohort = model.Cohort
+type Assignment = model.Assignment
+type Submission = model.Submission
+type Completion = model.Completion
+type AuditEvent = model.AuditEvent
 
 const (
-	StatusAssigned   AssignmentStatus = "assigned"
-	StatusInProgress AssignmentStatus = "in_progress"
-	StatusSubmitted  AssignmentStatus = "submitted"
-	StatusCompleted  AssignmentStatus = "completed"
-	StatusNeedsRetry AssignmentStatus = "needs_retry"
+	StatusAssigned               = model.StatusAssigned
+	StatusInProgress             = model.StatusInProgress
+	StatusSubmitted              = model.StatusSubmitted
+	StatusCompleted              = model.StatusCompleted
+	StatusNeedsRetry             = model.StatusNeedsRetry
+	EvaluationPending            = model.EvaluationPending
+	EvaluationAccepted           = model.EvaluationAccepted
+	EvaluationNeedsRetry         = model.EvaluationNeedsRetry
+	AuditAssignmentCreated       = model.AuditAssignmentCreated
+	AuditAssignmentStatusChanged = model.AuditAssignmentStatusChanged
 )
-
-type EvaluationStatus string
-
-const (
-	EvaluationPending    EvaluationStatus = "pending"
-	EvaluationAccepted   EvaluationStatus = "accepted"
-	EvaluationNeedsRetry EvaluationStatus = "needs_retry"
-)
-
-// AuditActionは研修管理で追跡する、固定された操作種別である。
-type AuditAction string
-
-const (
-	AuditAssignmentCreated       AuditAction = "assignment_created"
-	AuditAssignmentStatusChanged AuditAction = "assignment_status_changed"
-)
-
-// Materialは管理画面へ公開する、版まで固定された教材である。
-type Material struct {
-	LessonID        string   `json:"lessonId"`
-	LessonVersion   string   `json:"lessonVersion"`
-	Title           string   `json:"title"`
-	Product         string   `json:"product"`
-	DurationMinutes int      `json:"durationMinutes"`
-	CVEs            []string `json:"cves,omitempty"`
-}
-
-// Cohortは同じ教材を割り当てる受講者グループである。
-type Cohort struct {
-	ID             string    `json:"id"`
-	OrganizationID string    `json:"organizationId"`
-	Name           string    `json:"name"`
-	LearnerIDs     []string  `json:"learnerIds"`
-	CreatedAt      time.Time `json:"createdAt"`
-}
-
-// Assignmentは一人の受講者へ固定教材版を割り当てた記録である。
-type Assignment struct {
-	ID             string           `json:"id"`
-	OrganizationID string           `json:"organizationId"`
-	LessonID       string           `json:"lessonId"`
-	LessonVersion  string           `json:"lessonVersion"`
-	LearnerID      string           `json:"learnerId"`
-	CohortID       string           `json:"cohortId,omitempty"`
-	DueAt          time.Time        `json:"dueAt"`
-	AllowRetry     bool             `json:"allowRetry"`
-	Status         AssignmentStatus `json:"status"`
-	CreatedAt      time.Time        `json:"createdAt"`
-}
-
-// Submissionは確認課題の回答と評価だけを保持する。実行ログは保持しない。
-type Submission struct {
-	ID             string            `json:"id"`
-	OrganizationID string            `json:"organizationId"`
-	AssignmentID   string            `json:"assignmentId"`
-	LearnerID      string            `json:"learnerId"`
-	LessonID       string            `json:"lessonId"`
-	LessonVersion  string            `json:"lessonVersion"`
-	Answers        map[string]string `json:"answers"`
-	SubmittedAt    time.Time         `json:"submittedAt"`
-	Evaluation     EvaluationStatus  `json:"evaluation"`
-	EvaluatorID    string            `json:"evaluatorId,omitempty"`
-	EvaluatedAt    *time.Time        `json:"evaluatedAt,omitempty"`
-}
-
-// Completionは提出の評価結果から生成される。Labの起動結果から生成してはならない。
-type Completion struct {
-	ID             string    `json:"id"`
-	OrganizationID string    `json:"organizationId"`
-	AssignmentID   string    `json:"assignmentId"`
-	LearnerID      string    `json:"learnerId"`
-	CompletedAt    time.Time `json:"completedAt"`
-}
-
-// AuditEventは研修運用上の状態変化だけを記録する。回答、Lab、操作履歴は含めない。
-type AuditEvent struct {
-	ID             string           `json:"id"`
-	OrganizationID string           `json:"organizationId"`
-	Action         AuditAction      `json:"action"`
-	ActorID        string           `json:"actorId"`
-	ResourceType   string           `json:"resourceType"`
-	ResourceID     string           `json:"resourceId"`
-	LessonID       string           `json:"lessonId,omitempty"`
-	LessonVersion  string           `json:"lessonVersion,omitempty"`
-	AssignmentID   string           `json:"assignmentId,omitempty"`
-	PreviousStatus AssignmentStatus `json:"previousStatus,omitempty"`
-	Status         AssignmentStatus `json:"status,omitempty"`
-	OccurredAt     time.Time        `json:"occurredAt"`
-}
 
 type CreateCohortInput struct {
 	OrganizationID string
@@ -163,252 +85,10 @@ type ReviewInput struct {
 	Evaluation     EvaluationStatus
 }
 
-type persistedState struct {
-	Cohorts     map[string]Cohort     `json:"cohorts"`
-	Assignments map[string]Assignment `json:"assignments"`
-	Submissions map[string]Submission `json:"submissions"`
-	Completions map[string]Completion `json:"completions"`
-	AuditEvents map[string]AuditEvent `json:"auditEvents"`
-}
-
-// legacyStateはCourseを保存していた旧形式を教材単位へ一度だけ移行するための形式である。
-type legacyLessonRef struct {
-	LessonID      string `json:"lessonId"`
-	LessonVersion string `json:"lessonVersion"`
-}
-
-type legacyCourse struct {
-	ID              string            `json:"id"`
-	OrganizationID  string            `json:"organizationId"`
-	Version         string            `json:"version"`
-	Title           string            `json:"title"`
-	Lessons         []legacyLessonRef `json:"lessons"`
-	RequiredLessons []legacyLessonRef `json:"requiredLessons"`
-	CreatedAt       time.Time         `json:"createdAt"`
-}
-
-type legacyAssignment struct {
-	ID             string           `json:"id"`
-	OrganizationID string           `json:"organizationId"`
-	CourseID       string           `json:"courseId"`
-	CourseVersion  string           `json:"courseVersion"`
-	LearnerID      string           `json:"learnerId"`
-	CohortID       string           `json:"cohortId,omitempty"`
-	DueAt          time.Time        `json:"dueAt"`
-	AllowRetry     bool             `json:"allowRetry"`
-	Status         AssignmentStatus `json:"status"`
-	CreatedAt      time.Time        `json:"createdAt"`
-}
-
-type legacyAuditEvent struct {
-	ID             string           `json:"id"`
-	OrganizationID string           `json:"organizationId"`
-	Action         AuditAction      `json:"action"`
-	ActorID        string           `json:"actorId"`
-	ResourceType   string           `json:"resourceType"`
-	ResourceID     string           `json:"resourceId"`
-	CourseID       string           `json:"courseId,omitempty"`
-	CourseVersion  string           `json:"courseVersion,omitempty"`
-	AssignmentID   string           `json:"assignmentId,omitempty"`
-	PreviousStatus AssignmentStatus `json:"previousStatus,omitempty"`
-	Status         AssignmentStatus `json:"status,omitempty"`
-	OccurredAt     time.Time        `json:"occurredAt"`
-}
-
-type legacyState struct {
-	Courses     map[string]legacyCourse     `json:"courses"`
-	Cohorts     map[string]Cohort           `json:"cohorts"`
-	Assignments map[string]legacyAssignment `json:"assignments"`
-	Submissions map[string]Submission       `json:"submissions"`
-	Completions map[string]Completion       `json:"completions"`
-	AuditEvents map[string]legacyAuditEvent `json:"auditEvents"`
-}
-
-// Storeは組織をまたがない研修管理データを、privateなローカルJSONへ保存する。
-type Store struct {
-	root  string
-	mu    sync.Mutex
-	state persistedState
-}
-
-func NewStore(root string) (*Store, error) {
-	if err := os.MkdirAll(root, 0700); err != nil {
-		return nil, err
-	}
-	info, err := os.Lstat(root)
-	if err != nil {
-		return nil, err
-	}
-	if !info.IsDir() || info.Mode().Perm()&0077 != 0 {
-		return nil, errors.New("training directory must be private (0700)")
-	}
-	store := &Store{root: root, state: emptyState()}
-	if err := store.load(); err != nil {
-		return nil, err
-	}
-	return store, nil
-}
-
-func emptyState() persistedState {
-	return persistedState{Cohorts: map[string]Cohort{}, Assignments: map[string]Assignment{}, Submissions: map[string]Submission{}, Completions: map[string]Completion{}, AuditEvents: map[string]AuditEvent{}}
-}
-
-func (store *Store) load() error {
-	data, err := os.ReadFile(filepath.Join(store.root, "training.json"))
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	if err != nil || len(data) > maxStateBytes {
-		return errors.New("could not read training state")
-	}
-	var state persistedState
-	if !decodeState(data, &state) {
-		var legacy legacyState
-		if !decodeState(data, &legacy) {
-			return errors.New("corrupt training state")
-		}
-		migrated, err := migrateLegacyState(legacy)
-		if err != nil || !validState(migrated) {
-			return errors.New("legacy training state cannot be migrated")
-		}
-		store.state = migrated
-		return store.save()
-	}
-	// 監査イベント導入前の状態ファイルは、空の監査イベント集合として移行する。
-	if state.AuditEvents == nil {
-		state.AuditEvents = map[string]AuditEvent{}
-	}
-	if !validState(state) {
-		return errors.New("corrupt training state")
-	}
-	store.state = state
-	return nil
-}
-
-func decodeState(data []byte, target any) bool {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	return decoder.Decode(target) == nil && decoder.Decode(&struct{}{}) == io.EOF
-}
-
-func migrateLegacyState(legacy legacyState) (persistedState, error) {
-	state := emptyState()
-	if legacy.Courses == nil || legacy.Cohorts == nil || legacy.Assignments == nil || legacy.Submissions == nil || legacy.Completions == nil {
-		return persistedState{}, ErrInvalid
-	}
-	state.Cohorts = legacy.Cohorts
-	state.Submissions = legacy.Submissions
-	state.Completions = legacy.Completions
-	for key, value := range legacy.Assignments {
-		course, exists := legacy.Courses[legacyCourseKey(value.OrganizationID, value.CourseID, value.CourseVersion)]
-		if !exists || len(course.Lessons) != 1 || len(course.RequiredLessons) != 1 || course.Lessons[0] != course.RequiredLessons[0] {
-			return persistedState{}, ErrInvalid
-		}
-		lesson := course.Lessons[0]
-		state.Assignments[key] = Assignment{
-			ID: value.ID, OrganizationID: value.OrganizationID,
-			LessonID: lesson.LessonID, LessonVersion: lesson.LessonVersion,
-			LearnerID: value.LearnerID, CohortID: value.CohortID, DueAt: value.DueAt,
-			AllowRetry: value.AllowRetry, Status: value.Status, CreatedAt: value.CreatedAt,
-		}
-	}
-	for key, value := range legacy.AuditEvents {
-		if value.Action != AuditAssignmentCreated && value.Action != AuditAssignmentStatusChanged {
-			continue
-		}
-		assignment, exists := state.Assignments[scopedKey(value.OrganizationID, value.AssignmentID)]
-		if !exists {
-			return persistedState{}, ErrInvalid
-		}
-		state.AuditEvents[key] = AuditEvent{
-			ID: value.ID, OrganizationID: value.OrganizationID, Action: value.Action,
-			ActorID: value.ActorID, ResourceType: value.ResourceType, ResourceID: value.ResourceID,
-			LessonID: assignment.LessonID, LessonVersion: assignment.LessonVersion,
-			AssignmentID: value.AssignmentID, PreviousStatus: value.PreviousStatus,
-			Status: value.Status, OccurredAt: value.OccurredAt,
-		}
-	}
-	return state, nil
-}
-
-func (store *Store) save() error {
-	data, err := json.Marshal(store.state)
-	if err != nil || len(data) > maxStateBytes {
-		return ErrInvalid
-	}
-	file, err := os.CreateTemp(store.root, ".training-*")
-	if err != nil {
-		return err
-	}
-	name := file.Name()
-	defer os.Remove(name)
-	if err := file.Chmod(0600); err != nil {
-		file.Close()
-		return err
-	}
-	if _, err := file.Write(data); err != nil {
-		file.Close()
-		return err
-	}
-	if err := file.Sync(); err != nil {
-		file.Close()
-		return err
-	}
-	if err := file.Close(); err != nil {
-		return err
-	}
-	return os.Rename(name, filepath.Join(store.root, "training.json"))
-}
-
 func validID(value string) bool { return idPattern.MatchString(value) }
 
 func validLessonReference(id, version string) bool {
 	return lessonIDPattern.MatchString(id) && version != ""
-}
-
-func validState(state persistedState) bool {
-	if state.Cohorts == nil || state.Assignments == nil || state.Submissions == nil || state.Completions == nil || state.AuditEvents == nil {
-		return false
-	}
-	for key, cohort := range state.Cohorts {
-		if key != scopedKey(cohort.OrganizationID, cohort.ID) || !validID(cohort.OrganizationID) || !validID(cohort.ID) || cohort.Name == "" || cohort.CreatedAt.IsZero() || !uniqueIDs(cohort.LearnerIDs) {
-			return false
-		}
-	}
-	for key, assignment := range state.Assignments {
-		if key != scopedKey(assignment.OrganizationID, assignment.ID) || !validID(assignment.OrganizationID) || !validID(assignment.ID) || !validLessonReference(assignment.LessonID, assignment.LessonVersion) || !validID(assignment.LearnerID) || assignment.DueAt.IsZero() || assignment.CreatedAt.IsZero() || !validAssignmentStatus(assignment.Status) {
-			return false
-		}
-		if assignment.CohortID != "" {
-			if cohort, exists := state.Cohorts[scopedKey(assignment.OrganizationID, assignment.CohortID)]; !exists || !contains(cohort.LearnerIDs, assignment.LearnerID) {
-				return false
-			}
-		}
-	}
-	for key, submission := range state.Submissions {
-		if key != scopedKey(submission.OrganizationID, submission.ID) || !validSubmission(submission) {
-			return false
-		}
-		assignment, exists := state.Assignments[scopedKey(submission.OrganizationID, submission.AssignmentID)]
-		if !exists || assignment.LearnerID != submission.LearnerID || assignment.LessonID != submission.LessonID || assignment.LessonVersion != submission.LessonVersion {
-			return false
-		}
-	}
-	for key, completion := range state.Completions {
-		if key != scopedKey(completion.OrganizationID, completion.ID) || !validID(completion.OrganizationID) || !validID(completion.ID) || !validID(completion.AssignmentID) || !validID(completion.LearnerID) || completion.CompletedAt.IsZero() {
-			return false
-		}
-		assignment, exists := state.Assignments[scopedKey(completion.OrganizationID, completion.AssignmentID)]
-		if !exists || assignment.LearnerID != completion.LearnerID || assignment.Status != StatusCompleted {
-			return false
-		}
-	}
-	for key, event := range state.AuditEvents {
-		if key != scopedKey(event.OrganizationID, event.ID) || !validAuditEvent(event) {
-			return false
-		}
-	}
-	return true
 }
 
 func scopedKey(organizationID, id string) string { return organizationID + ":" + id }

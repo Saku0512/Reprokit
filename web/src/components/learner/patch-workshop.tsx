@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { checkPatch, patchHints, starterPatch } from "./patch-exercise.ts";
-import type { PatchResult } from "./patch-exercise.ts";
+import { checkPatch, patchHints, starterPatch } from "../../learner/patch-exercise.ts";
+import type { PatchResult } from "../../learner/patch-exercise.ts";
 
 export function PatchWorkshop() {
   const [code, setCode] = useState(starterPatch);

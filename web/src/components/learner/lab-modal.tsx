@@ -1,4 +1,4 @@
-import type { LearnerState, StateProps } from "./lesson-data.ts";
+import type { LearnerState, StateProps } from "../../learner/lesson-data.ts";
 export function LabModal({
   state: S,
   onChange,

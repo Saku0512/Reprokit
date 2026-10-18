@@ -1,7 +1,7 @@
-import type { StateProps } from "./lesson-data.ts";
-import { markerCredentials } from "./lesson-data.ts";
-import type { LabRef } from "../shared/types.ts";
-import { endpointURL } from "../shared/study-api.ts";
+import type { StateProps } from "../../learner/lesson-data.ts";
+import { markerCredentials } from "../../learner/lesson-data.ts";
+import type { LabRef } from "../../shared/types.ts";
+import { endpointURL } from "../../shared/study-api.ts";
 
 const variants = [
   {
@@ -108,13 +108,19 @@ export function BehaviorComparison({ state: S }: StateProps) {
           <div>
             <dt>Username</dt>
             <dd>
-              <code>{markerCredentials.username}</code>
+              <code>{markerCredentials.username}</code>{" "}
+              <button className="btn sm" data-a="copy" data-v={markerCredentials.username}>
+                Usernameをコピー
+              </button>
             </dd>
           </div>
           <div>
             <dt>Password</dt>
             <dd>
-              <code>{markerCredentials.password}</code>
+              <code>{markerCredentials.password}</code>{" "}
+              <button className="btn sm" data-a="copy" data-v={markerCredentials.password}>
+                Passwordをコピー
+              </button>
             </dd>
           </div>
         </dl>

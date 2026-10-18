@@ -172,3 +172,32 @@ test("管理画面を小画面でも横にはみ出さず操作できる", async
   await expect(firstAssignment.getByRole("button", { name: "提出を見る" })).toBeVisible();
   await page.screenshot({ path: join(testOutputDir, "admin-mobile.png"), fullPage: true });
 });
+
+test("不正な対象者IDをAPIへ送らず、入力エラーを表示する", async ({ page }) => {
+  const fixture = await mockAdministration(page);
+  await page.goto("/admin");
+  await page.getByLabel("対象者ID").fill("Alice, bob");
+  await page.getByRole("button", { name: "割り当てる" }).click();
+
+  await expect(page.locator("#admin-notice")).toContainText(
+    "対象者IDは英小文字、数字、ピリオド、ハイフン、アンダースコアで入力してください。",
+  );
+  expect(
+    fixture.calls.filter(
+      (call) => call.path === "/api/training/assignments" && call.method === "POST",
+    ),
+  ).toHaveLength(0);
+  await expect(page.locator("#assignment-toast")).toBeEmpty();
+});
+
+test("状態と検索の組み合わせで空の割り当て結果を示す", async ({ page }) => {
+  await mockAdministration(page);
+  await page.goto("/admin");
+  await page.getByLabel("状態").selectOption("completed");
+  await page.getByLabel("受講者・教材").fill("not-found");
+
+  await expect(page.locator("#assignment-count")).toHaveText("0件 / 全5件");
+  const emptyRow = page.locator("#assignments tr.empty-row");
+  await expect(emptyRow).toContainText("条件に一致する割り当てはありません。");
+  await expect(emptyRow.locator("td")).toHaveAttribute("colspan", "6");
+});
