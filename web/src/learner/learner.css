@@ -602,6 +602,143 @@ h2.ph {
   @apply border-success;
   @apply bg-success-soft;
 }
+.behavior-comparison {
+  @apply min-w-0;
+}
+.comparison-lead {
+  @apply mt-0 mb-4 text-[14px];
+}
+.comparison-input {
+  @apply bg-canvas rounded-[8px] p-[14px] text-[13px];
+}
+.comparison-input dl {
+  @apply my-2 grid gap-1;
+}
+.comparison-input dl > div {
+  @apply grid grid-cols-[90px_minmax(0,_1fr)] gap-2;
+}
+.comparison-input dt {
+  @apply text-subtle;
+}
+.comparison-input dd {
+  @apply m-0 min-w-0;
+  overflow-wrap: anywhere;
+}
+.comparison-input p {
+  @apply m-0 text-subtle;
+}
+.comparison-caption {
+  @apply mt-5 mb-2 text-[12.5px] text-subtle;
+}
+.comparison-columns {
+  @apply grid grid-cols-[repeat(2,_minmax(0,_1fr))] gap-4;
+}
+.comparison-variant {
+  @apply min-w-0 rounded-[10px] overflow-hidden p-4;
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--red);
+}
+.comparison-variant[data-service="fixed"] {
+  border-top-color: var(--green);
+}
+.comparison-variant-heading h4 {
+  @apply text-[16px] m-0;
+}
+.comparison-variant-heading h4 span {
+  @apply text-[13px] font-normal text-subtle ml-1;
+}
+.comparison-flow {
+  @apply list-none p-0 mt-4 mb-0;
+}
+.comparison-flow li {
+  @apply relative grid grid-cols-[26px_minmax(0,_1fr)] gap-[10px] min-h-[90px] pb-6;
+}
+.comparison-flow li:not(:last-child)::after {
+  content: "↓";
+  @apply absolute left-[6px] bottom-[2px] text-subtle;
+}
+.comparison-flow li:last-child {
+  @apply min-h-0 pb-0;
+}
+.flow-number {
+  @apply grid place-items-center rounded-full w-[26px] h-[26px] text-[12px] font-bold bg-canvas text-subtle;
+}
+.comparison-flow li:last-child .flow-number {
+  @apply bg-danger-soft text-danger;
+}
+.comparison-variant[data-service="fixed"] .comparison-flow li:last-child .flow-number {
+  @apply bg-success-soft text-success;
+}
+.comparison-flow b {
+  @apply block text-[13.5px];
+}
+.comparison-flow small {
+  @apply block text-[12px] text-subtle mt-1;
+  overflow-wrap: anywhere;
+}
+.comparison-response {
+  @apply grid gap-1 mt-4 p-[10px] rounded-[6px] bg-canvas text-[12px] text-subtle;
+}
+.comparison-response code {
+  @apply text-ink;
+}
+.comparison-open {
+  @apply mt-3 text-[12.5px];
+}
+.comparison-observation {
+  @apply mt-5 pt-4;
+  border-top: 1px solid var(--line);
+}
+.comparison-observation h5 {
+  @apply text-[13px] mt-0 mb-2;
+}
+.marker-result {
+  @apply rounded-[8px] bg-canvas p-3 mb-3 min-h-[144px] text-[12.5px];
+  border: 1px dashed var(--line);
+  overflow-wrap: anywhere;
+}
+.marker-result.danger {
+  @apply bg-danger-soft;
+  border: 1px solid var(--red);
+}
+.marker-result.success {
+  @apply bg-success-soft;
+  border: 1px solid var(--green);
+}
+.marker-result.warning {
+  @apply bg-warning-soft;
+  border: 1px solid var(--amber);
+}
+.marker-title {
+  @apply flex items-center gap-2 text-[17px];
+}
+.marker-result.danger .marker-title {
+  @apply text-danger;
+}
+.marker-result.success .marker-title {
+  @apply text-success;
+}
+.marker-result.warning .marker-title {
+  @apply text-warning;
+}
+.marker-result p {
+  @apply mt-2 mb-0;
+}
+.marker-content {
+  @apply bg-panel rounded-[4px] p-2 my-2 text-[12px] whitespace-pre-wrap;
+  overflow-wrap: anywhere;
+}
+.behavior-comparison .reveal p {
+  @apply mt-1 mb-0;
+}
+@media (max-width: 700px) {
+  .comparison-columns {
+    @apply grid-cols-[minmax(0,_1fr)];
+  }
+  .comparison-input dl > div {
+    @apply grid-cols-[minmax(0,_1fr)] gap-0;
+  }
+}
 .act {
   @apply flex gap-[10px] flex-wrap mt-3 items-center;
 }

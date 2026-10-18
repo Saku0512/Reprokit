@@ -1,4 +1,15 @@
-import type { LabSession, LogSnapshot, MarkerObservation } from "../shared/types.ts";
+import type { LabRef, LabSession, LogSnapshot, MarkerObservation } from "../shared/types.ts";
+
+export const markerCredentials = {
+  username: "id > /tmp/success; echo hook.action=block",
+  password: "anything",
+} as const;
+
+export interface ComparisonObservation {
+  loading: boolean;
+  marker?: MarkerObservation;
+  failure?: string;
+}
 
 export interface SampleLesson {
   id: string;
@@ -37,8 +48,7 @@ export interface LearnerState {
   pos: number;
   pick: number | null;
   found: number | null;
-  runV: boolean;
-  runF: boolean;
+  comparison: Partial<Record<LabRef, ComparisonObservation>>;
   note: string;
   modal?: "deploy" | "destroy" | null;
 }
@@ -184,7 +194,6 @@ export const initialState: LearnerState = {
   pos: 0,
   pick: null,
   found: null,
-  runV: false,
-  runF: false,
+  comparison: {},
   note: "",
 };

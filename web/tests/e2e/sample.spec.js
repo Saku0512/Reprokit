@@ -208,8 +208,9 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await expect(page.locator('.diff [data-change="context"]')).toHaveCount(4);
   await page.locator('#phase-4 [data-a="next"]').click();
   await atNextBoundary(page, 4);
-  for (const action of ["runV", "runF"]) await page.locator(`[data-a="${action}"]`).click();
-  await expect(page.locator("#phase-5 .reveal")).toContainText("確認できました。");
+  for (const service of ["vulnerable", "fixed"])
+    await page.locator(`[data-a="compare"][data-v="${service}"]`).click();
+  await expect(page.locator("#phase-5 .reveal")).toContainText("マーカーの有無に差があります");
   await page.locator('#phase-5 [data-a="next"]').click();
   await page.locator('[data-a="stop"]').click();
   await expect(page.locator(".st")).toHaveText("STOPPED");
