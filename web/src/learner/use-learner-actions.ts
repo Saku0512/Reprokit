@@ -47,6 +47,14 @@ export function createLearnerActionHandler({
       case "home":
         update({ view: "list" });
         break;
+      case "notes":
+        menuRef.current?.close();
+        setMenuOpen(false);
+        update({ view: "notes" });
+        break;
+      case "write-note":
+        update({ view: "note" });
+        break;
       case "open":
         update({ view: "detail", p: -1 });
         break;

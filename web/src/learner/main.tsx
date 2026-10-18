@@ -2,8 +2,11 @@ import type { LearnerState } from "./lesson-data.ts";
 import { requiredElement } from "../shared/dom.ts";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { initialState } from "./lesson-data.ts";
+import { initialState, L } from "./lesson-data.ts";
 import { LearnerShell } from "../components/learner/learner-shell.tsx";
+import { NoteEditor, NoteLibrary } from "./learning-notes.tsx";
+import { finishNote, readNote, writeNote } from "./learning-note.ts";
+import type { LearningNote, NoteAnswerID } from "./learning-note.ts";
 import { StudyApi } from "../shared/study-api.ts";
 import { useLearnerLab } from "./use-learner-lab.ts";
 import { createLearnerActionHandler } from "./use-learner-actions.ts";
@@ -17,9 +20,16 @@ import "./learner.css";
 const api = new StudyApi(
   document.querySelector<HTMLMetaElement>('meta[name="reprokit-session"]')?.content ?? "",
 );
+const noteLesson = {
+  lessonId: "command-injection/filebrowser-auth-hook",
+  lessonVersion: "1.0.0",
+};
+const sampleLesson = L.find((lesson) => lesson.id === "fb")!;
 
 function App() {
   const [state, setState] = useState(initialState);
+  const [noteState, setNoteState] = useState(() => readNote(noteLesson));
+  const [noteStatus, setNoteStatus] = useState("");
   const [dark, setDark] = useState(false);
   const [message, setMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -33,6 +43,42 @@ function App() {
   const trackPhase = useCallback((phase: number) => {
     setState((previous) => (previous.p === phase ? previous : { ...previous, p: phase }));
   }, []);
+
+  function persistNote(note: LearningNote, status = "下書きをこのブラウザに保存しました") {
+    const saved = writeNote(note);
+    setNoteState({
+      note,
+      failure: saved
+        ? ""
+        : "ブラウザに保存できませんでした。画面を閉じずに、保存設定や空き容量を確認して再試行してください。",
+    });
+    setNoteStatus(saved ? status : "変更はこの画面内にのみ保持されています。");
+    return saved;
+  }
+
+  function answerNote(id: NoteAnswerID, answer: string) {
+    persistNote({ ...noteState.note, draft: { ...noteState.note.draft, [id]: answer } });
+  }
+
+  function saveNote() {
+    const next = finishNote(noteState.note);
+    if (!next) return;
+    // 永続化できた場合だけカードを更新し、失敗時は編集中の回答を残す。
+    if (!writeNote(next)) {
+      setNoteState((previous) => ({
+        ...previous,
+        failure:
+          "カードを保存できませんでした。画面を閉じずに、ブラウザの保存設定や空き容量を確認して再試行してください。",
+      }));
+      setNoteStatus("変更はこの画面内にのみ保持されています。");
+      return;
+    }
+    setNoteState({ note: next, failure: "" });
+    setNoteStatus("");
+    update({ view: "notes" });
+    setMessage("まとめをカードに保存しました");
+  }
+
   const { deployLab, stopLab, destroyLab, showLogs, readMarker, observeService, compareMarker } =
     useLearnerLab({ api, state, update, setState, setMessage });
   const action = createLearnerActionHandler({
@@ -138,6 +184,16 @@ function App() {
       onDarkToggle={() => setDark((previous) => !previous)}
       onPhaseChange={trackPhase}
       onStateChange={update}
+      note={noteState.note}
+      noteStatus={noteStatus}
+      noteFailure={noteState.failure}
+      onNoteAnswer={answerNote}
+      onNoteStep={(step) => persistNote({ ...noteState.note, step })}
+      onNoteSave={saveNote}
+      onNoteRetry={() => persistNote(noteState.note)}
+      onNoteEdit={() => update({ view: "note" })}
+      onNoteRead={() => update({ view: "detail", p: -1 })}
+      onNoteBack={() => update({ view: "notes" })}
     />
   );
 }

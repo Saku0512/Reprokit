@@ -32,6 +32,9 @@ export function LessonOutline({ state: S, id = "lesson-outline" }: LessonOutline
           </li>
         ))}
       </ol>
+      <button className="btn" data-a="notes">
+        {"まとめノートを見る"}
+      </button>
     </nav>
   );
 }

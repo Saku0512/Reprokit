@@ -45,6 +45,20 @@ export function LessonPhaseList({ lesson, state }: LessonPhaseListProps) {
                 : `次へ：${PH[index + 1][0]} ↓`}
             </button>
           </div>
+          {index === PH.length - 1 && state.done[index] && (
+            <div className="note-invitation card">
+              <h3>{"学んだことを、自分の言葉に"}</h3>
+              <p>
+                {"影響・原因・修正・再発防止の4問に答えて、後から振り返れるカードを作りましょう。"}
+              </p>
+              <button className="btn primary" data-a="write-note">
+                {"学習のまとめを書く →"}
+              </button>
+              <p className="notes-storage">
+                {"Labが起動中の場合は、上のDESTROYから片付けてください。"}
+              </p>
+            </div>
+          )}
         </section>
       ))}
     </div>

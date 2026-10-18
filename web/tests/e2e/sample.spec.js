@@ -64,6 +64,10 @@ for (const width of [1440, 390]) {
         contentType: "text/html",
         // 章数と削除済みのヘッダー文言を現行仕様へ合わせ、残りのレイアウトを比較する。
         body: sample
+          .replace(
+            '<p class="note2">',
+            '<nav class="sidebar-notes" aria-label="学習の振り返り"><button class="cat" data-a="notes">まとめノート →</button></nav><p class="note2">',
+          )
           .replaceAll("/ 5</em>", `/ ${PH.length}</em>`)
           .replace(/<span\b[^>]*>\s*実際のCVEを、自分で試して理解する\s*<\/span\s*>/, "")
           .replace(/<link[\s\S]*?\/>/, '<link rel="stylesheet" href="/generated/app.css" />'),
