@@ -181,14 +181,33 @@ test("静的ファイルを限定し、API未設定を成功表示しない", as
   const origin = await start(createWebServer(), t);
   const page = await fetch(origin);
   assert.equal(page.status, 200);
-  assert.match(await page.text(), /<html lang="ja">/);
+  const pageText = await page.text();
+  assert.match(pageText, /<html lang="ja">/);
+  assert.match(
+    pageText,
+    /<link rel="icon" type="image\/png" href="\/assets\/reprokit-icon\.png" \/>/,
+  );
   assert.match(page.headers.get("content-security-policy"), /connect-src 'self'/);
   const admin = await fetch(`${origin}/admin`);
   assert.equal(admin.status, 200);
-  assert.match(await admin.text(), /研修管理へログイン/);
+  const adminText = await admin.text();
+  assert.match(adminText, /研修管理へログイン/);
+  assert.match(
+    adminText,
+    /<link rel="icon" type="image\/png" href="\/assets\/reprokit-icon\.png" \/>/,
+  );
+  const runner = await fetch(`${origin}/runner`);
+  assert.equal(runner.status, 200);
+  assert.match(
+    await runner.text(),
+    /<link rel="icon" type="image\/png" href="\/assets\/reprokit-icon\.png" \/>/,
+  );
   const logo = await fetch(`${origin}/assets/reprokit-logo.png`);
   assert.equal(logo.status, 200);
   assert.equal(logo.headers.get("content-type"), "image/png");
+  const icon = await fetch(`${origin}/assets/reprokit-icon.png`);
+  assert.equal(icon.status, 200);
+  assert.equal(icon.headers.get("content-type"), "image/png");
   assert.equal((await fetch(`${origin}/api/lessons`)).status, 503);
   assert.equal((await fetch(`${origin}/package.json`)).status, 404);
   assert.equal((await fetch(`${origin}/src/../server.mjs`)).status, 404);

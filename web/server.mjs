@@ -8,6 +8,7 @@ const files = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/runner", ["runner.html", "text/html; charset=utf-8"]],
   ["/admin", ["admin.html", "text/html; charset=utf-8"]],
+  ["/assets/reprokit-icon.png", ["assets/reprokit-icon.png", "image/png"]],
   ["/assets/reprokit-logo.png", ["assets/reprokit-logo.png", "image/png"]],
 ]);
 
