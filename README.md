@@ -1,5 +1,8 @@
 # Reprokit
 
+
+[![Reprokit](./web/assets/reprokit-logo.png)](https://drive.google.com/file/d/16_RnXCeab9hUtjkBldlF_dwQ-7F2P3EF/view?usp=sharing)
+
 ## 製品概要
 
 ### 背景（製品開発のきっかけ、課題等）
