@@ -6,6 +6,7 @@
     "format:check": "bash .codex/skills/reprokit-verify/scripts/format.sh check",
     "verify": "bash .codex/skills/reprokit-verify/scripts/verify.sh quick",
     "verify:full": "bash .codex/skills/reprokit-verify/scripts/verify.sh full",
+    "start": "npm ci && npm run web:install && npm run web:build && npm run web:start",
     "web:install": "npm --prefix web ci",
     "web:build": "npm --prefix web run build",
     "web:start": "npm --prefix web start",
