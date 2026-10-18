@@ -1,8 +1,9 @@
 import type { MouseEvent, RefObject } from "react";
 import type { LearnerState } from "./lesson-data.ts";
+import { LessonList } from "./lesson-catalog.tsx";
 import { LabModal } from "./lab-modal.tsx";
 import { LessonOutline } from "./lesson-outline.tsx";
-import { LabConsole, LessonDetail, LessonList } from "./lesson-views.tsx";
+import { LabConsole, LessonDetail } from "./lesson-views.tsx";
 
 interface LearnerShellProps {
   state: LearnerState;
