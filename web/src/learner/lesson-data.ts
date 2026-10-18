@@ -26,7 +26,7 @@ export interface SampleLesson {
 }
 
 export interface LearnerState {
-  view: "list" | "detail";
+  view: "list" | "detail" | "notes" | "note";
   cat: string;
   p: number;
   revealed: number;

@@ -25,6 +25,9 @@ export function LessonList({ state: S }: StateProps) {
               </button>
             </Fragment>
           ))}
+          <button className="cat" data-a="notes">
+            まとめノート →
+          </button>
           {"\n             "}
           <p className="note2">
             {
@@ -693,6 +696,9 @@ export function LessonOutline({ state: S, id = "lesson-outline" }: StateProps & 
           </li>
         ))}
       </ol>
+      <button className="btn" data-a="notes">
+        まとめノートを見る
+      </button>
     </nav>
   );
 }
@@ -827,6 +833,20 @@ export function LessonDetail({
                         : `次へ：${PH[i + 1][0]} ↓`}
                     </button>
                   </div>
+                  {i === PH.length - 1 && S.done[i] && (
+                    <div className="note-invitation card">
+                      <h3>学んだことを、自分の言葉に</h3>
+                      <p>
+                        影響・原因・修正・再発防止の4問に答えて、後から振り返れるカードを作りましょう。
+                      </p>
+                      <button className="btn primary" data-a="write-note">
+                        学習のまとめを書く →
+                      </button>
+                      <p className="notes-storage">
+                        Labが起動中の場合は、上のDESTROYから片付けてください。
+                      </p>
+                    </div>
+                  )}
                 </section>
               ))}
             </div>
