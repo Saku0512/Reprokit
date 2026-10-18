@@ -192,75 +192,77 @@ export function NoteLibrary({
   }, []);
   return (
     <main className="notes-page">
-      <div className="notes-inner">
-        <button className="back" data-a="home">
+      <div className="notes-layout">
+        <button className="back lesson-back" data-a="home">
           ← 教材一覧へ戻る
         </button>
-        <h1 ref={heading} tabIndex={-1}>
-          まとめノート
-        </h1>
-        <p className="notes-lead">学んだ脆弱性を、自分の言葉で振り返る。</p>
-        <p className="notes-storage">
-          このブラウザに保存したノートです。ブラウザのデータを消すとノートも消えます。
-        </p>
-        {failure && (
-          <p className="note-failure" role="alert">
-            {failure}
+        <div className="notes-inner">
+          <h1 ref={heading} tabIndex={-1}>
+            まとめノート
+          </h1>
+          <p className="notes-lead">学んだ脆弱性を、自分の言葉で振り返る。</p>
+          <p className="notes-storage">
+            このブラウザに保存したノートです。ブラウザのデータを消すとノートも消えます。
           </p>
-        )}
-        {note.saved ? (
-          <article className="note-card card" aria-labelledby="note-card-title">
-            <div className="note-card-meta">
-              <span className="pill">{lesson.cat}</span>
-              <time dateTime={note.saved.updatedAt}>
-                {new Date(note.saved.updatedAt).toLocaleDateString("ja-JP")} 更新
-              </time>
-            </div>
-            <h2 id="note-card-title">{lesson.sub}</h2>
-            <p className="notes-storage">
-              {lesson.product} · {lesson.cve} · 教材 v{note.lessonVersion}
+          {failure && (
+            <p className="note-failure" role="alert">
+              {failure}
             </p>
-            <p className="note-card-preview">{note.saved.answers.impact}</p>
-            <details className="note-details">
-              <summary>4つの回答を読む</summary>
-              <dl className="note-summary">
-                {NOTE_QUESTIONS.map(({ id, label }) => (
-                  <div key={id}>
-                    <dt>{label}</dt>
-                    <dd>{note.saved!.answers[id]}</dd>
-                  </div>
-                ))}
-              </dl>
-            </details>
-            <div className="note-actions">
-              <button className="btn" onClick={onRead}>
-                教材を読み返す
-              </button>
-              <button className="btn primary" onClick={onEdit}>
-                まとめを編集する
-              </button>
-            </div>
-          </article>
-        ) : (
-          <section className="note-card card">
-            <h2>{count ? "書きかけのまとめがあります" : "まだまとめノートがありません"}</h2>
-            <p>
-              {count
-                ? `${lesson.sub} · ${count} / ${NOTE_QUESTIONS.length}問回答済み`
-                : "教材を学んだら、4つの質問に答えてカードを作りましょう。"}
-            </p>
-            <div className="note-actions">
-              <button className="btn" onClick={onRead}>
-                教材を読む
-              </button>
-              {count > 0 && (
-                <button className="btn primary" onClick={onEdit}>
-                  下書きを再開する
+          )}
+          {note.saved ? (
+            <article className="note-card card" aria-labelledby="note-card-title">
+              <div className="note-card-meta">
+                <span className="pill">{lesson.cat}</span>
+                <time dateTime={note.saved.updatedAt}>
+                  {new Date(note.saved.updatedAt).toLocaleDateString("ja-JP")} 更新
+                </time>
+              </div>
+              <h2 id="note-card-title">{lesson.sub}</h2>
+              <p className="notes-storage">
+                {lesson.product} · {lesson.cve} · 教材 v{note.lessonVersion}
+              </p>
+              <p className="note-card-preview">{note.saved.answers.impact}</p>
+              <details className="note-details">
+                <summary>4つの回答を読む</summary>
+                <dl className="note-summary">
+                  {NOTE_QUESTIONS.map(({ id, label }) => (
+                    <div key={id}>
+                      <dt>{label}</dt>
+                      <dd>{note.saved!.answers[id]}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </details>
+              <div className="note-actions">
+                <button className="btn" onClick={onRead}>
+                  教材を読み返す
                 </button>
-              )}
-            </div>
-          </section>
-        )}
+                <button className="btn primary" onClick={onEdit}>
+                  まとめを編集する
+                </button>
+              </div>
+            </article>
+          ) : (
+            <section className="note-card card">
+              <h2>{count ? "書きかけのまとめがあります" : "まだまとめノートがありません"}</h2>
+              <p>
+                {count
+                  ? `${lesson.sub} · ${count} / ${NOTE_QUESTIONS.length}問回答済み`
+                  : "教材を学んだら、4つの質問に答えてカードを作りましょう。"}
+              </p>
+              <div className="note-actions">
+                <button className="btn" onClick={onRead}>
+                  教材を読む
+                </button>
+                {count > 0 && (
+                  <button className="btn primary" onClick={onEdit}>
+                    下書きを再開する
+                  </button>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
       </div>
     </main>
   );

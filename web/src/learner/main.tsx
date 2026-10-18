@@ -572,7 +572,9 @@ function App() {
 
   return (
     <div onClick={action}>
-      <div className={`app ${state.view === "detail" ? "learning" : ""}`}>
+      <div
+        className={`app ${state.view === "detail" ? "learning" : state.view === "notes" || state.view === "note" ? "notes" : ""}`}
+      >
         <header>
           {state.view === "detail" && (
             <button

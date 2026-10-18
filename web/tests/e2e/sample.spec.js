@@ -66,7 +66,7 @@ for (const width of [1440, 390]) {
         body: sample
           .replace(
             '<p class="note2">',
-            '<button class="cat" data-a="notes">まとめノート →</button><p class="note2">',
+            '<nav class="sidebar-notes" aria-label="学習の振り返り"><button class="cat" data-a="notes">まとめノート →</button></nav><p class="note2">',
           )
           .replaceAll("/ 5</em>", `/ ${PH.length}</em>`)
           .replace(/<span\b[^>]*>\s*実際のCVEを、自分で試して理解する\s*<\/span\s*>/, "")

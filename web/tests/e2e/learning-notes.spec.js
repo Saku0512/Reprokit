@@ -56,6 +56,34 @@ async function noHorizontalOverflow(page) {
   );
 }
 
+for (const width of [1920, 1440, 768, 390]) {
+  test(`ノートを分野から区切り、戻るボタンを教材ページと揃える (${width}px)`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/");
+    await page.evaluate(() => document.fonts.ready);
+    const navigation = page.getByRole("navigation", { name: "学習の振り返り", exact: true });
+    await expect(navigation).toHaveCSS("border-top-style", "dashed");
+    const divider = await navigation.boundingBox();
+    const category = await page.locator('.cats [data-a="cat"]').last().boundingBox();
+    expect(divider.y).toBeGreaterThan(category.y + category.height);
+    await page
+      .locator(".cats")
+      .screenshot({ path: testInfo.outputPath(`sidebar-notes-${width}.png`) });
+    await page.locator('[data-a="open"]').first().click();
+    const back = page.getByRole("button", { name: "← 教材一覧へ戻る", exact: true });
+    const lessonPosition = await back.boundingBox();
+    await back.click();
+    await openNotes(page);
+    const notesPosition = await back.boundingBox();
+    expect(Math.abs(notesPosition.x - lessonPosition.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(notesPosition.y - lessonPosition.y)).toBeLessThanOrEqual(1);
+    await noHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath(`notes-navigation-${width}.png`) });
+  });
+}
+
 for (const width of [1440, 390]) {
   test(`学習後のまとめ、途中再開、カードの振り返りと編集 (${width}px)`, async ({
     page,
