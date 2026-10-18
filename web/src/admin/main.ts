@@ -1,8 +1,7 @@
-import type { Assignment, AssignmentStatus, Material, Submission } from "../shared/types.ts";
+import type { Assignment, Material, Submission } from "../shared/types.ts";
 import { requiredElement, errorMessage } from "../shared/dom.ts";
 import "./admin.css";
 import {
-  STATUS_META,
   answerPresentation,
   assignmentSummary,
   completionDescription,
@@ -10,6 +9,13 @@ import {
   materialForAssignment,
   parseLearnerIDs,
 } from "./assignment-model.ts";
+import {
+  formatDate,
+  materialName,
+  statusBadge,
+  tableCell,
+  textElement,
+} from "./admin-presenters.ts";
 
 const loginPanel = requiredElement("#login-panel");
 const dashboard = requiredElement("#dashboard");
@@ -49,39 +55,8 @@ async function run(task: () => Promise<void>) {
   }
 }
 
-function textElement<K extends keyof HTMLElementTagNameMap>(
-  name: K,
-  className: string,
-  value: string,
-) {
-  const element = document.createElement(name);
-  if (className) element.className = className;
-  element.textContent = String(value);
-  return element;
-}
-
-function cell(row: HTMLTableRowElement, value: string, className = "", label = "") {
-  const item = textElement("td", className, value);
-  if (label) item.dataset.label = label;
-  row.append(item);
-  return item;
-}
-
 function selectedMaterial() {
   return materials[Number(materialSelect.value)];
-}
-
-function materialName(material?: Material) {
-  if (!material) return "教材情報なし";
-  const evidence = material.cves?.join("、") || material.lessonId.split("/").at(-1);
-  return `${material.product} / ${evidence}`;
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  return Number.isFinite(date.getTime())
-    ? date.toLocaleString("ja-JP", { dateStyle: "medium", timeStyle: "short" })
-    : "日時不明";
 }
 
 function localDateTimeValue(date: Date) {
@@ -146,11 +121,6 @@ function renderSummary() {
     : "割り当てを作成すると、ここに進捗が表示されます。";
 }
 
-function statusBadge(status: AssignmentStatus) {
-  const meta = STATUS_META[status] ?? { label: status, tone: "neutral" };
-  return textElement("span", `status-badge status-${meta.tone}`, meta.label);
-}
-
 function renderAssignments() {
   const body = requiredElement("#assignments");
   body.replaceChildren();
@@ -165,7 +135,7 @@ function renderAssignments() {
   if (visible.length === 0) {
     const row = document.createElement("tr");
     row.className = "empty-row";
-    const item = cell(row, "条件に一致する割り当てはありません。");
+    const item = tableCell(row, "条件に一致する割り当てはありません。");
     item.colSpan = 6;
     body.append(row);
     return;
@@ -173,9 +143,9 @@ function renderAssignments() {
   for (const assignment of visible) {
     const row = document.createElement("tr");
     if (assignment.id === selectedAssignmentID) row.setAttribute("aria-current", "true");
-    cell(row, assignment.learnerId, "", "対象者");
+    tableCell(row, assignment.learnerId, "", "対象者");
     const material = materialForAssignment(assignment, materials);
-    const materialCell = cell(row, "", "", "教材");
+    const materialCell = tableCell(row, "", "", "教材");
     materialCell.append(
       textElement("strong", "", materialName(material)),
       textElement(
@@ -184,12 +154,12 @@ function renderAssignments() {
         material ? `${material.lessonId} @ ${material.lessonVersion}` : "教材情報を取得できません",
       ),
     );
-    const statusCell = cell(row, "", "", "状態");
+    const statusCell = tableCell(row, "", "", "状態");
     statusCell.append(statusBadge(assignment.status));
     const overdue = assignment.status !== "completed" && new Date(assignment.dueAt) < new Date();
-    cell(row, formatDate(assignment.dueAt), overdue ? "deadline-overdue" : "", "受講期限");
-    cell(row, material ? "提出回答を承認" : "条件不明", "", "完了条件");
-    const action = cell(row, "", "table-action", "操作");
+    tableCell(row, formatDate(assignment.dueAt), overdue ? "deadline-overdue" : "", "受講期限");
+    tableCell(row, material ? "提出回答を承認" : "条件不明", "", "完了条件");
+    const action = tableCell(row, "", "table-action", "操作");
     const button = document.createElement("button");
     button.type = "button";
     button.textContent = "提出を見る";
