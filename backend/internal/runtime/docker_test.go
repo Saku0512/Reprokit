@@ -144,18 +144,33 @@ func TestDockerComposeProviderRejectsInvalidWritableLayerSize(t *testing.T) {
 }
 
 func TestDockerComposeProviderReadsOnlyFixedMarker(t *testing.T) {
-	runner := &recordingDockerRunner{outputs: [][]byte{[]byte("uid=1000(filebrowser)\n")}}
+	runner := &recordingDockerRunner{outputs: [][]byte{[]byte("/tmp/success\n"), []byte("uid=1000(filebrowser)\n")}}
 	provider := newDockerComposeProviderForTest(runner)
 	marker, err := provider.ReadMarker(context.Background(), "reprokit_0123456789ab", []byte("services: {}\n"), "vulnerable")
 	if err != nil || marker != "uid=1000(filebrowser)" {
 		t.Fatalf("marker=%q err=%v", marker, err)
 	}
-	call := runner.calls[0]
-	if !slices.Contains(call, "exec") || !slices.Contains(call, "vulnerable") || !slices.Contains(call, "/bin/sh") || !slices.Contains(call, "if [ -r /tmp/success ]; then head -c 512 /tmp/success; fi") {
-		t.Fatalf("unexpected marker command: %#v", call)
+	if len(runner.calls) != 2 {
+		t.Fatalf("calls = %#v", runner.calls)
+	}
+	find, cat := runner.calls[0], runner.calls[1]
+	if !slices.Contains(find, "exec") || !slices.Contains(find, "vulnerable") || !slices.Contains(find, "find") || !slices.Contains(find, "/tmp") || !slices.Contains(find, "success") || slices.Contains(find, "/bin/sh") {
+		t.Fatalf("unexpected marker lookup: %#v", find)
+	}
+	if !slices.Contains(cat, "exec") || !slices.Contains(cat, "vulnerable") || !slices.Contains(cat, "cat") || !slices.Contains(cat, "/tmp/success") || slices.Contains(cat, "/bin/sh") {
+		t.Fatalf("unexpected marker read: %#v", cat)
 	}
 	if _, err := provider.ReadMarker(context.Background(), "reprokit_0123456789ab", nil, "other"); err == nil {
 		t.Fatal("unknown service was accepted")
+	}
+}
+
+func TestDockerComposeProviderTreatsMissingMarkerAsAbsent(t *testing.T) {
+	runner := &recordingDockerRunner{outputs: [][]byte{[]byte("tmpfile\n")}}
+	provider := newDockerComposeProviderForTest(runner)
+	marker, err := provider.ReadMarker(context.Background(), "reprokit_0123456789ab", []byte("services: {}\n"), "fixed")
+	if err != nil || marker != "" || len(runner.calls) != 1 {
+		t.Fatalf("marker=%q err=%v calls=%#v", marker, err, runner.calls)
 	}
 }
 

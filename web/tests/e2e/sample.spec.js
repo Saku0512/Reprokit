@@ -115,8 +115,11 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await expect(consoleDialog).toBeVisible();
   await consoleDialog.getByRole("button", { name: "ログを更新", exact: true }).click();
   await expect(consoleDialog.locator(".console-service .log")).toContainText("vulnerable log");
-  await consoleDialog.getByRole("button", { name: "実行", exact: true }).click();
-  await expect(consoleDialog.locator(".console-service .log").last()).toContainText("success");
+  await expect(consoleDialog.getByText("cat /tmp/success")).toBeVisible();
+  await consoleDialog.getByRole("button", { name: "確認", exact: true }).click();
+  await expect(consoleDialog.locator(".console-service .log").last()).toContainText(
+    "uid=1000(filebrowser)",
+  );
   await expect(consoleDialog.getByRole("tab")).toHaveCount(0);
   await expect(consoleDialog.getByRole("region", { name: "脆弱コンテナ" })).toBeVisible();
   await expect(consoleDialog).not.toContainText("修正版コンテナ");
@@ -145,15 +148,18 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
   await expect(observation.locator(".console-service .log").first()).toContainText(
     "vulnerable log",
   );
-  await expect(observation.locator(".console-service .log").last()).toContainText("success");
+  await expect(observation.getByText("cat /tmp/success")).toBeVisible();
+  await expect(observation.locator(".console-service .log").last()).toContainText(
+    "uid=1000(filebrowser)",
+  );
   const consoleCalls = fixture.calls.filter(
-    (call) => call.path.includes("/logs/") || call.path.includes("/actions/"),
+    (call) => call.path.includes("/logs/") || call.path.includes("/markers/"),
   );
   expect(consoleCalls.map((call) => call.path.split("/").slice(4).join("/")).sort()).toEqual([
-    "actions/vulnerable/list_tmp",
-    "actions/vulnerable/list_tmp",
     "logs/vulnerable",
     "logs/vulnerable",
+    "markers/vulnerable",
+    "markers/vulnerable",
   ]);
   await expect(affectedData).toContainText("-");
   await expect(affectedData.locator("table")).toHaveCount(0);
