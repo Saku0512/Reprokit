@@ -447,12 +447,10 @@ function Reproduction({ lesson, state: S }: PhaseProps) {
             <LabConsole state={S} idPrefix="observation" showLead={false} />
           </div>
           {"\n            "}
-          <div className="card" style={{ marginTop: "14px" }}>
-            <h3>{"影響を受けるデータ"}</h3>
-            {affectedData.length === 0 ? (
-              <p className="console-empty">{"-"}</p>
-            ) : S.repro ? (
-              <>
+          {affectedData.length > 0 && (
+            <div className="card" style={{ marginTop: "14px" }}>
+              <h3>{"影響を受けるデータ"}</h3>
+              {S.repro ? (
                 <table className="data">
                   <tbody>
                     <tr>
@@ -467,15 +465,13 @@ function Reproduction({ lesson, state: S }: PhaseProps) {
                     ))}
                   </tbody>
                 </table>
-              </>
-            ) : (
-              <>
+              ) : (
                 <p style={{ color: "var(--sub)", fontSize: "13.5px", margin: "0" }}>
                   {"再現すると、到達可能になるデータの例がここに並びます。"}
                 </p>
-              </>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </>
