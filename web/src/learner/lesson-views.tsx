@@ -96,9 +96,12 @@ export function LessonList({ state: S }: StateProps) {
 
 function LabBox({ state: S }: StateProps) {
   const s = S.lab;
+  const endpointRank = (service: string) =>
+    service === "vulnerable" ? 0 : service === "fixed" ? 1 : 2;
   const endpoints = (S.runtime?.endpoints ?? [])
     .map((endpoint) => ({ ...endpoint, url: endpointURL(endpoint) }))
-    .filter((endpoint) => endpoint.url);
+    .filter((endpoint) => endpoint.url)
+    .sort((left, right) => endpointRank(left.service) - endpointRank(right.service));
   const endpointTitle = (service: string) =>
     service === "vulnerable" ? "脆弱版" : service === "fixed" ? "修正版" : "Lab";
   let r1, r2;
@@ -242,7 +245,7 @@ export function LabConsole({
 }: StateProps & { idPrefix?: string; showLead?: boolean }) {
   const activeService = "vulnerable";
   const logs = S.logs?.[activeService];
-  const action = S.actions?.[`${activeService}:list_tmp`];
+  const marker = S.markers?.[activeService];
   const panelID = `${idPrefix}-${activeService}-panel`;
   return (
     <div className="console-content">
@@ -281,34 +284,35 @@ export function LabConsole({
         <div className="console-section">
           <div className="console-section-heading">
             <div>
-              <b>{"検証コンソール"}</b>
+              <b>{"マーカー"}</b>
               <p>
-                <code>{"ls -la /tmp"}</code>
-                {" — マーカー作成を確認する固定アクション"}
+                <code>{"cat /tmp/success"}</code>
+                {" — idの出力だけを確認する固定の読み取り操作"}
               </p>
             </div>
             <button
               className="btn sm"
-              data-a="list-tmp"
+              data-a="marker"
               data-v={activeService}
-              disabled={S.lab !== "running" || S.actionLoading !== null}
+              disabled={S.lab !== "running" || S.markerLoading !== null}
             >
-              {S.actionLoading === `${activeService}:list_tmp` ? "実行中…" : "実行"}
+              {S.markerLoading === activeService ? "確認中…" : "確認"}
             </button>
           </div>
-          {action ? (
-            <>
-              {action.truncated && <span className="pill amber">{"先頭を省略"}</span>}
-              <pre className="log">{action.output || "（出力はありません）"}</pre>
-            </>
+          {marker ? (
+            <pre className="log">
+              {marker.exists
+                ? marker.content || "（idの出力はありません）"
+                : "（マーカーはありません）"}
+            </pre>
           ) : (
-            <p className="console-empty">{"まだ検証アクションを実行していません。"}</p>
+            <p className="console-empty">{"まだマーカーを確認していません。"}</p>
           )}
         </div>
       </section>
-      {(S.logFailure || S.actionFailure) && (
+      {(S.logFailure || S.markerFailure) && (
         <p className="lab-failure" role="alert">
-          {S.logFailure || S.actionFailure}
+          {S.logFailure || S.markerFailure}
         </p>
       )}
       <p className="console-notice">

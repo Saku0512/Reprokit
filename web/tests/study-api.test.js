@@ -64,6 +64,19 @@ test("コンテナログは固定比較対象だけを読める", async () => {
   assert.equal(requests.length, 1);
 });
 
+test("マーカーは固定の/tmp/successだけを読める", async () => {
+  const requests = [];
+  const api = new StudyApi("secret", async (path, init) => {
+    requests.push([path, init]);
+    return new Response('{"service":"vulnerable","exists":true,"content":"uid=1000(filebrowser)"}');
+  });
+  const result = await api.marker(labId, "vulnerable");
+  assert.equal(requests[0][0], `/api/labs/${labId}/markers/vulnerable`);
+  assert.equal(requests[0][1].method, "GET");
+  assert.equal(result.content, "uid=1000(filebrowser)");
+  assert.throws(() => api.marker(labId, "reprokit_proxy_vulnerable_1"));
+});
+
 test("検証アクションは固定の/tmp一覧だけを実行する", async () => {
   const requests = [];
   const api = new StudyApi("secret", async (path, init) => {

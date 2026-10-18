@@ -1,88 +1,80 @@
 # Reprokit
 
-**実際のCVEを、処理経路を追いながら自分で試して理解するための、初学者向け体験型セキュリティ学習ツールです。**
-
-> [!IMPORTANT]
-> 現在はFile Browser教材を対象にした初期実装段階です。学習とLab操作の入口はローカルWeb UIのみで、利用者向けCLIは提供しません。
-
 ## 製品概要
 
-Reprokitは、脆弱性の説明を読むだけでなく、管理されたローカル環境で安全な実験を行い、入力がどの処理を通って危険な動作へ到達するのかを一段ずつ学ぶOSSです。
+### 背景（製品開発のきっかけ、課題等）
 
-学習画面はローカルWeb UI、環境の取得・起動・停止はGo製Runnerが担当します。脆弱なLabは自動起動せず、公開ポートは原則として`127.0.0.1`へ限定します。
+開発者向けセキュリティ研修では、脆弱性の知識を座学で学んでも、実装・レビュー時に原因や修正方針まで説明できないという課題があります。一方で、脆弱な環境を各自で用意するには、再現性や安全性の確認、後片付けに大きな負担がかかります。
 
-## 起動方法
+Reprokitは、実際に報告された脆弱性を、安全に管理されたローカル環境で「再現 → 観察 → 原因 → 修正 → 再発防止」までたどれる研修基盤です。
 
-必要なものはNode.js 22以上、`backend/go.mod`で指定したGo toolchain、Gitです。Labを実際に起動する場合は、Docker Engine 28以上とDocker Compose v2.36.1以上も必要です。教材の閲覧だけではDockerを操作しません。
+### 製品説明（具体的な製品の説明）
 
-リポジトリ直下で、依存関係の導入、Web成果物の生成、ローカル起動を順に行います。
+学習者はWeb画面でLessonを読み、レビュー済みのLabを明示操作で準備・起動します。初期教材ではFile Browserの認証フックにおけるコマンドインジェクションを扱い、入力が危険な処理へ届く経路、脆弱版と修正版の違い、修正方針を段階的に確認できます。
 
-```sh
-npm ci
-npm run web:install
-npm run web:build
-npm run web:start
-```
+Labの取得と起動は分離され、Go製Runnerが固定コミット、Manifest、Lockfile、Docker Compose設定を検査します。公開ポートはloopbackに限定し、任意コマンドや任意の攻撃対象を入力する機能は提供しません。
 
-起動後に表示される `http://127.0.0.1:4173` をブラウザで開いてください。Webシェルは同時にGo Runnerを起動し、接続先と認証トークンを専用パイプで受け渡します。URLやトークンを手入力する必要はありません。
+### 特長
 
-研修管理画面は起動時に表示される `/admin` です。`REPROKIT_ADMIN_USERNAME` と `REPROKIT_ADMIN_PASSWORD` で管理ログインを固定できます。パスワードを設定しない場合は、起動ごとに一時パスワードを生成して端末へ表示します。
+#### 1. 実在事例を「なぜ起きたか」まで学べる教材体験
 
-1. 「学習を始める」を選ぶ。
-2. 「Labを準備する」で固定済みソースを取得・検査する。この操作だけではコンテナは起動しません。
-3. 安全性検査とloopback接続先を確認してから、「安全性を確認して起動する」を明示的に選ぶ。
-4. 演習後は画面からLabを停止し、Volume方針を確認して削除する。
+単にCVE番号や攻撃手順を示すのではなく、発生背景、入力の流れ、信頼境界、原因、修正、再発防止を一連のLessonとして表示します。受講者は原因・影響・修正方針・再発防止を自分の言葉で回答できます。
 
-既定ポートを変える場合は `REPROKIT_WEB_PORT`、状態保存先を変える場合は `REPROKIT_STATE_DIR` を起動前に設定できます。Labの接続先は固定値を推測せず、画面に表示された `127.0.0.1` のURLを使ってください。詳しい運用・検証手順は[Web UI README](web/README.md)を参照してください。
+#### 2. 安全性を確認してから起動するLab
 
-## 初期教材
+Labは固定リビジョンとイメージdigestを用いて取得し、危険なCompose設定を起動前に拒否します。準備操作ではコンテナを起動せず、検査結果とloopback接続先を確認した後にだけ、受講者が明示的に起動できます。
 
-| 教材           | 主題                                                               | Labの提供元                                |
-| -------------- | ------------------------------------------------------------------ | ------------------------------------------ |
-| CVE-2021-41773 | Apache HTTP Serverのパス正規化不備によるパストラバーサル           | `Saku0512/vulhub`がupstreamから継承するLab |
-| CVE-2026-54088 | File Browser Hook Authenticationの未認証OSコマンドインジェクション | `Saku0512/vulhub`へ追加する独自Lab         |
+#### 3. 法人研修の進行を支える管理画面
 
-教材は「入力 → 変換 → 信頼境界 → 危険な処理 → 影響 → 修正」の順に表示し、脆弱版と修正版の違いまで説明します。詳細は[初期教材方針](docs/initial-lessons.md)を参照してください。
+教材の割り当て、受講状態、提出回答、監査ログ、結果CSVの出力を扱えます。Labを起動した事実だけで完了にせず、回答内容を理解度確認の中心にします。
 
-## Labの扱い
+### 解決出来ること
 
-- Reprokit用にforkした[`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)を、単一のLabカタログとして内部利用します。
-- forkの`master`は`vulhub/vulhub`を取り込みつつ、未収録CVEの独自Labを追加します。
-- ReprokitはVulhubのCLIを起動するのではなく、forkの`master`を一度コミットSHAへ解決し、同じSHAから対象ディレクトリを取得して検査後にDocker Composeで実行します。
-- upstream由来Labとfork追加Labは、Manifest、Lockfile、安全性検査、明示起動の規則を共有します。
+- 研修担当者が、脆弱な検証環境を手作業で構築・配布する負担を減らせます。
+- 開発者が、脆弱性の再現だけでなく、原因と修正方法を実務に結び付けて学べます。
+- 組織が、教材の割り当て、受講状況、提出内容を追跡できます。
+- 固定されたLabと安全性検査により、研修で扱う環境の出所と実行条件を確認できます。
 
-## 学習の流れ
+### 今後の展望
 
-1. 教材を選び、前提知識と学習目標を読む。
-2. 脆弱性へ到達する処理経路を一段ずつ確認する。
-3. 固定されたLabを取得し、安全性と公開ポートを確認する。
-4. Labを明示的に起動し、無害な検証を自分で実行する。
-5. 観察結果、根本原因、修正方法を理解する。
-6. Labを停止・削除する。
+- 実在事例に基づくLessonを拡充し、難易度・技術領域・脆弱性分類から検索できるカタログを整備します。
+- 研修担当者向けの評価基準と進行ガイドを強化し、チーム単位の研修運用を支援します。
+- 企業環境のネットワーク制約やSSO、既存LMSとの連携を段階的に検討します。
+
+### 注力したこと（こだわり等）
+
+- 脆弱なLabを「すぐ動かす」より、出所・固定性・Compose設定を確認してから起動する安全な導線を重視しました。
+- 受講者が攻撃の成功だけで終わらず、原因と修正を説明できる学習体験を設計しました。
 
 ## 開発技術
 
-- Core / Local Runner: Go
-- Runtime: Docker Compose
-- Lab catalog: [`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)（`vulhub/vulhub`のfork）
-- Metadata: YAML / JSON Schema
-- Frontend: TypeScript
+### 活用した技術
 
-## ドキュメント
+#### API・データ
 
-- [プロダクト方針](docs/product-vision.md)
-- [初期教材方針](docs/initial-lessons.md)
-- [Vulhub fork連携・Lab昇格設計](docs/lab-catalog-runtime-v0.1.md)
-- [Vulhub連携MVP](docs/vulhub-learning-mvp.md)
-- [アーキテクチャ](docs/architecture-v0.1.md)
-- [学習インターフェース](docs/interface-study.md)
-- [研修管理・受講連携 API](docs/training/management-api-v1.md)
-- [セキュリティ仕様](docs/security-v1.md)
+- GoによるローカルRunner APIと研修管理API
+- Lesson、Lab Manifest、LockfileのJSON/YAMLスキーマ
+- 固定コミットで参照するVulhub互換LabとDocker Compose
 
-## 安全上の注意
+#### フレームワーク・ライブラリ・モジュール
 
-Reprokitが扱うLabには意図的に脆弱なソフトウェアが含まれます。自分が所有する環境または明示的な許可を得た環境だけで利用し、第三者のシステムを対象にしないでください。Dockerを完全な隔離境界とはみなしません。
+- Go
+- React / TypeScript
+- Node.js / esbuild / Tailwind CSS
+- Docker Compose
 
-## ライセンス
+#### デバイス
 
-[MIT License](LICENSE)
+- 開発者・受講者のローカルPC（Linuxを正式対応OSとする）
+- Docker EngineとDocker Composeを利用できる隔離された検証環境
+
+### 独自技術
+
+#### ハッカソンで開発した独自機能・技術
+
+- LessonとLabを分離し、固定した参照だけから安全な実行環境を準備するローカルRunner
+- Manifest・Lockfile・Composeを照合し、危険な設定や外部公開を拒否する安全性検査
+- 脆弱版・修正版を比較しながら、原因と修正を段階的に理解する受講UI
+- 実装の中心: [Compose安全性検査](backend/internal/security/compose.go)、[Lab実行管理](backend/internal/runtime/runtime.go)、[受講UI](web/src/learner/main.tsx)、[File Browser教材](lessons/filebrowser-auth-hook.json)
+
+詳細な設計・開発手順は、[docs](docs/)および[Web UI README](web/README.md)を参照してください。

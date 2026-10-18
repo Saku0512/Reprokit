@@ -96,14 +96,13 @@ HTTP契約と教材本文は変更しない。
 Node.js 22以上、`backend/go.mod`で指定したGo toolchain、Gitが必要。
 Labを起動する場合はDocker Engine 28以上とDocker Compose v2.36.1以上も必要になる。
 
-リポジトリ直下から実行する場合は、次のルートスクリプトを使う。
+リポジトリ直下から、依存関係の導入、ビルド、起動をまとめて行う場合は次を実行する。
 
 ```sh
-npm ci
-npm run web:install
-npm run web:build
-npm run web:start
+npm run start
 ```
+
+個別に実行する場合は、`npm ci`、`npm run web:install`、`npm run web:build`、`npm run web:start`の順に実行する。
 
 開発時は `npm run web:dev` でソースを直接配信する。
 `start`と`dev`は `backend/cmd/reprokit` を一時領域へビルドし、Go Runnerと教材APIを起動してからWebを起動する。

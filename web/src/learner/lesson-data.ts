@@ -1,10 +1,4 @@
-import type {
-  ActionObservation,
-  LabRef,
-  LabSession,
-  LogSnapshot,
-  MarkerObservation,
-} from "../shared/types.ts";
+import type { LabRef, LabSession, LogSnapshot, MarkerObservation } from "../shared/types.ts";
 
 export const markerCredentials = {
   username: "id > /tmp/success; echo hook.action=block",
@@ -44,9 +38,9 @@ export interface LearnerState {
   logs: Partial<Record<string, LogSnapshot>>;
   logLoading: string | null;
   logFailure: string | null;
-  actions: Partial<Record<string, ActionObservation>>;
-  actionLoading: string | null;
-  actionFailure: string | null;
+  markers: Partial<Record<string, MarkerObservation>>;
+  markerLoading: string | null;
+  markerFailure: string | null;
   ok: boolean;
   vol: "keep" | "rm";
   repro: boolean;
@@ -190,9 +184,9 @@ export const initialState: LearnerState = {
   logs: {},
   logLoading: null,
   logFailure: null,
-  actions: {},
-  actionLoading: null,
-  actionFailure: null,
+  markers: {},
+  markerLoading: null,
+  markerFailure: null,
   ok: false,
   vol: "keep",
   repro: false,

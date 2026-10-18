@@ -211,8 +211,8 @@ function App() {
       labFailure: null,
       logs: {},
       logFailure: null,
-      actions: {},
-      actionFailure: null,
+      markers: {},
+      markerFailure: null,
     });
     try {
       let runtime = state.runtime;
@@ -252,8 +252,8 @@ function App() {
         runtime,
         logs: {},
         logFailure: null,
-        actions: {},
-        actionFailure: null,
+        markers: {},
+        markerFailure: null,
       });
       setMessage("Labを停止しました");
     } catch (error) {
@@ -311,63 +311,60 @@ function App() {
     }
   }
 
-  async function listTmp(service: LabRef) {
+  async function readMarker(service: LabRef) {
     if (!state.runtime?.labSessionId || state.lab !== "running") return;
-    const key = `${service}:list_tmp`;
-    update({ actionLoading: key, actionFailure: null });
+    update({ markerLoading: service, markerFailure: null });
     try {
-      const action = await api.listTmp(state.runtime.labSessionId, service);
+      const marker = await api.marker(state.runtime.labSessionId, service);
       setState((previous) => ({
         ...previous,
-        actions: { ...previous.actions, [key]: action },
-        actionLoading: null,
+        markers: { ...previous.markers, [service]: marker },
+        markerLoading: null,
       }));
     } catch (error) {
       update({
-        actionLoading: null,
-        actionFailure:
-          error instanceof Error ? error.message : "検証アクションを実行できませんでした。",
+        markerLoading: null,
+        markerFailure: error instanceof Error ? error.message : "マーカーを確認できませんでした。",
       });
     }
   }
 
   async function observeService(service: LabRef) {
     if (!state.runtime?.labSessionId || state.lab !== "running") return;
-    const key = `${service}:list_tmp`;
     update({
       logLoading: service,
-      actionLoading: key,
+      markerLoading: service,
       logFailure: null,
-      actionFailure: null,
+      markerFailure: null,
     });
-    const [logsResult, actionResult] = await Promise.allSettled([
+    const [logsResult, markerResult] = await Promise.allSettled([
       api.logs(state.runtime.labSessionId, service),
-      api.listTmp(state.runtime.labSessionId, service),
+      api.marker(state.runtime.labSessionId, service),
     ]);
     setState((previous) => ({
       ...previous,
-      repro: previous.repro || (service === "vulnerable" && actionResult.status === "fulfilled"),
+      repro: previous.repro || (service === "vulnerable" && markerResult.status === "fulfilled"),
       logs:
         logsResult.status === "fulfilled"
           ? { ...previous.logs, [service]: logsResult.value }
           : previous.logs,
-      actions:
-        actionResult.status === "fulfilled"
-          ? { ...previous.actions, [key]: actionResult.value }
-          : previous.actions,
+      markers:
+        markerResult.status === "fulfilled"
+          ? { ...previous.markers, [service]: markerResult.value }
+          : previous.markers,
       logLoading: null,
-      actionLoading: null,
+      markerLoading: null,
       logFailure:
         logsResult.status === "rejected"
           ? logsResult.reason instanceof Error
             ? logsResult.reason.message
             : "ログを取得できませんでした。"
           : null,
-      actionFailure:
-        actionResult.status === "rejected"
-          ? actionResult.reason instanceof Error
-            ? actionResult.reason.message
-            : "検証アクションを実行できませんでした。"
+      markerFailure:
+        markerResult.status === "rejected"
+          ? markerResult.reason instanceof Error
+            ? markerResult.reason.message
+            : "マーカーを確認できませんでした。"
           : null,
     }));
   }
@@ -515,8 +512,8 @@ function App() {
       case "logs":
         if (v === "vulnerable" || v === "fixed") await showLogs(v);
         break;
-      case "list-tmp":
-        if (v === "vulnerable" || v === "fixed") await listTmp(v);
+      case "marker":
+        if (v === "vulnerable" || v === "fixed") await readMarker(v);
         break;
     }
   }
@@ -631,9 +628,9 @@ function resetLabState(): Partial<LearnerState> {
     logs: {},
     logLoading: null,
     logFailure: null,
-    actions: {},
-    actionLoading: null,
-    actionFailure: null,
+    markers: {},
+    markerLoading: null,
+    markerFailure: null,
   };
 }
 

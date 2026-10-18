@@ -22,8 +22,9 @@ var projectPattern = regexp.MustCompile(`^reprokit_[0-9a-f]{12}$`)
 var containerIDPattern = regexp.MustCompile(`^[0-9a-f]{12,64}$`)
 
 const (
-	logTailLines = 200
-	maxLogBytes  = 64 * 1024
+	logTailLines   = 200
+	maxLogBytes    = 64 * 1024
+	maxMarkerBytes = 512
 )
 
 type dockerCommandRunner interface {
@@ -141,14 +142,24 @@ func (provider *DockerComposeProvider) Delete(ctx context.Context, project strin
 }
 
 // ReadMarker は比較Lab内の固定/tmp/successだけを最大512 byte読取る。
-// serviceとコマンドは固定であり、HTTP入力をDocker実行へ転用しない。
+// service、パス、実行ファイルと引数は固定であり、HTTP入力をDocker実行へ転用しない。
 func (provider *DockerComposeProvider) ReadMarker(ctx context.Context, project string, compose []byte, service string) (string, error) {
 	if service != "vulnerable" && service != "fixed" {
 		return "", errors.New("unknown File Browser comparison service")
 	}
-	output, err := provider.withCompose(ctx, project, compose, "exec", "--no-TTY", service, "/bin/sh", "-c", "if [ -r /tmp/success ]; then head -c 512 /tmp/success; fi")
+	marker, err := provider.withCompose(ctx, project, compose, "exec", "--no-TTY", service, "find", "/tmp", "-maxdepth", "1", "-type", "f", "-name", "success", "-print")
 	if err != nil {
 		return "", err
+	}
+	if strings.TrimSpace(string(marker)) != "/tmp/success" {
+		return "", nil
+	}
+	output, err := provider.withCompose(ctx, project, compose, "exec", "--no-TTY", service, "cat", "/tmp/success")
+	if err != nil {
+		return "", err
+	}
+	if len(output) > maxMarkerBytes {
+		output = output[:maxMarkerBytes]
 	}
 	return strings.TrimSpace(string(output)), nil
 }
