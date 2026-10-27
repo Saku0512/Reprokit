@@ -122,7 +122,7 @@ func TestRealCoreWiringDefersPreparationAndRestoresAfterRestart(t *testing.T) {
 	requestJSON(t, origin, "", http.MethodGet, "/api/lessons", nil, 401, nil)
 	var catalog []map[string]any
 	requestJSON(t, origin, token, http.MethodGet, "/api/lessons", nil, 200, &catalog)
-	if len(catalog) != 1 || catalog[0]["id"] != lessonID || fetches.Load() != 0 || provider.inspections.Load() != 0 {
+	if len(catalog) != len(configuredLabs) || fetches.Load() != 0 || provider.inspections.Load() != 0 {
 		t.Fatal("startup or lesson read touched Lab execution")
 	}
 	requestJSON(t, origin, token, http.MethodPost, "/api/labs", map[string]any{"lessonId": lessonID, "lessonVersion": lessonVersion, "labRef": "vulnerable", "command": "id"}, 400, nil)
@@ -182,6 +182,26 @@ func TestSnapshotUsesCommittedArtifactsAndRejectsUnsafeStateDirectory(t *testing
 	}
 	if _, err := newApplication(context.Background(), configuration{repository: root, state: public}, &harmlessProvider{}, harmlessSource); err == nil {
 		t.Fatal("public state directory was accepted")
+	}
+}
+
+func TestApplicationPreparesApprovedGoGitLab(t *testing.T) {
+	ctx := context.Background()
+	config := configuration{repository: repositoryFixture(t), state: filepath.Join(t.TempDir(), "state")}
+	var fetches atomic.Int32
+	loader := func(ctx context.Context, resolved lab.ResolvedLab, destination string) (lab.MaterializedSource, error) {
+		fetches.Add(1)
+		return harmlessSource(ctx, resolved, destination)
+	}
+	app, err := newApplication(ctx, config, &harmlessProvider{}, loader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	origin := serveApplication(t, app)
+	var session runtime.Session
+	requestJSON(t, origin, app.server.SessionToken, http.MethodPost, "/api/labs", map[string]any{"lessonId": "path-traversal/go-git-loose-reference", "lessonVersion": "1.0.0", "labRef": "vulnerable"}, 200, &session)
+	if session.LabID != "reprokit/go-git-cve-2026-71557" || session.State != runtime.Prepared || fetches.Load() != 1 {
+		t.Fatalf("go-git prepare = %#v, fetches=%d", session, fetches.Load())
 	}
 }
 

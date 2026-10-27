@@ -206,7 +206,7 @@ func (manager *Manager) Start(ctx context.Context, id string) (Session, error) {
 		if session.State != Prepared && session.State != Stopped {
 			return ErrInvalidState
 		}
-		if session.LabID != "reprokit/filebrowser-cve-2026-54088" {
+		if session.LabID != "reprokit/filebrowser-cve-2026-54088" && session.LabID != "reprokit/go-git-cve-2026-71557" {
 			return errors.New("legacy Lab sessions cannot be started; prepare a new session")
 		}
 		if !session.SafetyChecked {

@@ -13,8 +13,8 @@ import (
 func ToPreparedLab(resolved ResolvedLab, materialized MaterializedSource) (runtime.PreparedLab, error) {
 	manifestDigest := sha256.Sum256(resolved.Manifest.Bytes)
 	composeDigest := sha256.Sum256(materialized.RuntimeCompose)
-	if resolved.ID != "reprokit/filebrowser-cve-2026-54088" || materialized.URL != resolved.Source.URL || materialized.Revision != resolved.Source.Revision || materialized.Subdirectory != resolved.Source.Subdirectory || len(resolved.Manifest.Bytes) == 0 || len(materialized.RuntimeCompose) == 0 || resolved.Manifest.SHA256 != hex.EncodeToString(manifestDigest[:]) || materialized.ComposeSHA256 != hex.EncodeToString(composeDigest[:]) || !hasRuntimeFile(materialized.Files, resolved.Runtime.File, materialized.ComposeSHA256) {
-		return runtime.PreparedLab{}, errors.New("resolved File Browser artifact is incomplete")
+	if (resolved.ID != "reprokit/filebrowser-cve-2026-54088" && resolved.ID != "reprokit/go-git-cve-2026-71557") || materialized.URL != resolved.Source.URL || materialized.Revision != resolved.Source.Revision || materialized.Subdirectory != resolved.Source.Subdirectory || len(resolved.Manifest.Bytes) == 0 || len(materialized.RuntimeCompose) == 0 || resolved.Manifest.SHA256 != hex.EncodeToString(manifestDigest[:]) || materialized.ComposeSHA256 != hex.EncodeToString(composeDigest[:]) || !hasRuntimeFile(materialized.Files, resolved.Runtime.File, materialized.ComposeSHA256) {
+		return runtime.PreparedLab{}, errors.New("resolved Lab artifact is incomplete")
 	}
 	return runtime.PreparedLab{
 		LabID:          resolved.ID,
