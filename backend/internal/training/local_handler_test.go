@@ -18,7 +18,7 @@ import (
 func TestLocalHandlerSeparatesManagementAndLearnerAuthorization(t *testing.T) {
 	service := testService(t)
 	lessonID := "command-injection/filebrowser-auth-hook"
-	assignments, err := service.CreateAssignments(CreateAssignmentsInput{OrganizationID: "local", ActorID: "admin", LessonID: lessonID, LessonVersion: "1.0.0", LearnerIDs: []string{"learner"}, DueAt: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), AllowRetry: true})
+	assignments, err := service.CreateAssignments(CreateAssignmentsInput{OrganizationID: "local", ActorID: "admin", LessonID: lessonID, LessonVersion: "1.1.0", LearnerIDs: []string{"learner"}, DueAt: time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), AllowRetry: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestLocalHandlerSeparatesManagementAndLearnerAuthorization(t *testing.T) {
 	if context.Assignment.LearnerID != "learner" {
 		t.Fatalf("unexpected learner assignment: %#v", context)
 	}
-	session, err := study.Create(lessonID, "1.0.0")
+	session, err := study.Create(lessonID, "1.1.0")
 	if err != nil {
 		t.Fatal(err)
 	}

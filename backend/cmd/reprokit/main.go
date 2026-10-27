@@ -37,7 +37,8 @@ func run(ctx context.Context) error {
 		return errors.New("a private Web bootstrap pipe is required")
 	}
 	defer bootstrap.Close()
-	app, err := newApplication(ctx, configuration{repository: os.Getenv("REPROKIT_REPOSITORY_ROOT"), state: os.Getenv("REPROKIT_STATE_DIR"), organizationID: os.Getenv("REPROKIT_ORGANIZATION_ID"), administratorID: os.Getenv("REPROKIT_ADMINISTRATOR_ID"), administratorSubject: os.Getenv("REPROKIT_ADMIN_SUBJECT"), learnerID: os.Getenv("REPROKIT_LEARNER_ID"), oidcIssuer: os.Getenv("REPROKIT_OIDC_ISSUER"), oidcClientID: os.Getenv("REPROKIT_OIDC_CLIENT_ID"), oidcClientSecret: os.Getenv("REPROKIT_OIDC_CLIENT_SECRET"), oidcRedirectURL: os.Getenv("REPROKIT_OIDC_REDIRECT_URL")}, runtime.NewDockerComposeProvider(), lab.NewMaterializer().Materialize)
+	repository := os.Getenv("REPROKIT_REPOSITORY_ROOT")
+	app, err := newApplication(ctx, configuration{repository: repository, state: os.Getenv("REPROKIT_STATE_DIR"), organizationID: os.Getenv("REPROKIT_ORGANIZATION_ID"), administratorID: os.Getenv("REPROKIT_ADMINISTRATOR_ID"), administratorSubject: os.Getenv("REPROKIT_ADMIN_SUBJECT"), learnerID: os.Getenv("REPROKIT_LEARNER_ID"), oidcIssuer: os.Getenv("REPROKIT_OIDC_ISSUER"), oidcClientID: os.Getenv("REPROKIT_OIDC_CLIENT_ID"), oidcClientSecret: os.Getenv("REPROKIT_OIDC_CLIENT_SECRET"), oidcRedirectURL: os.Getenv("REPROKIT_OIDC_REDIRECT_URL")}, runtime.NewDockerComposeProvider(), lab.NewLocalMaterializer(repository).Materialize)
 	if err != nil {
 		return err
 	}

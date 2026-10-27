@@ -223,7 +223,7 @@ func TestPrepareWritesCompleteLockfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if lock.LockVersion != 1 || lock.Lab != session.LabID || lock.Source.URL != "https://github.com/Saku0512/vulhub.git" || lock.Source.Subdirectory != "filebrowser/CVE-2026-54088" || lock.Runtime.Platform != "linux/amd64" || lock.Images["app"].Platform != "linux/amd64" {
+	if lock.LockVersion != 1 || lock.Lab != session.LabID || lock.Source.URL != "https://github.com/Saku0512/Reprokit.git" || lock.Source.Subdirectory != "images/CVE-2026-54088" || lock.Runtime.Platform != "linux/amd64" || lock.Images["app"].Platform != "linux/amd64" {
 		t.Fatalf("lock = %#v", lock)
 	}
 }
@@ -275,6 +275,26 @@ func TestReprokitSourceRejectsUnapprovedArtifact(t *testing.T) {
 		if _, err := manager.Prepare(context.Background(), lab); err == nil {
 			t.Fatal("unapproved artifact was accepted")
 		}
+	}
+}
+
+func TestLegacySessionCannotRestartButCanBeCleanedUp(t *testing.T) {
+	provider := &fakeProvider{}
+	store := NewMemoryStore()
+	manager, _ := NewManager(store, provider)
+	session, err := manager.Prepare(context.Background(), validLab())
+	if err != nil {
+		t.Fatal(err)
+	}
+	session.LabID = "vulhub/filebrowser-cve-2026-54088"
+	if err := store.Save(context.Background(), session); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Start(context.Background(), session.ID); err == nil || provider.starts != 0 {
+		t.Fatalf("legacy session started: %v", err)
+	}
+	if _, err := manager.Delete(context.Background(), session.ID, false); err != nil || provider.deletes != 1 {
+		t.Fatalf("legacy session cleanup failed: %v", err)
 	}
 }
 
@@ -336,15 +356,15 @@ func TestConnectionCredentialsAreNotWrittenToLockfile(t *testing.T) {
 
 func validLab() PreparedLab {
 	return PreparedLab{
-		LabID:          "vulhub/filebrowser-cve-2026-54088",
+		LabID:          "reprokit/filebrowser-cve-2026-54088",
 		SourceRevision: strings.Repeat("a", 40),
 		Artifact: Artifact{
 			RegistryRevision:   strings.Repeat("b", 40),
-			ManifestPath:       "manifests/vulhub/filebrowser-cve-2026-54088.yaml",
+			ManifestPath:       "manifests/reprokit/filebrowser-cve-2026-54088.yaml",
 			Manifest:           []byte("apiVersion: reprokit.dev/v1alpha1\nkind: Lab\n"),
-			SourceURL:          "https://github.com/Saku0512/vulhub.git",
-			SourceSubdirectory: "filebrowser/CVE-2026-54088",
-			RuntimeFile:        "reprokit.compose.yml",
+			SourceURL:          "https://github.com/Saku0512/Reprokit.git",
+			SourceSubdirectory: "images/CVE-2026-54088",
+			RuntimeFile:        "docker-compose.yml",
 			Platform:           "linux/amd64",
 		},
 		Compose:    []byte("services:\n  app:\n    image: example/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n    ports:\n      - \"8080:80\"\n"),

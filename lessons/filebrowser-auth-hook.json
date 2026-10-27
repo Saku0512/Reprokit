@@ -3,7 +3,7 @@
   "kind": "Lesson",
   "metadata": {
     "id": "command-injection/filebrowser-auth-hook",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "title": "ログイン入力が認証フックでコマンドとして解釈される"
   },
   "spec": {
@@ -51,12 +51,12 @@
     "labs": [
       {
         "ref": "vulnerable",
-        "labId": "vulhub/filebrowser-cve-2026-54088",
+        "labId": "reprokit/filebrowser-cve-2026-54088",
         "purpose": "reproduce"
       },
       {
         "ref": "fixed",
-        "labId": "vulhub/filebrowser-cve-2026-54088",
+        "labId": "reprokit/filebrowser-cve-2026-54088",
         "purpose": "compare-fix"
       }
     ],

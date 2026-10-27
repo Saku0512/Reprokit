@@ -22,7 +22,7 @@ func (manager *Manager) ObserveMarker(ctx context.Context, id, service string) (
 	if err != nil {
 		return MarkerObservation{}, err
 	}
-	if session.LabID != "vulhub/filebrowser-cve-2026-54088" || session.State != Running {
+	if session.LabID != "reprokit/filebrowser-cve-2026-54088" || session.State != Running {
 		return MarkerObservation{}, ErrInvalidState
 	}
 	reader, ok := manager.provider.(MarkerReader)
@@ -52,7 +52,7 @@ func (manager *Manager) ReadLogs(ctx context.Context, id, service string) (LogSn
 	if err != nil {
 		return LogSnapshot{}, err
 	}
-	if session.LabID != "vulhub/filebrowser-cve-2026-54088" || session.State != Running {
+	if session.LabID != "reprokit/filebrowser-cve-2026-54088" || session.State != Running {
 		return LogSnapshot{}, ErrInvalidState
 	}
 	reader, ok := manager.provider.(LogReader)
@@ -81,7 +81,7 @@ func (manager *Manager) RunAction(ctx context.Context, id, service string, actio
 	if err != nil {
 		return ActionObservation{}, err
 	}
-	if session.LabID != "vulhub/filebrowser-cve-2026-54088" || session.State != Running {
+	if session.LabID != "reprokit/filebrowser-cve-2026-54088" || session.State != Running {
 		return ActionObservation{}, ErrInvalidState
 	}
 	runner, ok := manager.provider.(ActionRunner)

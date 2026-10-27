@@ -26,7 +26,7 @@ func snapshot(ctx context.Context, repository, destination string) (string, erro
 	}
 	for _, path := range []string{
 		"registry/index.json",
-		"registry/manifests/vulhub/filebrowser-cve-2026-54088.yaml",
+		"registry/manifests/reprokit/filebrowser-cve-2026-54088.yaml",
 		"lessons/filebrowser-auth-hook.json",
 	} {
 		entry, err := gitRead(ctx, repository, 4096, "ls-tree", revision, "--", path)

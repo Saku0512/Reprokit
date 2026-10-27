@@ -150,7 +150,7 @@ export function useLearnerLab({ api, state, update, setState, setMessage }: UseL
     try {
       let runtime = state.runtime;
       if (!canStart(runtime))
-        runtime = await withDeployProgress(api.prepare("1.0.0", "vulnerable"), 10);
+        runtime = await withDeployProgress(api.prepare("1.1.0", "vulnerable"), 10);
       if (!canStart(runtime))
         throw new Error("安全性とloopback公開を確認できないため、Labを起動できません。");
       rememberLabSession(runtime);

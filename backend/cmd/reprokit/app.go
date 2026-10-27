@@ -22,8 +22,8 @@ import (
 
 const (
 	lessonID      = "command-injection/filebrowser-auth-hook"
-	lessonVersion = "1.0.0"
-	labID         = "vulhub/filebrowser-cve-2026-54088"
+	lessonVersion = "1.1.0"
+	labID         = "reprokit/filebrowser-cve-2026-54088"
 )
 
 type configuration struct {

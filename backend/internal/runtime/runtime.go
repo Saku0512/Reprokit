@@ -174,7 +174,7 @@ func NewManager(store Store, provider Provider) (*Manager, error) {
 
 // Prepare は安全性検査済みの固定Labを登録するだけで、コンテナを起動しない。
 func (manager *Manager) Prepare(ctx context.Context, lab PreparedLab) (Session, error) {
-	if lab.LabID != "vulhub/filebrowser-cve-2026-54088" || !shaPattern.MatchString(lab.SourceRevision) {
+	if lab.LabID != "reprokit/filebrowser-cve-2026-54088" || !shaPattern.MatchString(lab.SourceRevision) || lab.Artifact.SourceURL != "https://github.com/Saku0512/Reprokit.git" {
 		return Session{}, errors.New("only the fixed File Browser Lab revision may be prepared")
 	}
 	inspection, err := security.InspectComposeWithGuardrails(lab.Compose, lab.Guardrails)
@@ -204,6 +204,9 @@ func (manager *Manager) Start(ctx context.Context, id string) (Session, error) {
 	session, err := manager.change(ctx, id, func(session *Session) error {
 		if session.State != Prepared && session.State != Stopped {
 			return ErrInvalidState
+		}
+		if session.LabID != "reprokit/filebrowser-cve-2026-54088" {
+			return errors.New("legacy Lab sessions cannot be started; prepare a new session")
 		}
 		if !session.SafetyChecked {
 			return errors.New("prepared Compose safety check no longer matches")

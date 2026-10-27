@@ -22,7 +22,7 @@ const api = new StudyApi(
 );
 const noteLesson = {
   lessonId: "command-injection/filebrowser-auth-hook",
-  lessonVersion: "1.0.0",
+  lessonVersion: "1.1.0",
 };
 const sampleLesson = L.find((lesson) => lesson.id === "fb")!;
 

@@ -26,7 +26,7 @@ func NewLifecycleService(manager *runtime.Manager, fixed FixedLab) (*LifecycleSe
 	if fixed.Lesson.LessonID == "" || fixed.Lesson.LessonVersion == "" || fixed.Lesson.LabRef == "" {
 		return nil, errors.New("fixed Lesson reference is required")
 	}
-	if fixed.Prepared.LabID != "vulhub/filebrowser-cve-2026-54088" {
+	if fixed.Prepared.LabID != "reprokit/filebrowser-cve-2026-54088" {
 		return nil, errors.New("only the File Browser Lab may be configured")
 	}
 	return &LifecycleService{manager: manager, fixed: fixed}, nil

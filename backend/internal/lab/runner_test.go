@@ -22,8 +22,8 @@ func TestToPreparedLabBuildsFixedFileBrowserArtifact(t *testing.T) {
 `)
 	composeDigest := sha256.Sum256(compose)
 	resolved := ResolvedLab{
-		ID:     "vulhub/filebrowser-cve-2026-54088",
-		Source: Source{URL: "https://github.com/Saku0512/vulhub.git", Revision: strings.Repeat("a", 40), Subdirectory: "filebrowser/CVE-2026-54088"},
+		ID:     "reprokit/filebrowser-cve-2026-54088",
+		Source: Source{URL: "https://github.com/Saku0512/Reprokit.git", Revision: strings.Repeat("a", 40), Subdirectory: "images/CVE-2026-54088"},
 		Runtime: Runtime{File: "docker-compose.yml", Platform: "linux/amd64", Guardrails: security.Guardrails{
 			MaxRuntimeSeconds: 1800, CPUCores: 1, MemoryMiB: 512, PIDs: 128, DiskMiB: 1024, Egress: "none",
 		}},
@@ -57,7 +57,7 @@ func (artifactProvider) Inspect(context.Context, string, []byte) (runtime.Resour
 func (artifactProvider) DiskUsage(context.Context, string) (int64, error) { return 0, nil }
 
 func TestToPreparedLabRejectsTamperedMaterializedCompose(t *testing.T) {
-	resolved := ResolvedLab{ID: "vulhub/filebrowser-cve-2026-54088", Source: Source{URL: "https://github.com/Saku0512/vulhub.git", Revision: strings.Repeat("a", 40), Subdirectory: "filebrowser/CVE-2026-54088"}}
+	resolved := ResolvedLab{ID: "reprokit/filebrowser-cve-2026-54088", Source: Source{URL: "https://github.com/Saku0512/Reprokit.git", Revision: strings.Repeat("a", 40), Subdirectory: "images/CVE-2026-54088"}}
 	if _, err := ToPreparedLab(resolved, MaterializedSource{URL: resolved.Source.URL, Revision: resolved.Source.Revision, Subdirectory: resolved.Source.Subdirectory, RuntimeCompose: []byte("changed")}); err == nil {
 		t.Fatal("tampered materialized source was accepted")
 	}

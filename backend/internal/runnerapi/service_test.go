@@ -17,15 +17,15 @@ func TestLifecycleServicePreparesOnlyConfiguredLessonReference(t *testing.T) {
 	fixed := FixedLab{
 		Lesson: LessonReference{LessonID: "filebrowser/hook", LessonVersion: "1.0.0", LabRef: "vulnerable-and-fixed"},
 		Prepared: runtime.PreparedLab{
-			LabID:          "vulhub/filebrowser-cve-2026-54088",
+			LabID:          "reprokit/filebrowser-cve-2026-54088",
 			SourceRevision: strings.Repeat("a", 40),
 			Artifact: runtime.Artifact{
 				RegistryRevision:   strings.Repeat("b", 40),
-				ManifestPath:       "manifests/vulhub/filebrowser-cve-2026-54088.yaml",
+				ManifestPath:       "manifests/reprokit/filebrowser-cve-2026-54088.yaml",
 				Manifest:           []byte("apiVersion: reprokit.dev/v1alpha1\nkind: Lab\n"),
-				SourceURL:          "https://github.com/Saku0512/vulhub.git",
-				SourceSubdirectory: "filebrowser/CVE-2026-54088",
-				RuntimeFile:        "reprokit.compose.yml",
+				SourceURL:          "https://github.com/Saku0512/Reprokit.git",
+				SourceSubdirectory: "images/CVE-2026-54088",
+				RuntimeFile:        "docker-compose.yml",
 				Platform:           "linux/amd64",
 			},
 			Compose: []byte(`services:

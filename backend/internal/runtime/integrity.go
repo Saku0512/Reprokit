@@ -103,7 +103,7 @@ func createLock(lab PreparedLab, normalized []byte) ([]byte, error) {
 }
 
 func verifyArtifact(session Session) ([]byte, error) {
-	if session.LabID != "vulhub/filebrowser-cve-2026-54088" || !shaPattern.MatchString(session.SourceRevision) || !shaPattern.MatchString(session.RegistryRevision) || !approvedFileBrowserSource(session.SourceURL, session.SourceSubdirectory, session.RuntimeFile) || session.Platform != "linux/amd64" {
+	if (session.LabID != "reprokit/filebrowser-cve-2026-54088" && session.LabID != "vulhub/filebrowser-cve-2026-54088") || !shaPattern.MatchString(session.SourceRevision) || !shaPattern.MatchString(session.RegistryRevision) || !approvedFileBrowserSource(session.SourceURL, session.SourceSubdirectory, session.RuntimeFile) || session.Platform != "linux/amd64" {
 		return nil, errors.New("stored Lab identity is invalid")
 	}
 	if len(session.Manifest) == 0 || !validRelativePath(session.ManifestPath) || !validRelativePath(session.RuntimeFile) {

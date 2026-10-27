@@ -14,7 +14,7 @@ import (
 var testMaterials = []Material{
 	{LessonID: "filebrowser/hook", LessonVersion: "1.0.0", Title: "認証フック", Product: "File Browser", DurationMinutes: 60, CVEs: []string{"CVE-2026-54088"}},
 	{LessonID: "sample/fix", LessonVersion: "1.0.0", Title: "修正比較", Product: "Sample", DurationMinutes: 30},
-	{LessonID: "command-injection/filebrowser-auth-hook", LessonVersion: "1.0.0", Title: "認証フック", Product: "File Browser", DurationMinutes: 60, CVEs: []string{"CVE-2026-54088"}},
+	{LessonID: "command-injection/filebrowser-auth-hook", LessonVersion: "1.1.0", Title: "認証フック", Product: "File Browser", DurationMinutes: 60, CVEs: []string{"CVE-2026-54088"}},
 }
 
 func testService(t *testing.T) *Service {

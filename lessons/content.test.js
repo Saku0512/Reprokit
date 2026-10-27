@@ -12,8 +12,8 @@ test("File Browser Lesson matches the schema and only references its designated 
   assert.deepEqual(
     lesson.spec.labs.map(({ ref, labId, purpose }) => ({ ref, labId, purpose })),
     [
-      { ref: "vulnerable", labId: "vulhub/filebrowser-cve-2026-54088", purpose: "reproduce" },
-      { ref: "fixed", labId: "vulhub/filebrowser-cve-2026-54088", purpose: "compare-fix" },
+      { ref: "vulnerable", labId: "reprokit/filebrowser-cve-2026-54088", purpose: "reproduce" },
+      { ref: "fixed", labId: "reprokit/filebrowser-cve-2026-54088", purpose: "compare-fix" },
     ],
   );
 });
