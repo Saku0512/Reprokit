@@ -1,0 +1,47 @@
+{
+  "apiVersion": "reprokit.dev/v1alpha1",
+  "kind": "Lesson",
+  "metadata": {
+    "id": "path-traversal/go-git-loose-reference",
+    "version": "1.0.0",
+    "title": "Git参照名の検証不足で設定ファイルを書き換えられる"
+  },
+  "spec": {
+    "audience": "GoでGit連携機能を開発・運用するエンジニア",
+    "prerequisites": ["Gitリポジトリの.gitディレクトリと参照名の基本を説明できる"],
+    "durationMinutes": 45,
+    "objectives": ["参照名をファイルシステムのパスへ変換する際の信頼境界を説明できる", "脆弱版と修正版の検証結果を比較できる"],
+    "case": {
+      "product": "go-git",
+      "affectedVersions": "v5.19.1以前。比較対象はv5.19.2。",
+      "background": "細工した参照名に親ディレクトリ指定を含めると、参照用ディレクトリの外にあるGit設定ファイルへ書き込みが到達する事例である。"
+    },
+    "evidence": {
+      "cves": ["CVE-2026-71557"],
+      "references": [{
+        "type": "vendor-advisory",
+        "title": "go-git公式アドバイザリ GHSA-qgq7-7hm3-q39j",
+        "url": "https://github.com/go-git/go-git/security/advisories/GHSA-qgq7-7hm3-q39j"
+      }]
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://github.com/Saku0512/Reprokit/blob/main/LICENSE",
+      "attribution": "教材本文はReprokit contributorsが作成。go-gitはApache-2.0ライセンスで配布され、公式アドバイザリを参照する。"
+    },
+    "labs": [
+      {"ref": "vulnerable", "labId": "reprokit/go-git-cve-2026-71557", "purpose": "reproduce"},
+      {"ref": "fixed", "labId": "reprokit/go-git-cve-2026-71557", "purpose": "compare-fix"}
+    ],
+    "steps": [
+      {"id": "set-boundary", "title": "検証範囲を確認する", "instruction": "Runnerが準備したローカルLabだけを使う。承認済みの観察操作以外は実行しない。", "expectedResult": "Labの対象と隔離範囲を説明できる。", "observation": "参照名は外部から渡り得るデータである。", "hints": ["参照名をパスとして扱う箇所を信頼境界として考える。"]},
+      {"id": "prepare", "title": "脆弱版を準備して起動する", "labRef": "vulnerable", "instruction": "学習画面で脆弱版を準備し、検査結果を確認してから明示的に起動する。", "expectedResult": "脆弱版がrunningになる。", "observation": "準備だけではコンテナは起動しない。", "hints": ["起動前に安全性結果を確認する。"]},
+      {"id": "observe-vulnerable", "title": "脆弱版の固定検証を実行する", "labRef": "vulnerable", "instruction": "承認済みの参照検証を実行し、.git/configが書き換わった結果を確認する。", "expectedResult": "脆弱版では設定ファイルの書き換えが報告される。", "observation": "親ディレクトリ指定を含む参照名が参照用ディレクトリ外へ到達する。", "hints": ["任意のコマンドや引数を入力する必要はない。"]},
+      {"id": "compare-fixed", "title": "修正版と比較する", "labRef": "fixed", "instruction": "修正版を起動し、同じ承認済み検証を実行する。", "expectedResult": "修正版では操作が拒否され、設定ファイルは維持される。", "observation": "同じ入力を許可しないことで、ファイル書き換えを防ぐ。", "hints": ["結果の差をバージョンと対応付ける。"]}
+    ],
+    "analysis": {"cause": "参照名をファイルシステム上のパスとして利用する前の検証が不十分だった。", "impact": "細工した参照名により、リポジトリ内の想定外ファイルが書き換えられる。", "remediation": "go-git v5.19.2以降へ更新し、ファイルパスへ変換する識別子を境界で検証する。"},
+    "comparison": {"vulnerable": "v5.19.1では固定検証が設定ファイルの書き換えを報告する。", "fixed": "v5.19.2では固定検証が拒否を報告し設定を維持する。", "difference": "修正版は参照名が参照用ディレクトリ外へ出ないよう検証する。", "fixedLabRef": "fixed"},
+    "prevention": ["外部識別子をパスへ変換する境界で正規化と包含関係を検証する。", "脆弱版と修正版の両方を確認する回帰テストを維持する。"],
+    "assessment": [{"id": "explain-boundary", "question": "原因と修正方針を説明してください。", "answerExample": "参照名の親ディレクトリ指定がファイルパスとして解釈されたため、設定ファイルへ到達した。修正版へ更新し、パスに変換する前に参照名を検証する。", "criteria": ["参照名とファイルパスの境界に触れる", "修正と再発防止を区別する"]}]
+  }
+}

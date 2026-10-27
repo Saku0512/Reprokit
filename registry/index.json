@@ -1,11 +1,15 @@
 {
   "registryVersion": 1,
   "cves": {
-    "CVE-2026-54088": ["reprokit/filebrowser-cve-2026-54088"]
+    "CVE-2026-54088": ["reprokit/filebrowser-cve-2026-54088"],
+    "CVE-2026-71557": ["reprokit/go-git-cve-2026-71557"]
   },
   "labs": {
     "reprokit/filebrowser-cve-2026-54088": {
       "manifest": "manifests/reprokit/filebrowser-cve-2026-54088.yaml"
+    },
+    "reprokit/go-git-cve-2026-71557": {
+      "manifest": "manifests/reprokit/go-git-cve-2026-71557.yaml"
     }
   }
 }

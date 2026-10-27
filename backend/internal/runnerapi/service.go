@@ -26,8 +26,8 @@ func NewLifecycleService(manager *runtime.Manager, fixed FixedLab) (*LifecycleSe
 	if fixed.Lesson.LessonID == "" || fixed.Lesson.LessonVersion == "" || fixed.Lesson.LabRef == "" {
 		return nil, errors.New("fixed Lesson reference is required")
 	}
-	if fixed.Prepared.LabID != "reprokit/filebrowser-cve-2026-54088" {
-		return nil, errors.New("only the File Browser Lab may be configured")
+	if fixed.Prepared.LabID != "reprokit/filebrowser-cve-2026-54088" && fixed.Prepared.LabID != "reprokit/go-git-cve-2026-71557" {
+		return nil, errors.New("only an approved Reprokit Lab may be configured")
 	}
 	return &LifecycleService{manager: manager, fixed: fixed}, nil
 }

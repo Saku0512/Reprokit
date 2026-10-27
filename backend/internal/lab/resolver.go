@@ -237,7 +237,7 @@ func validateSource(source Source) error {
 	if _, allowed := allowedSourceURLs[source.URL]; !allowed {
 		return errors.New("source URL is not an approved repository")
 	}
-	if source.URL == "https://github.com/Saku0512/Reprokit.git" && source.Subdirectory != "images/CVE-2026-54088" {
+	if source.URL == "https://github.com/Saku0512/Reprokit.git" && source.Subdirectory != "images/CVE-2026-54088" && source.Subdirectory != "images/CVE-2026-71557" {
 		return errors.New("Reprokit source subdirectory is not approved")
 	}
 	if !commitPattern.MatchString(source.Revision) {

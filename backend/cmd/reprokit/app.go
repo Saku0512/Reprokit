@@ -26,6 +26,15 @@ const (
 	labID         = "reprokit/filebrowser-cve-2026-54088"
 )
 
+type configuredLab struct {
+	lessonID, lessonVersion, labID string
+}
+
+var configuredLabs = []configuredLab{
+	{lessonID: lessonID, lessonVersion: lessonVersion, labID: labID},
+	{lessonID: "path-traversal/go-git-loose-reference", lessonVersion: "1.0.0", labID: "reprokit/go-git-cve-2026-71557"},
+}
+
 type configuration struct {
 	repository, state                          string
 	organizationID, administratorID, learnerID string
@@ -87,30 +96,38 @@ func newApplication(ctx context.Context, config configuration, provider runtime.
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := (lab.Resolver{}).Resolve(filepath.Join(root, "registry"), revision, labID)
-	if err != nil {
-		return nil, err
+	resolvedLabs := make(map[string]lab.ResolvedLab, len(configuredLabs))
+	allowedLabIDs := make(map[string]bool, len(configuredLabs))
+	for _, configured := range configuredLabs {
+		resolved, err := (lab.Resolver{}).Resolve(filepath.Join(root, "registry"), revision, configured.labID)
+		if err != nil {
+			return nil, err
+		}
+		resolvedLabs[configured.labID] = resolved
+		allowedLabIDs[resolved.ID] = true
 	}
-	catalog, issues, err := lesson.LoadCatalog(filepath.Join(root, "lessons"), func(id string) bool { return id == resolved.ID })
+	catalog, issues, err := lesson.LoadCatalog(filepath.Join(root, "lessons"), func(id string) bool { return allowedLabIDs[id] })
 	if err != nil {
 		return nil, err
 	}
 	if len(issues) > 0 {
 		return nil, fmt.Errorf("committed Lesson was rejected: %v", issues[0])
 	}
-	value, exists := catalog.Get(lessonID, lessonVersion)
-	if !exists {
-		return nil, errors.New("the reviewed File Browser Lesson Version is missing")
-	}
-	for _, ref := range []string{"vulnerable", "fixed"} {
-		found := false
-		for _, reference := range value.Spec.Labs {
-			if reference.Ref == ref && reference.LabID == labID {
-				found = true
-			}
+	for _, configured := range configuredLabs {
+		value, exists := catalog.Get(configured.lessonID, configured.lessonVersion)
+		if !exists {
+			return nil, errors.New("a reviewed Lesson Version is missing")
 		}
-		if !found {
-			return nil, errors.New("File Browser comparison references do not match the Registry")
+		for _, ref := range []string{"vulnerable", "fixed"} {
+			found := false
+			for _, reference := range value.Spec.Labs {
+				if reference.Ref == ref && reference.LabID == configured.labID {
+					found = true
+				}
+			}
+			if !found {
+				return nil, errors.New("comparison references do not match the Registry")
+			}
 		}
 	}
 	study, err := lesson.NewSessionStore(filepath.Join(config.state, "study"), catalog)
@@ -128,7 +145,7 @@ func newApplication(ctx context.Context, config configuration, provider runtime.
 	if err := manager.Recover(ctx); err != nil {
 		return nil, fmt.Errorf("recover Lab resources from a previous Runner: %w", err)
 	}
-	service := &lazyService{manager: manager, resolved: resolved, materialize: materialize, state: config.state}
+	service := &lazyService{manager: manager, resolved: resolvedLabs, materialize: materialize, state: config.state, services: make(map[runnerapi.LessonReference]*runnerapi.LifecycleService)}
 	server, err := lesson.NewLocalServer(catalog, study, service)
 	if err != nil {
 		return nil, err
@@ -318,21 +335,28 @@ func (app *application) Close() { _ = app.server.Listener.Close(); _ = os.Remove
 // 起動と教材閲覧では取得もDocker操作もしない。最初のPrepareだけが固定ソースを取得する。
 type lazyService struct {
 	manager     *runtime.Manager
-	resolved    lab.ResolvedLab
+	resolved    map[string]lab.ResolvedLab
 	materialize materializeSource
 	state       string
 	mu          sync.Mutex
-	service     *runnerapi.LifecycleService
+	services    map[runnerapi.LessonReference]*runnerapi.LifecycleService
 }
 
 func (service *lazyService) Prepare(ctx context.Context, reference runnerapi.LessonReference) (runtime.Session, error) {
-	expected := runnerapi.LessonReference{LessonID: lessonID, LessonVersion: lessonVersion, LabRef: "vulnerable"}
-	if reference != expected {
-		return runtime.Session{}, errors.New("only the reviewed File Browser comparison reference can be prepared")
+	var configured configuredLab
+	found := false
+	for _, value := range configuredLabs {
+		if reference == (runnerapi.LessonReference{LessonID: value.lessonID, LessonVersion: value.lessonVersion, LabRef: "vulnerable"}) {
+			configured, found = value, true
+			break
+		}
+	}
+	if !found {
+		return runtime.Session{}, errors.New("only a reviewed comparison reference can be prepared")
 	}
 	service.mu.Lock()
 	defer service.mu.Unlock()
-	if service.service == nil {
+	if service.services[reference] == nil {
 		root, err := os.MkdirTemp(service.state, ".source-*")
 		if err != nil {
 			return runtime.Session{}, err
@@ -340,21 +364,22 @@ func (service *lazyService) Prepare(ctx context.Context, reference runnerapi.Les
 		defer os.RemoveAll(root)
 		fetchContext, cancel := context.WithTimeout(ctx, 90*time.Second)
 		defer cancel()
-		materialized, err := service.materialize(fetchContext, service.resolved, filepath.Join(root, "lab"))
+		resolved := service.resolved[configured.labID]
+		materialized, err := service.materialize(fetchContext, resolved, filepath.Join(root, "lab"))
 		if err != nil {
 			return runtime.Session{}, err
 		}
-		prepared, err := lab.ToPreparedLab(service.resolved, materialized)
+		prepared, err := lab.ToPreparedLab(resolved, materialized)
 		if err != nil {
 			return runtime.Session{}, err
 		}
-		fixed, err := runnerapi.NewLifecycleService(service.manager, runnerapi.FixedLab{Lesson: expected, Prepared: prepared})
+		fixed, err := runnerapi.NewLifecycleService(service.manager, runnerapi.FixedLab{Lesson: reference, Prepared: prepared})
 		if err != nil {
 			return runtime.Session{}, err
 		}
-		service.service = fixed
+		service.services[reference] = fixed
 	}
-	return service.service.Prepare(ctx, reference)
+	return service.services[reference].Prepare(ctx, reference)
 }
 func (service *lazyService) Start(ctx context.Context, id string) (runtime.Session, error) {
 	return service.manager.Start(ctx, id)

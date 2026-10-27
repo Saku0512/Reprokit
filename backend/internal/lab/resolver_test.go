@@ -135,16 +135,20 @@ func TestResolverRejectsNonGitHubSource(t *testing.T) {
 	}
 }
 
-func TestValidateSourceLimitsReprokitToFileBrowserDirectory(t *testing.T) {
+func TestValidateSourceLimitsReprokitToApprovedDirectories(t *testing.T) {
 	source := Source{Type: "git", URL: "https://github.com/Saku0512/Reprokit.git", Revision: strings.Repeat("a", 40), Subdirectory: "images/CVE-2026-54088"}
 	if err := validateSource(source); err != nil {
 		t.Fatalf("approved source rejected: %v", err)
 	}
-	for _, path := range []string{"images/CVE-2026-71557", "images/CVE-2026-54088/../CVE-2026-71557", "images"} {
+	for _, path := range []string{"images/CVE-2026-54088/../CVE-2026-71557", "images", "images/CVE-2021-41773"} {
 		source.Subdirectory = path
 		if err := validateSource(source); err == nil {
 			t.Fatalf("unapproved source directory %q accepted", path)
 		}
+	}
+	source.Subdirectory = "images/CVE-2026-71557"
+	if err := validateSource(source); err != nil {
+		t.Fatalf("approved go-git source rejected: %v", err)
 	}
 	source.Subdirectory = "images/CVE-2026-54088"
 	source.Revision = "main"

@@ -69,7 +69,7 @@ type Artifact struct {
 }
 
 func createLock(lab PreparedLab, normalized []byte) ([]byte, error) {
-	if !shaPattern.MatchString(lab.Artifact.RegistryRevision) || !validRelativePath(lab.Artifact.ManifestPath) || !validRelativePath(lab.Artifact.RuntimeFile) || len(lab.Artifact.Manifest) == 0 || !approvedFileBrowserSource(lab.Artifact.SourceURL, lab.Artifact.SourceSubdirectory, lab.Artifact.RuntimeFile) || lab.Artifact.Platform != "linux/amd64" {
+	if !shaPattern.MatchString(lab.Artifact.RegistryRevision) || !validRelativePath(lab.Artifact.ManifestPath) || !validRelativePath(lab.Artifact.RuntimeFile) || len(lab.Artifact.Manifest) == 0 || !approvedLabArtifact(lab.LabID, lab.Artifact.SourceURL, lab.Artifact.SourceSubdirectory, lab.Artifact.RuntimeFile) || lab.Artifact.Platform != "linux/amd64" {
 		return nil, errors.New("fixed Lab artifact is incomplete")
 	}
 	if err := lab.Guardrails.Validate(); err != nil {
@@ -103,7 +103,7 @@ func createLock(lab PreparedLab, normalized []byte) ([]byte, error) {
 }
 
 func verifyArtifact(session Session) ([]byte, error) {
-	if session.LabID != "reprokit/filebrowser-cve-2026-54088" || !shaPattern.MatchString(session.SourceRevision) || !shaPattern.MatchString(session.RegistryRevision) || !approvedFileBrowserSource(session.SourceURL, session.SourceSubdirectory, session.RuntimeFile) || session.Platform != "linux/amd64" {
+	if !shaPattern.MatchString(session.SourceRevision) || !shaPattern.MatchString(session.RegistryRevision) || !approvedLabArtifact(session.LabID, session.SourceURL, session.SourceSubdirectory, session.RuntimeFile) || session.Platform != "linux/amd64" {
 		return nil, errors.New("stored Lab identity is invalid")
 	}
 	if len(session.Manifest) == 0 || !validRelativePath(session.ManifestPath) || !validRelativePath(session.RuntimeFile) {
@@ -134,9 +134,13 @@ func verifyArtifact(session Session) ([]byte, error) {
 	return inspection.Normalized, nil
 }
 
-// approvedFileBrowserSource は承認対象の取得元を限定する。
-func approvedFileBrowserSource(url, subdirectory, file string) bool {
-	return url == "https://github.com/Saku0512/Reprokit.git" && subdirectory == "images/CVE-2026-54088" && file == "docker-compose.yml"
+// approvedLabArtifact は実行可能なLabの取得元と実行定義を限定する。
+func approvedLabArtifact(labID, url, subdirectory, file string) bool {
+	if url != "https://github.com/Saku0512/Reprokit.git" || file != "docker-compose.yml" {
+		return false
+	}
+	return (labID == "reprokit/filebrowser-cve-2026-54088" && subdirectory == "images/CVE-2026-54088") ||
+		(labID == "reprokit/go-git-cve-2026-71557" && subdirectory == "images/CVE-2026-71557")
 }
 
 func decodeLock(contents []byte) (lockDocument, error) {
