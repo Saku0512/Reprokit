@@ -50,7 +50,7 @@ func TestFileBrowserDockerHubComposePassesGuardrails(t *testing.T) {
 }
 
 func TestGoGitDraftHasNoPublishedPorts(t *testing.T) {
-	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "images", "CVE-2026-71557", "docker-compose.review.yaml"))
+	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "images", "CVE-2026-71557", "docker-compose.yml"))
 	if err != nil {
 		t.Fatal(err)
 	}
