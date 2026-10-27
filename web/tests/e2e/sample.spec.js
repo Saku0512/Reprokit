@@ -230,7 +230,7 @@ test("教材の操作、Runnerでの起動・停止・削除、完了表示", as
     expect.objectContaining({
       body: {
         lessonId: "command-injection/filebrowser-auth-hook",
-        lessonVersion: "1.0.0",
+        lessonVersion: "1.1.0",
         labRef: "vulnerable",
       },
     }),

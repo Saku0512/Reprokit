@@ -97,7 +97,7 @@ export async function mockRunner(page, options = {}) {
         : "11111111-1111-4111-8111-111111111111";
       labs[id] = {
         labSessionId: id,
-        labId: "vulhub/filebrowser-cve-2026-54088",
+        labId: "reprokit/filebrowser-cve-2026-54088",
         state: "prepared",
         safetyChecked: !options.unsafe,
         externalExposure: false,

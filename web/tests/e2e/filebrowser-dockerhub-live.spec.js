@@ -14,6 +14,7 @@ const images = {
     "docker.io/saku0512/reprokit_cve-2026-54088@sha256:22164b8c14c41f5aa4556f21442af35bc460a7d5ff85e262579fd37d5e3205a5",
 };
 const card = (page, name) => page.getByRole("region", { name, exact: true });
+test.describe.configure({ mode: "serial" });
 
 async function docker(...args) {
   const { stdout } = await execFileAsync("docker", args, { timeout: 30000 });
@@ -183,6 +184,127 @@ test("Docker Hub版を実RunnerとWeb UIで再現し、リソースを削除す�
           `label=com.docker.compose.project=${project}`,
         );
         cleaned = containers.length === 0 && networks === "" && volumes === "";
+      } catch (error) {
+        console.error(`Lab cleanup failed: ${error}`);
+      }
+    }
+    await app?.close();
+    if (cleaned || !project) await rm(state, { recursive: true, force: true });
+    else
+      console.error(
+        `Lab cleanup is unverified; preserve state directory: ${state} (project ${project})`,
+      );
+  }
+});
+
+test("学習画面からDocker Hub版を起動・観察・削除できる", async ({ page }) => {
+  test.skip(
+    process.env.REPROKIT_RUN_DOCKERHUB_E2E !== "1",
+    "専用環境で明示的に実行する実Lab E2Eです。",
+  );
+  test.setTimeout(240000);
+  const state = await mkdtemp(join(tmpdir(), "reprokit-dockerhub-ui-e2e-"));
+  let app;
+  let project;
+  let cleaned = false;
+  try {
+    app = await launch({ port: 0, dist: false, state });
+    await page.goto(app.origin);
+    await page.locator('[data-a="open"]').first().click();
+    await page.getByRole("button", { name: "学習を開始する ↓", exact: true }).click();
+    await page.locator('[data-a="deploy"]').click();
+    await page.getByRole("checkbox").check();
+    const preparedResponse = page.waitForResponse(
+      (response) => response.url().endsWith("/api/labs") && response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "起動する", exact: true }).click();
+    const response = await preparedResponse;
+    expect(response.ok()).toBe(true);
+    const session = await response.json();
+    const stored = JSON.parse(
+      await readFile(join(state, "labs", `${session.labSessionId}.json`), "utf8"),
+    );
+    project = stored.project;
+    expect(project).toMatch(/^reprokit_[0-9a-f]{12}$/);
+    expect(session.labId).toBe("reprokit/filebrowser-cve-2026-54088");
+    expect(stored.sourceUrl).toBe("https://github.com/Saku0512/Reprokit.git");
+    await expect(page.locator(".st")).toHaveText("RUNNING", { timeout: 60000 });
+    for (const [service, image] of Object.entries(images)) {
+      const ids = await resources(project, service);
+      expect(ids).toHaveLength(1);
+      const inspected = JSON.parse(await docker("inspect", ids[0]));
+      expect(inspected[0].Config.Image).toBe(image);
+      expect(inspected[0].State.Running).toBe(true);
+    }
+    const endpoints = page.locator(".tm .r2 a");
+    await expect(endpoints).toHaveCount(2);
+    const vulnerableEndpoint = await endpoints.nth(0).getAttribute("href");
+    const fixedEndpoint = await endpoints.nth(1).getAttribute("href");
+    expect(vulnerableEndpoint).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/?$/);
+    expect(fixedEndpoint).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/?$/);
+    await login(vulnerableEndpoint);
+    await login(fixedEndpoint);
+    for (let phase = 0; phase < 5; phase++)
+      await page.locator(`#phase-${phase} [data-a="next"]`).click();
+    for (const service of ["vulnerable", "fixed"])
+      await page.locator(`[data-a="compare"][data-v="${service}"]`).click();
+    await expect(page.locator("#phase-5 .reveal")).toContainText("マーカーの有無に差があります");
+    await page.locator('[data-a="stop"]').click();
+    await expect(page.locator(".st")).toHaveText("STOPPED");
+    await page.locator('[data-a="destroy"]').click();
+    await page.locator("#vol").selectOption("rm");
+    await page.getByRole("button", { name: "削除する", exact: true }).click();
+    await expect(page.locator(".st")).toHaveText("READY");
+    expect(await resources(project)).toEqual([]);
+    expect(
+      await docker(
+        "network",
+        "ls",
+        "--quiet",
+        "--filter",
+        `label=com.docker.compose.project=${project}`,
+      ),
+    ).toBe("");
+    expect(
+      await docker(
+        "volume",
+        "ls",
+        "--quiet",
+        "--filter",
+        `label=com.docker.compose.project=${project}`,
+      ),
+    ).toBe("");
+    cleaned = true;
+  } finally {
+    if (project && !cleaned) {
+      try {
+        const stop = page.locator('[data-a="stop"]');
+        if (await stop.isVisible()) {
+          await stop.click();
+          await expect(page.locator(".st")).toHaveText("STOPPED", { timeout: 30000 });
+        }
+        const remove = page.locator('[data-a="destroy"]');
+        if (await remove.isVisible()) {
+          await remove.click();
+          await page.locator("#vol").selectOption("rm");
+          await page.getByRole("button", { name: "削除する", exact: true }).click();
+          await expect(page.locator(".st")).toHaveText("READY", { timeout: 30000 });
+        }
+        const networks = await docker(
+          "network",
+          "ls",
+          "--quiet",
+          "--filter",
+          `label=com.docker.compose.project=${project}`,
+        );
+        const volumes = await docker(
+          "volume",
+          "ls",
+          "--quiet",
+          "--filter",
+          `label=com.docker.compose.project=${project}`,
+        );
+        cleaned = (await resources(project)).length === 0 && networks === "" && volumes === "";
       } catch (error) {
         console.error(`Lab cleanup failed: ${error}`);
       }

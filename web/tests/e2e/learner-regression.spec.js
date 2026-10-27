@@ -131,7 +131,7 @@ test("Labを明示確認して起動すると固定参照だけを送る", async
   const request = fixture.calls.find((call) => call.path === "/api/labs" && call.method === "POST");
   expect(request.body).toEqual({
     lessonId: "command-injection/filebrowser-auth-hook",
-    lessonVersion: "1.0.0",
+    lessonVersion: "1.1.0",
     labRef: "vulnerable",
   });
 });

@@ -3,7 +3,7 @@ import { mockRunner } from "./fixture.js";
 import { PH } from "../../src/learner/lesson-data.ts";
 import { emptyNote, noteStorageKey } from "../../src/learner/learning-note.ts";
 
-const lesson = { lessonId: "command-injection/filebrowser-auth-hook", lessonVersion: "1.0.0" };
+const lesson = { lessonId: "command-injection/filebrowser-auth-hook", lessonVersion: "1.1.0" };
 const storageKey = noteStorageKey(lesson);
 const labels = ["影響", "原因", "修正", "再発防止"];
 const answerField = (page, i) =>
