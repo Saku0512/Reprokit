@@ -25,6 +25,18 @@ Do not read every design document for a narrow change. Existing implementation a
 - Never merge a pull request automatically. After creating a PR and reporting its verification results, wait for the user's explicit merge instruction.
 - Do not silently change a contract owned by the other development lane. Update the shared contract first and request the other owner's review.
 
+## Commit messages
+
+Follow [CONTRIBUTING.md](CONTRIBUTING.md#コミットメッセージとprタイトル) for commit subjects and PR titles. Use `<prefix>(<component>): <message>`, for example `test(web): 受講画面の回帰テストを拡充`.
+
+## Lab images and Docker Hub
+
+- Manage Lab image build definitions under `images/CVE-YYYY-NNNN/<product-version>/`; keep vulnerable and fixed versions separate. See [images/README.md](images/README.md) for provenance and published images.
+- Publish Reprokit-managed images to Docker Hub under `saku0512/reprokit_cve-yyyy-nnnn`. Docker image repository names must be lowercase. Use version and source commit in human-readable tags, for example `2.63.5-8c7e9fd9a4ec`.
+- Build for the declared platform from a fixed source revision. Record the source commit, platform, image digest, and relevant build limitations; verify public images are anonymously accessible. Do not overwrite an existing tag without an explicit request.
+- Pin executable Compose references to the reviewed `@sha256:...` digest, not a mutable tag. Publishing an image does not by itself update a fixed Vulhub fork revision or make a Lab approved and runnable; update the fixed source and Registry only after the required human review.
+- Docker Hub publication is an external write: perform it when requested, keep credentials out of the repository and output, and do not remove previously published images unless explicitly requested.
+
 ## Formatting
 
 The repository formatter contract is deterministic and shared by both developers.
