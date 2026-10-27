@@ -1,5 +1,7 @@
 # Docker Compose Runtime v0.1.0
 
+> **現行実装（2026-10-27）**: File Browser LabはReprokitのローカルGitに含まれる固定コミットのComposeと、Docker Hubのdigest固定イメージを使用する。旧Vulhub構成は以下の歴史的な設計記録であり、実行時の取得元ではない。詳細は[Lab移行](lab-catalog-runtime-v0.1.md)を参照。
+
 ## Vulhub連携時の適用方針（2026-10-16更新）
 
 教育MVPでは[`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)の固定スナップショットから、upstream由来Labとfork追加Labを利用する。どちらにも同じ許可リスト、Lockfile、明示起動の規則を適用し、安全性検査を省略しない。

@@ -1,6 +1,6 @@
 # Vulhub fork連携・Lab昇格設計 v0.1
 
-> **移行案・レビュー待ち（2026-10-27）**: File Browserの実行時Vulhub依存をなくすため、Reprokitリポジトリの固定コミットにある`images/CVE-2026-54088/docker-compose.yml`とDocker Hubの固定digestをLabの取得元にする。現行RegistryはまだVulhub forkを参照する。提案する変更と承認手順は本書末尾を参照。
+> **移行（2026-10-27）**: File Browser LabはReprokitの固定コミットにある`images/CVE-2026-54088/docker-compose.yml`とDocker Hubの固定digestを使用する。RunnerはローカルGitのコミット済みオブジェクトからComposeを読み、Vulhub forkを実行時に取得しない。以下は移行前の設計記録であり、現行の実装との差は本書末尾を参照。
 
 > 決定日: 2026-10-17。`Saku0512/vulhub`をReprokitのLabソースカタログとして使用し、レビュー済みの構成だけを固定イメージへ昇格して実行する。
 
@@ -227,15 +227,15 @@ forkに追加済みのその他のCVEは将来の候補として保持するが�
 - PoCの成功と失敗を誇張せず、実行結果と未検証事項を区別して表示する。
 - 停止・削除までWeb UIから完走できる。
 
-## 11. Reprokit内の固定Labへの移行案
+## 11. Reprokit内の固定Labへの移行
 
-本節は共有契約・安全性レビュー待ちであり、公開済みLabの取得元を変更する決定ではない。@Saku0512と@yui-szkが影響と移行手順をレビューする。[共有契約の移行案](b2b-domain-contract-v0.1.md)では新しいLab IDとLesson Versionを使う。
+File Browserは[共有契約](b2b-domain-contract-v0.1.md)に従い、新しいLab IDとLesson Versionを使う。以下は移行工程と制約を記録する。
 
-1. File BrowserのComposeとDocker Hubイメージの出典、ライセンス、安全性、起動と脆弱版・修正版の挙動をレビューする。`images/CVE-2026-54088/docker-compose.review.yaml`は案であり、このままRegistryに登録しない。
+1. File BrowserのComposeとDocker Hubイメージの出典、ライセンス、安全性をレビューする。専用E2Eで起動と脆弱版・修正版の挙動を確認する。
 2. 承認済みComposeを`images/CVE-2026-54088/docker-compose.yml`としてReprokitにコミットし、取得可能な固定コミットSHAを確定する。Composeとイメージのdigestはレビュー対象に含める。
 3. 別の変更でManifestのGit URLを`https://github.com/Saku0512/Reprokit.git`、subdirectoryを`images/CVE-2026-54088`、revisionをその固定SHAへ変更する。Manifestを含むコミット自身のSHAをManifestに書こうとせず、先に確定したソースコミットを参照する。
-4. Prepare時には従来どおり固定コミットを取得し、Composeを検査し、Manifest・Registry・ソース・Compose・イメージdigestをLockfileに記録する。Start前にも整合性を再検査する。ブラウザからGit URLやパスを選択できるようにしない。
-5. 新規Sessionは新しい固定ソースを利用する。移行前に旧Runnerで既存Labを停止し、リソースとVolumeを確認する。旧Sessionや研修履歴は自動削除せず、その後の参照・管理方法を共有契約のレビューで確定する。既存Lockfileを黙って書き換えたり、新しいイメージへ暗黙に更新したりしない。
+4. Prepare時にはローカルGitの固定コミットからComposeを読み、検査し、Manifest・Registry・ソース・Compose・イメージdigestをLockfileに記録する。Start前にも整合性を再検査する。ブラウザからGit URLやパスを選択できるようにしない。
+5. 新規Sessionは新しい固定ソースを利用する。旧Sessionは再起動できず、停止・削除は可能である。旧Sessionや研修履歴は自動削除せず、既存Lockfileを黙って書き換えたり、新しいイメージへ暗黙に更新したりしない。旧教材v1.0.0の受講は提供しないため、新しい教材版には新規割り当てを作成する。
 
-この方式でVulhub forkへの実行時取得は不要になるが、Reprokitの固定GitソースとDocker Hubへのアクセスは残る。Vulhubの原典とライセンスは出典として維持する。Registryを更新する前に、固定SHAの取得可能性、Docker Hub digest、Compose安全性、未変更のLesson参照、旧Sessionの処理を確認する。
+この方式でVulhub forkへの実行時取得は不要になるが、固定コミットを含むReprokitのGit履歴とDocker Hubへのアクセスは必要である。Vulhubの原典とライセンスは出典として維持する。浅いcloneで固定コミットが欠ける場合はGit履歴を取得する必要がある。
 

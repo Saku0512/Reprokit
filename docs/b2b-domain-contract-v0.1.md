@@ -6,12 +6,12 @@
 
 ## 変更提案：Reprokit管理Labへの移行
 
-> **レビュー・合意待ち**。以下は移行案であり、既存の公開契約やRegistryがすでに変更されたことを意味しない。@Saku0512と@yui-szkのレビューを必要とする。
+> **移行実施中（2026-10-27）**。共有契約とCompose案のレビュー承認後、File Browser LabをReprokit管理へ切り替えた。旧Sessionと研修記録の扱いは下記を参照する。
 
 - 実行時にVulhubのリポジトリ、イメージ、Composeを取得せず、Reprokit管理のGitコミットとDocker Hub上のdigest固定イメージを使う。Vulhubは出典・ライセンス情報として保持する。
 - 新しいFile Browser Lab IDは`reprokit/filebrowser-cve-2026-54088`とする。LessonのLab ID変更には新しいLesson Versionを発行し、UIから渡す入力を任意のGit URL、パス、イメージ、コマンドへ拡張しない。
-- 既存AssignmentとSubmissionは元のLesson Versionに固定されたままとする。旧教材の継続提供・新教材への移行方法は公開前に両担当者が決める。履歴を黙って書き換えたり削除したりしない。
-- 旧Runnerで稼働中のLabを停止し、リソースと必要なVolumeを確認してから新Runnerへ移行する。旧Sessionを自動削除しない。旧Sessionの管理・履歴表示を新Runnerでどう扱うかは、破壊的移行の詳細としてレビュー時に確定する。
+- 既存AssignmentとSubmissionは元のLesson Versionに固定されたままとし、履歴を黙って書き換えたり削除したりしない。現行カタログはv1.1.0を提供し、v1.0.0の受講・再実行は提供しない。旧割り当てを新教材に自動移行せず、新しい割り当てを作成する。
+- 新Runnerは旧Lab Sessionの再起動を拒否する。旧Sessionの停止・削除に必要な処理は残し、Sessionや研修データを自動削除しない。既存の教材版は新しいLabへ暗黙に書き換えない。
 - 新規LabのManifest・Lockfileは取得元のGit SHA、Composeハッシュ、イメージdigestを固定し、PrepareとStartの安全性検査を維持する。構成、イメージ、出典およびライセンスを人がレビューするまで新Labを実行可能なRegistryに登録しない。
 
 影響範囲はRegistry、Manifest、Runnerの固定Lab判定、LessonのLab参照・バージョン、受講・研修の保存データ、およびローカルAPIのLab識別子である。具体的な実行側の段階案は[Lab昇格設計](lab-catalog-runtime-v0.1.md)を参照する。

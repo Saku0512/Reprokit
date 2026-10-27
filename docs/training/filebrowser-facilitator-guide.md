@@ -1,6 +1,6 @@
 # File Browser 認証フック教材の進行ガイド
 
-> 対象 Lesson：`command-injection/filebrowser-auth-hook@1.0.0`。
+> 対象 Lesson：`command-injection/filebrowser-auth-hook@1.1.0`。
 > 状態：教材草稿。
 > #9、#10、#11、#32 の接続と安全性レビューが完了するまで公開しない。
 
@@ -26,7 +26,7 @@ CVE ID は出典情報として示し、画面の主題は「ログイン入力�
 ## 事前準備と実行条件
 
 研修担当者は Lesson Version と Registry が承認した Lab ID の一致を確認する。
-Lesson の `vulnerable` と `fixed` はともに `vulhub/filebrowser-cve-2026-54088` を参照し、役割を `purpose` で区別する。
+Lesson の `vulnerable` と `fixed` はともに `reprokit/filebrowser-cve-2026-54088` を参照し、役割を `purpose` で区別する。
 同じ Lab ID の中で脆弱版と修正版を選ぶ方法は Runner 側の契約として確定する必要がある。
 
 Lab の取得元 README には、脆弱版の認証フックを `sh -c $USERNAME` とし、ログイン入力からコンテナ内の `/tmp/success` を作る固定例がある。

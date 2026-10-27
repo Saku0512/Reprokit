@@ -4,7 +4,7 @@
 
 Reprokit is a B2B security-training platform for application developers. It turns vulnerabilities reported in real products into reviewed lessons that cover reproduction, observation, root cause, remediation, and prevention. CVE IDs are evidence, not the primary learner-facing navigation.
 
-Vulhub and compatible labs provide environments. Reprokit owns the lesson design, safe resolution and execution, learner workflow, and training administration. Do not add arbitrary-target scanning, arbitrary command execution, or automatic execution of unreviewed code.
+Reprokit owns reviewed Lab definitions, lesson design, safe resolution and execution, learner workflow, and training administration. Vulhub may be cited as a source; runtime must not depend on a Vulhub repository or image. Do not add arbitrary-target scanning, arbitrary command execution, or automatic execution of unreviewed code.
 
 ## Read the context needed for the task
 
