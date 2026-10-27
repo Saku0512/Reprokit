@@ -49,6 +49,35 @@ func TestFileBrowserDockerHubComposePassesGuardrails(t *testing.T) {
 	}
 }
 
+func TestGoGitDraftHasNoPublishedPorts(t *testing.T) {
+	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "images", "CVE-2026-71557", "docker-compose.review.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inspection, err := InspectComposeWithGuardrails(contents, Guardrails{MaxRuntimeSeconds: 1800, CPUCores: 1, MemoryMiB: 512, PIDs: 128, DiskMiB: 1024, Egress: "none"})
+	if err != nil {
+		t.Fatalf("inspect draft Compose: %v", err)
+	}
+	var document struct {
+		Services map[string]struct {
+			Image string   `yaml:"image"`
+			Ports []string `yaml:"ports"`
+		} `yaml:"services"`
+	}
+	if err := yaml.Unmarshal(inspection.Normalized, &document); err != nil {
+		t.Fatal(err)
+	}
+	if len(document.Services) != 2 {
+		t.Fatalf("unexpected services: %#v", document.Services)
+	}
+	for _, name := range []string{"vulnerable", "fixed"} {
+		service, ok := document.Services[name]
+		if !ok || !strings.HasPrefix(service.Image, "docker.io/saku0512/reprokit_cve-2026-71557@sha256:") || len(service.Ports) != 0 {
+			t.Fatalf("unexpected service %q: %#v", name, service)
+		}
+	}
+}
+
 func TestInspectComposeRejectsUnsafeFixtures(t *testing.T) {
 	tests := []struct {
 		name    string
