@@ -22,7 +22,7 @@ func TestResolverResolvesRepositoryRegistry(t *testing.T) {
 	}
 }
 
-func TestResolverTreatsUpstreamAndForkLabsThroughTheSamePath(t *testing.T) {
+func TestResolverResolvesFixtureLabsThroughTheSamePath(t *testing.T) {
 	resolver := Resolver{}
 	tests := []struct {
 		name         string
@@ -30,14 +30,14 @@ func TestResolverTreatsUpstreamAndForkLabsThroughTheSamePath(t *testing.T) {
 		subdirectory string
 	}{
 		{
-			name:         "upstream-derived",
-			labID:        "vulhub/httpd-cve-2021-41773",
-			subdirectory: "httpd/CVE-2021-41773",
+			name:         "first fixture",
+			labID:        "reprokit/httpd-cve-2021-41773",
+			subdirectory: "images/CVE-2026-54088",
 		},
 		{
-			name:         "fork-added",
-			labID:        "vulhub/filebrowser-cve-2026-54088",
-			subdirectory: "filebrowser/CVE-2026-54088",
+			name:         "second fixture",
+			labID:        "reprokit/filebrowser-cve-2026-54088",
+			subdirectory: "images/CVE-2026-54088",
 		},
 	}
 
@@ -47,7 +47,7 @@ func TestResolverTreatsUpstreamAndForkLabsThroughTheSamePath(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Resolve() error = %v", err)
 			}
-			if resolved.Source.URL != "https://github.com/Saku0512/vulhub.git" {
+			if resolved.Source.URL != "https://github.com/Saku0512/Reprokit.git" {
 				t.Fatalf("Source.URL = %q", resolved.Source.URL)
 			}
 			if resolved.Source.Revision != "a94285e057faee8c7232e100116dc750cf17e257" {
@@ -70,11 +70,11 @@ func TestResolverRejectsManifestPathTraversal(t *testing.T) {
 	root := t.TempDir()
 	writeTestFile(t, filepath.Join(root, "index.json"), `{
   "registryVersion": 1,
-  "cves": {"CVE-2021-41773": ["vulhub/httpd-cve-2021-41773"]},
-  "labs": {"vulhub/httpd-cve-2021-41773": {"manifest": "../outside.yaml"}}
+  "cves": {"CVE-2021-41773": ["reprokit/httpd-cve-2021-41773"]},
+  "labs": {"reprokit/httpd-cve-2021-41773": {"manifest": "../outside.yaml"}}
 }`)
 
-	_, err := (Resolver{}).Resolve(root, testRegistryRevision, "vulhub/httpd-cve-2021-41773")
+	_, err := (Resolver{}).Resolve(root, testRegistryRevision, "reprokit/httpd-cve-2021-41773")
 	if err == nil || !strings.Contains(err.Error(), "unsafe Manifest path") {
 		t.Fatalf("Resolve() error = %v, want unsafe Manifest path", err)
 	}
@@ -93,11 +93,11 @@ func TestResolverRejectsManifestSymlink(t *testing.T) {
 	}
 	writeTestFile(t, filepath.Join(root, "index.json"), `{
   "registryVersion": 1,
-  "cves": {"CVE-2021-41773": ["vulhub/httpd-cve-2021-41773"]},
-  "labs": {"vulhub/httpd-cve-2021-41773": {"manifest": "manifests/lab.yaml"}}
+  "cves": {"CVE-2021-41773": ["reprokit/httpd-cve-2021-41773"]},
+  "labs": {"reprokit/httpd-cve-2021-41773": {"manifest": "manifests/lab.yaml"}}
 }`)
 
-	_, err := (Resolver{}).Resolve(root, testRegistryRevision, "vulhub/httpd-cve-2021-41773")
+	_, err := (Resolver{}).Resolve(root, testRegistryRevision, "reprokit/httpd-cve-2021-41773")
 	if err == nil || !strings.Contains(err.Error(), "symbolic link") {
 		t.Fatalf("Resolve() error = %v, want symbolic link rejection", err)
 	}
@@ -105,7 +105,7 @@ func TestResolverRejectsManifestSymlink(t *testing.T) {
 
 func TestResolverRejectsMutableRevision(t *testing.T) {
 	root := copyTestRegistry(t)
-	manifestPath := filepath.Join(root, "manifests/vulhub/httpd-cve-2021-41773.yaml")
+	manifestPath := filepath.Join(root, "manifests/reprokit/httpd-cve-2021-41773.yaml")
 	contents, err := os.ReadFile(manifestPath)
 	if err != nil {
 		t.Fatal(err)
@@ -113,7 +113,7 @@ func TestResolverRejectsMutableRevision(t *testing.T) {
 	contents = []byte(strings.Replace(string(contents), "a94285e057faee8c7232e100116dc750cf17e257", "master", 1))
 	writeTestFile(t, manifestPath, string(contents))
 
-	_, err = (Resolver{}).Resolve(root, testRegistryRevision, "vulhub/httpd-cve-2021-41773")
+	_, err = (Resolver{}).Resolve(root, testRegistryRevision, "reprokit/httpd-cve-2021-41773")
 	if err == nil || !strings.Contains(err.Error(), "40-character lowercase commit SHA") {
 		t.Fatalf("Resolve() error = %v, want fixed commit rejection", err)
 	}
@@ -121,15 +121,15 @@ func TestResolverRejectsMutableRevision(t *testing.T) {
 
 func TestResolverRejectsNonGitHubSource(t *testing.T) {
 	root := copyTestRegistry(t)
-	manifestPath := filepath.Join(root, "manifests/vulhub/httpd-cve-2021-41773.yaml")
+	manifestPath := filepath.Join(root, "manifests/reprokit/httpd-cve-2021-41773.yaml")
 	contents, err := os.ReadFile(manifestPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	contents = []byte(strings.Replace(string(contents), "https://github.com/Saku0512/vulhub.git", "https://127.0.0.1/vulhub.git", 1))
+	contents = []byte(strings.Replace(string(contents), "https://github.com/Saku0512/Reprokit.git", "https://127.0.0.1/Reprokit.git", 1))
 	writeTestFile(t, manifestPath, string(contents))
 
-	_, err = (Resolver{}).Resolve(root, testRegistryRevision, "vulhub/httpd-cve-2021-41773")
+	_, err = (Resolver{}).Resolve(root, testRegistryRevision, "reprokit/httpd-cve-2021-41773")
 	if err == nil || !strings.Contains(err.Error(), "not an approved repository") {
 		t.Fatalf("Resolve() error = %v, want source host rejection", err)
 	}
@@ -153,9 +153,18 @@ func TestValidateSourceLimitsReprokitToFileBrowserDirectory(t *testing.T) {
 	}
 }
 
+func TestValidateSourceRejectsExternalRepositories(t *testing.T) {
+	for _, origin := range []string{"https://github.com/Saku0512/vulhub.git", "https://github.com/vulhub/vulhub.git", "https://github.com/other/repository.git"} {
+		source := Source{Type: "git", URL: origin, Revision: strings.Repeat("a", 40), Subdirectory: "images/CVE-2026-54088"}
+		if err := validateSource(source); err == nil {
+			t.Fatalf("unapproved source %q accepted", origin)
+		}
+	}
+}
+
 func TestResolverRejectsUnknownManifestField(t *testing.T) {
 	root := copyTestRegistry(t)
-	manifestPath := filepath.Join(root, "manifests/vulhub/httpd-cve-2021-41773.yaml")
+	manifestPath := filepath.Join(root, "manifests/reprokit/httpd-cve-2021-41773.yaml")
 	file, err := os.OpenFile(manifestPath, os.O_APPEND|os.O_WRONLY, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -168,7 +177,7 @@ func TestResolverRejectsUnknownManifestField(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = (Resolver{}).Resolve(root, testRegistryRevision, "vulhub/httpd-cve-2021-41773")
+	_, err = (Resolver{}).Resolve(root, testRegistryRevision, "reprokit/httpd-cve-2021-41773")
 	if err == nil || !strings.Contains(err.Error(), "field unknown not found") {
 		t.Fatalf("Resolve() error = %v, want unknown field rejection", err)
 	}

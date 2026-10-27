@@ -21,8 +21,6 @@ var (
 	labIDPattern      = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?/[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$`)
 	cvePattern        = regexp.MustCompile(`^CVE-[0-9]{4}-[0-9]{4,}$`)
 	allowedSourceURLs = map[string]struct{}{
-		"https://github.com/Saku0512/vulhub.git":   {},
-		"https://github.com/vulhub/vulhub.git":     {},
 		"https://github.com/Saku0512/Reprokit.git": {},
 	}
 )

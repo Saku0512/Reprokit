@@ -27,7 +27,7 @@ func TestToPreparedLabBuildsFixedFileBrowserArtifact(t *testing.T) {
 		Runtime: Runtime{File: "docker-compose.yml", Platform: "linux/amd64", Guardrails: security.Guardrails{
 			MaxRuntimeSeconds: 1800, CPUCores: 1, MemoryMiB: 512, PIDs: 128, DiskMiB: 1024, Egress: "none",
 		}},
-		Registry: RegistryReference{Revision: strings.Repeat("b", 40), ManifestPath: "manifests/vulhub/filebrowser-cve-2026-54088.yaml"},
+		Registry: RegistryReference{Revision: strings.Repeat("b", 40), ManifestPath: "manifests/reprokit/filebrowser-cve-2026-54088.yaml"},
 		Manifest: ManifestReference{SHA256: hex.EncodeToString(manifestDigest[:]), Bytes: manifest},
 	}
 	materialized := MaterializedSource{URL: resolved.Source.URL, Revision: resolved.Source.Revision, Subdirectory: resolved.Source.Subdirectory, ComposeSHA256: hex.EncodeToString(composeDigest[:]), RuntimeCompose: compose, Files: []SourceFile{{Path: "docker-compose.yml", SHA256: hex.EncodeToString(composeDigest[:])}}}

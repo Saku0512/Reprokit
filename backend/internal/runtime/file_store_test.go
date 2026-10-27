@@ -16,7 +16,7 @@ func TestFileStorePersistsRunnerOnlyFieldsWithPrivatePermissions(t *testing.T) {
 		ID:             "01234567-89ab-4def-8123-456789abcdef",
 		Project:        "reprokit_0123456789ab",
 		Compose:        []byte("services: {}\n"),
-		LabID:          "vulhub/filebrowser-cve-2026-54088",
+		LabID:          "reprokit/filebrowser-cve-2026-54088",
 		SourceRevision: strings.Repeat("a", 40),
 		State:          Prepared,
 	}

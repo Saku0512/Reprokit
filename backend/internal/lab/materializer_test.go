@@ -60,8 +60,8 @@ func TestMaterializerCopiesOnlySelectedSubtreeAndHashesFiles(t *testing.T) {
 	readme := []byte("reviewed lab\n")
 	snapshot := &fakeSnapshot{
 		entries: []treeEntry{
-			{Mode: "100644", Type: "blob", OID: "compose", Path: "httpd/CVE-2021-41773/docker-compose.yml"},
-			{Mode: "100644", Type: "blob", OID: "readme", Path: "httpd/CVE-2021-41773/README.md"},
+			{Mode: "100644", Type: "blob", OID: "compose", Path: "images/CVE-2026-54088/docker-compose.yml"},
+			{Mode: "100644", Type: "blob", OID: "readme", Path: "images/CVE-2026-54088/README.md"},
 		},
 		blobs: map[string][]byte{
 			"compose": compose,
@@ -118,17 +118,17 @@ func TestMaterializerRejectsOutOfScopeEntry(t *testing.T) {
 		},
 		{
 			name:  "parent traversal",
-			entry: treeEntry{Mode: "100644", Type: "blob", OID: "bad", Path: "httpd/CVE-2021-41773/../../escape"},
+			entry: treeEntry{Mode: "100644", Type: "blob", OID: "bad", Path: "images/CVE-2026-54088/../../escape"},
 			want:  "unsafe source entry",
 		},
 		{
 			name:  "symbolic link",
-			entry: treeEntry{Mode: "120000", Type: "blob", OID: "bad", Path: "httpd/CVE-2021-41773/link"},
+			entry: treeEntry{Mode: "120000", Type: "blob", OID: "bad", Path: "images/CVE-2026-54088/link"},
 			want:  "not a regular file",
 		},
 		{
 			name:  "submodule",
-			entry: treeEntry{Mode: "160000", Type: "commit", OID: "bad", Path: "httpd/CVE-2021-41773/nested"},
+			entry: treeEntry{Mode: "160000", Type: "commit", OID: "bad", Path: "images/CVE-2026-54088/nested"},
 			want:  "not a regular file",
 		},
 	}
@@ -155,7 +155,7 @@ func TestMaterializerRejectsOutOfScopeEntry(t *testing.T) {
 func TestMaterializerRejectsMissingComposeFile(t *testing.T) {
 	snapshot := &fakeSnapshot{
 		entries: []treeEntry{
-			{Mode: "100644", Type: "blob", OID: "readme", Path: "httpd/CVE-2021-41773/README.md"},
+			{Mode: "100644", Type: "blob", OID: "readme", Path: "images/CVE-2026-54088/README.md"},
 		},
 		blobs: map[string][]byte{"readme": []byte("readme")},
 	}
@@ -183,12 +183,12 @@ func TestParseTreeEntries(t *testing.T) {
 
 func testResolvedLab() ResolvedLab {
 	return ResolvedLab{
-		ID: "vulhub/httpd-cve-2021-41773",
+		ID: "reprokit/httpd-cve-2021-41773",
 		Source: Source{
 			Type:         "git",
-			URL:          "https://github.com/Saku0512/vulhub.git",
+			URL:          "https://github.com/Saku0512/Reprokit.git",
 			Revision:     "a94285e057faee8c7232e100116dc750cf17e257",
-			Subdirectory: "httpd/CVE-2021-41773",
+			Subdirectory: "images/CVE-2026-54088",
 		},
 		Runtime: Runtime{
 			Type:     "docker-compose",

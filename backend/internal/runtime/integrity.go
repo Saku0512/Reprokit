@@ -103,7 +103,7 @@ func createLock(lab PreparedLab, normalized []byte) ([]byte, error) {
 }
 
 func verifyArtifact(session Session) ([]byte, error) {
-	if (session.LabID != "reprokit/filebrowser-cve-2026-54088" && session.LabID != "vulhub/filebrowser-cve-2026-54088") || !shaPattern.MatchString(session.SourceRevision) || !shaPattern.MatchString(session.RegistryRevision) || !approvedFileBrowserSource(session.SourceURL, session.SourceSubdirectory, session.RuntimeFile) || session.Platform != "linux/amd64" {
+	if session.LabID != "reprokit/filebrowser-cve-2026-54088" || !shaPattern.MatchString(session.SourceRevision) || !shaPattern.MatchString(session.RegistryRevision) || !approvedFileBrowserSource(session.SourceURL, session.SourceSubdirectory, session.RuntimeFile) || session.Platform != "linux/amd64" {
 		return nil, errors.New("stored Lab identity is invalid")
 	}
 	if len(session.Manifest) == 0 || !validRelativePath(session.ManifestPath) || !validRelativePath(session.RuntimeFile) {
@@ -134,10 +134,9 @@ func verifyArtifact(session Session) ([]byte, error) {
 	return inspection.Normalized, nil
 }
 
-// approvedFileBrowserSource は移行中の旧Sessionと承認対象の取得元を限定する。
+// approvedFileBrowserSource は承認対象の取得元を限定する。
 func approvedFileBrowserSource(url, subdirectory, file string) bool {
-	return url == "https://github.com/Saku0512/vulhub.git" && subdirectory == "filebrowser/CVE-2026-54088" ||
-		url == "https://github.com/Saku0512/Reprokit.git" && subdirectory == "images/CVE-2026-54088" && file == "docker-compose.yml"
+	return url == "https://github.com/Saku0512/Reprokit.git" && subdirectory == "images/CVE-2026-54088" && file == "docker-compose.yml"
 }
 
 func decodeLock(contents []byte) (lockDocument, error) {

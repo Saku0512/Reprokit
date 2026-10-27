@@ -1,15 +1,15 @@
 {
   "registryVersion": 1,
   "cves": {
-    "CVE-2021-41773": ["vulhub/httpd-cve-2021-41773"],
-    "CVE-2026-54088": ["vulhub/filebrowser-cve-2026-54088"]
+    "CVE-2021-41773": ["reprokit/httpd-cve-2021-41773"],
+    "CVE-2026-54088": ["reprokit/filebrowser-cve-2026-54088"]
   },
   "labs": {
-    "vulhub/filebrowser-cve-2026-54088": {
-      "manifest": "manifests/vulhub/filebrowser-cve-2026-54088.yaml"
+    "reprokit/filebrowser-cve-2026-54088": {
+      "manifest": "manifests/reprokit/filebrowser-cve-2026-54088.yaml"
     },
-    "vulhub/httpd-cve-2021-41773": {
-      "manifest": "manifests/vulhub/httpd-cve-2021-41773.yaml"
+    "reprokit/httpd-cve-2021-41773": {
+      "manifest": "manifests/reprokit/httpd-cve-2021-41773.yaml"
     }
   }
 }
