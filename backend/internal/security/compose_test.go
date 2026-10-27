@@ -20,8 +20,8 @@ func TestInspectComposeAcceptsAndNormalizesLoopbackPorts(t *testing.T) {
 	}
 }
 
-func TestFileBrowserDockerHubDraftPassesGuardrails(t *testing.T) {
-	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "images", "CVE-2026-54088", "docker-compose.review.yaml"))
+func TestFileBrowserDockerHubComposePassesGuardrails(t *testing.T) {
+	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "images", "CVE-2026-54088", "docker-compose.yml"))
 	if err != nil {
 		t.Fatal(err)
 	}
