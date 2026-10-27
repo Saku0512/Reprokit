@@ -20,6 +20,35 @@ func TestInspectComposeAcceptsAndNormalizesLoopbackPorts(t *testing.T) {
 	}
 }
 
+func TestFileBrowserDockerHubDraftPassesGuardrails(t *testing.T) {
+	contents, err := os.ReadFile(filepath.Join("..", "..", "..", "images", "CVE-2026-54088", "docker-compose.review.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	inspection, err := InspectComposeWithGuardrails(contents, Guardrails{MaxRuntimeSeconds: 1800, CPUCores: 1, MemoryMiB: 512, PIDs: 128, DiskMiB: 1024, Egress: "none"})
+	if err != nil {
+		t.Fatalf("inspect draft Compose: %v", err)
+	}
+	var document struct {
+		Services map[string]struct {
+			Image string   `yaml:"image"`
+			Ports []string `yaml:"ports"`
+		} `yaml:"services"`
+	}
+	if err := yaml.Unmarshal(inspection.Normalized, &document); err != nil {
+		t.Fatal(err)
+	}
+	for name, image := range map[string]string{
+		"vulnerable": "docker.io/saku0512/reprokit_cve-2026-54088@sha256:cdf1d4e63e4630f0f473e7f9cfd381c20450e65a87b86bceb9c944883ff6cd95",
+		"fixed":      "docker.io/saku0512/reprokit_cve-2026-54088@sha256:22164b8c14c41f5aa4556f21442af35bc460a7d5ff85e262579fd37d5e3205a5",
+	} {
+		service, ok := document.Services[name]
+		if !ok || service.Image != image || len(service.Ports) != 0 {
+			t.Fatalf("normalized service %q = %#v", name, service)
+		}
+	}
+}
+
 func TestInspectComposeRejectsUnsafeFixtures(t *testing.T) {
 	tests := []struct {
 		name    string

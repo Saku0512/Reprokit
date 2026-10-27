@@ -16,7 +16,7 @@ File Browserのイメージはコミット`8c7e9fd9a4ec56c82d9747e10ebba29fc0311
 | 2.63.5 | `docker.io/saku0512/reprokit_cve-2026-54088@sha256:cdf1d4e63e4630f0f473e7f9cfd381c20450e65a87b86bceb9c944883ff6cd95` |
 | 2.63.6 | `docker.io/saku0512/reprokit_cve-2026-54088@sha256:22164b8c14c41f5aa4556f21442af35bc460a7d5ff85e262579fd37d5e3205a5` |
 
-既存のFile Browser Labは引き続きVulhub forkの固定Composeに記載されたGHCRイメージを参照する。Docker Hubのイメージへ切り替えるには、イメージと構成をレビューし、固定ComposeとRegistryの参照を更新する。
+既存のFile Browser Labは引き続きVulhub forkの固定Composeに記載されたGHCRイメージを参照する。[Docker Hub版Composeの案](CVE-2026-54088/docker-compose.review.yaml)は人によるレビュー前の下書きであり、Registryには登録していない。Runnerと同じ静的安全性検査は通すが、イメージの起動と脆弱版・修正版の挙動は未検証である。切り替えにはイメージ・構成・出典のレビューと、固定ComposeおよびRegistry参照の更新が必要である。
 
 go-gitのイメージはコミット`8c7e9fd9a4ec56c82d9747e10ebba29fc03111c5`の定義から`linux/amd64`向けにビルドし、Docker Hubへ公開した。次のdigestは匿名で参照できることを確認済みである。
 
