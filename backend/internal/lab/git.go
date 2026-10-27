@@ -5,12 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"os/exec"
 	"strconv"
 	"strings"
-
-	"github.com/jphacks/sd_2601/internal/network"
 )
 
 const maxGitMetadataBytes = 8 << 20
@@ -77,11 +74,6 @@ func (buffer *limitedBuffer) Write(contents []byte) (int, error) {
 	return buffer.Buffer.Write(contents)
 }
 
-type execGitBackend struct {
-	runner      commandRunner
-	environment []string
-}
-
 type localGitBackend struct {
 	repositoryPath string
 	runner         commandRunner
@@ -109,59 +101,6 @@ func (backend localGitBackend) Fetch(ctx context.Context, source Source) (gitSna
 		return nil, errors.New("local source revision does not match the requested commit")
 	}
 	return &localGitSnapshot{&execGitSnapshot{repositoryPath: backend.repositoryPath, revision: source.Revision, runner: backend.runner, environment: backend.environment}}, nil
-}
-
-func newGitBackend(config network.Config) (gitBackend, error) {
-	environment, err := config.Environment(os.Environ())
-	if err != nil {
-		return nil, err
-	}
-	return execGitBackend{runner: execCommandRunner{}, environment: environment}, nil
-}
-
-func (backend execGitBackend) Fetch(ctx context.Context, source Source) (gitSnapshot, error) {
-	if err := validateSource(source); err != nil {
-		return nil, err
-	}
-	repositoryPath, err := os.MkdirTemp("", "reprokit-git-*")
-	if err != nil {
-		return nil, fmt.Errorf("create Git staging directory: %w", err)
-	}
-	cleanup := true
-	defer func() {
-		if cleanup {
-			_ = os.RemoveAll(repositoryPath)
-		}
-	}()
-
-	if _, err := backend.runner.Run(ctx, repositoryPath, maxGitMetadataBytes, backend.environment, "init", "--bare", "."); err != nil {
-		return nil, err
-	}
-	if _, err := backend.runner.Run(ctx, repositoryPath, maxGitMetadataBytes, backend.environment, "remote", "add", "origin", source.URL); err != nil {
-		return nil, err
-	}
-	if _, err := backend.runner.Run(ctx, repositoryPath, maxGitMetadataBytes, backend.environment,
-		"-c", "protocol.file.allow=never",
-		"-c", "http.followRedirects=false",
-		"fetch", "--depth=1", "--no-tags", "origin", source.Revision,
-	); err != nil {
-		return nil, network.NewConnectionError("固定Gitリビジョンの取得", network.HostFromURL(source.URL), "プロキシ設定、社内DNS、またはGit接続許可を確認してください", err)
-	}
-	resolved, err := backend.runner.Run(ctx, repositoryPath, 256, backend.environment, "rev-parse", "--verify", "FETCH_HEAD^{commit}")
-	if err != nil {
-		return nil, err
-	}
-	if strings.TrimSpace(string(resolved)) != source.Revision {
-		return nil, fmt.Errorf("fetched commit does not match requested revision %s", source.Revision)
-	}
-
-	cleanup = false
-	return &execGitSnapshot{
-		repositoryPath: repositoryPath,
-		revision:       source.Revision,
-		runner:         backend.runner,
-		environment:    backend.environment,
-	}, nil
 }
 
 type execGitSnapshot struct {
@@ -201,9 +140,7 @@ func (snapshot *execGitSnapshot) ReadBlob(ctx context.Context, oid string) ([]by
 	return snapshot.runner.Run(ctx, snapshot.repositoryPath, size+1, snapshot.environment, "cat-file", "blob", oid)
 }
 
-func (snapshot *execGitSnapshot) Close() error {
-	return os.RemoveAll(snapshot.repositoryPath)
-}
+func (snapshot *execGitSnapshot) Close() error { return nil }
 
 func parseTreeEntries(contents []byte) ([]treeEntry, error) {
 	if len(contents) == 0 {
