@@ -6,10 +6,54 @@ import (
 	"encoding/hex"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestLocalMaterializerUsesCommittedObjectsWithoutNetwork(t *testing.T) {
+	repo := t.TempDir()
+	git := func(args ...string) string {
+		t.Helper()
+		command := exec.Command("git", args...)
+		command.Dir = repo
+		command.Env = append(os.Environ(), "GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@example.invalid", "GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@example.invalid")
+		out, err := command.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v: %s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	git("init", "--quiet")
+	dir := filepath.Join(repo, "images", "CVE-2026-54088")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	compose := []byte("services: {}\n")
+	file := filepath.Join(dir, "docker-compose.yml")
+	if err := os.WriteFile(file, compose, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	git("add", "images/CVE-2026-54088/docker-compose.yml")
+	git("commit", "--quiet", "-m", "fixture")
+	revision := git("rev-parse", "HEAD")
+	if err := os.WriteFile(file, []byte("modified\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	resolved := ResolvedLab{Source: Source{Type: "git", URL: "https://github.com/Saku0512/Reprokit.git", Revision: revision, Subdirectory: "images/CVE-2026-54088"}, Runtime: Runtime{File: "docker-compose.yml"}}
+	result, err := NewLocalMaterializer(repo).Materialize(context.Background(), resolved, filepath.Join(t.TempDir(), "source"))
+	if err != nil || string(result.RuntimeCompose) != string(compose) {
+		t.Fatalf("Materialize = %#v, %v", result, err)
+	}
+	if _, err := os.Stat(repo); err != nil {
+		t.Fatalf("source repository was removed: %v", err)
+	}
+	resolved.Source.Revision = strings.Repeat("0", 40)
+	if _, err := NewLocalMaterializer(repo).Materialize(context.Background(), resolved, filepath.Join(t.TempDir(), "source")); err == nil {
+		t.Fatal("missing commit was accepted")
+	}
+}
 
 func TestMaterializerCopiesOnlySelectedSubtreeAndHashesFiles(t *testing.T) {
 	compose := []byte("services: {}\n")

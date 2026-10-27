@@ -82,6 +82,35 @@ type execGitBackend struct {
 	environment []string
 }
 
+type localGitBackend struct {
+	repositoryPath string
+	runner         commandRunner
+	environment    []string
+}
+
+type localGitSnapshot struct{ *execGitSnapshot }
+
+func (snapshot *localGitSnapshot) Close() error { return nil }
+
+// Fetch はローカルのGitオブジェクトから固定コミットだけを読み、外部へ接続しない。
+func (backend localGitBackend) Fetch(ctx context.Context, source Source) (gitSnapshot, error) {
+	if err := validateSource(source); err != nil {
+		return nil, err
+	}
+	if source.URL != "https://github.com/Saku0512/Reprokit.git" {
+		return nil, errors.New("only the Reprokit repository is available locally")
+	}
+	resolved, err := backend.runner.Run(ctx, backend.repositoryPath, 256, backend.environment,
+		"rev-parse", "--verify", source.Revision+"^{commit}")
+	if err != nil {
+		return nil, fmt.Errorf("read fixed local source revision: %w", err)
+	}
+	if strings.TrimSpace(string(resolved)) != source.Revision {
+		return nil, errors.New("local source revision does not match the requested commit")
+	}
+	return &localGitSnapshot{&execGitSnapshot{repositoryPath: backend.repositoryPath, revision: source.Revision, runner: backend.runner, environment: backend.environment}}, nil
+}
+
 func newGitBackend(config network.Config) (gitBackend, error) {
 	environment, err := config.Environment(os.Environ())
 	if err != nil {

@@ -39,6 +39,23 @@ func NewMaterializer() Materializer {
 	return materializer
 }
 
+// NewLocalMaterializer は指定されたReprokitリポジトリの固定コミットだけから取得する。
+func NewLocalMaterializer(repository string) Materializer {
+	environment := make([]string, 0, len(os.Environ())+1)
+	for _, entry := range os.Environ() {
+		if !strings.HasPrefix(entry, "GIT_") {
+			environment = append(environment, entry)
+		}
+	}
+	environment = append(environment, "GIT_NO_REPLACE_OBJECTS=1")
+	return Materializer{
+		backend:       localGitBackend{repositoryPath: repository, runner: execCommandRunner{}, environment: environment},
+		maxFiles:      defaultMaxFiles,
+		maxFileBytes:  defaultMaxFileBytes,
+		maxTotalBytes: defaultMaxTotalBytes,
+	}
+}
+
 // NewMaterializerWithNetwork は明示された企業ネットワーク設定だけでGitを取得する。
 func NewMaterializerWithNetwork(config network.Config) (Materializer, error) {
 	if err := config.Validate(); err != nil {
