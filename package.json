@@ -16,7 +16,8 @@
     "web:test": "npm --prefix web test",
     "web:browser:install": "npm --prefix web exec -- playwright install chromium",
     "web:test:e2e": "npm --prefix web run test:e2e",
-    "web:test:e2e:filebrowser": "npm --prefix web run test:e2e:filebrowser"
+    "web:test:e2e:filebrowser": "npm --prefix web run test:e2e:filebrowser",
+    "web:test:e2e:dockerhub": "npm --prefix web run test:e2e:dockerhub"
   },
   "devDependencies": {
     "prettier": "3.9.10"

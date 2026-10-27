@@ -201,6 +201,8 @@ npm run web:test:e2e
 REPROKIT_TEST_BROWSER=chrome npm run web:test:e2e
 # 専用環境でのみ、実LabをWeb UIから起動して比較する
 npm run web:test:e2e:filebrowser
+# 移行後、専用環境でDocker Hub版の実Labを検証する
+npm run web:test:e2e:dockerhub
 npm run verify:full
 ```
 
@@ -259,5 +261,6 @@ Docker統合テストは明示的なオプトインをしていないためス�
 - `test:e2e:filebrowser` は `REPROKIT_RUN_FILEBROWSER_E2E=1` が必要な専用環境用テストである。
   Web UIからのPrepare/Start/Stop/Delete、固定ログイン入力、固定マーカーの脆弱版・修正版比較を行う。
   通常の`test:e2e`や`npm run verify:full`では起動しない。
+- `test:e2e:dockerhub` は別の実Labテストで、Reprokit管理のLab IDと固定Git取得元、Docker Hubのdigest、実コンテナ、両版の挙動、停止・削除後の残存リソースを確認する。旧Vulhub構成では成功しない。実行にはイメージと構成の人によるレビュー、専用の隔離環境、Docker、ブラウザ、ネットワーク接続が必要である。失敗時に片付けを確認できなければSession情報を保持し、そのパスを表示する。通常のテストでは明示的にスキップする。
 
 このため、ブラウザテストの成功は実LabでCVEを再現、修正確認できたという意味ではない。
