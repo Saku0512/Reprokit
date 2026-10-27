@@ -68,10 +68,10 @@ func (manager *Manager) RunAction(ctx context.Context, id, service string, actio
 		return ActionObservation{}, errors.New("invalid Lab session ID")
 	}
 	if service != "vulnerable" && service != "fixed" {
-		return ActionObservation{}, errors.New("unknown File Browser comparison service")
+		return ActionObservation{}, errors.New("unknown comparison service")
 	}
-	if action != ListTmpAction {
-		return ActionObservation{}, errors.New("unknown File Browser observation action")
+	if action != ListTmpAction && action != ReferenceCheckAction {
+		return ActionObservation{}, errors.New("unknown observation action")
 	}
 	lockValue, _ := manager.locks.LoadOrStore(id, &sync.Mutex{})
 	lock := lockValue.(*sync.Mutex)
@@ -81,7 +81,7 @@ func (manager *Manager) RunAction(ctx context.Context, id, service string, actio
 	if err != nil {
 		return ActionObservation{}, err
 	}
-	if session.LabID != "reprokit/filebrowser-cve-2026-54088" || session.State != Running {
+	if session.State != Running || !((session.LabID == "reprokit/filebrowser-cve-2026-54088" && action == ListTmpAction) || (session.LabID == "reprokit/go-git-cve-2026-71557" && action == ReferenceCheckAction)) {
 		return ActionObservation{}, ErrInvalidState
 	}
 	runner, ok := manager.provider.(ActionRunner)

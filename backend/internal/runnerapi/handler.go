@@ -104,12 +104,12 @@ func NewHandler(service Service, sessionToken string) http.Handler {
 			_ = json.NewEncoder(writer).Encode(logs)
 			return
 		}
-		if request.Method == http.MethodPost && len(parts) == 4 && parts[1] == "actions" && (parts[2] == "vulnerable" || parts[2] == "fixed") && parts[3] == string(runtime.ListTmpAction) {
+		if request.Method == http.MethodPost && len(parts) == 4 && parts[1] == "actions" && (parts[2] == "vulnerable" || parts[2] == "fixed") && (parts[3] == string(runtime.ListTmpAction) || parts[3] == string(runtime.ReferenceCheckAction)) {
 			if !emptyBody(request) {
 				http.Error(writer, "invalid observation action request", http.StatusBadRequest)
 				return
 			}
-			observation, err := service.RunAction(request.Context(), id, parts[2], runtime.ListTmpAction)
+			observation, err := service.RunAction(request.Context(), id, parts[2], runtime.ObservationAction(parts[3]))
 			if err != nil {
 				status := http.StatusInternalServerError
 				if errors.Is(err, runtime.ErrNotFound) {

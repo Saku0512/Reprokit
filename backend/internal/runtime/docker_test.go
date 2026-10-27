@@ -214,6 +214,19 @@ func TestDockerComposeProviderRunsOnlyFixedListTmpAction(t *testing.T) {
 	}
 }
 
+func TestDockerComposeProviderRunsFixedReferenceCheck(t *testing.T) {
+	runner := &recordingDockerRunner{outputs: [][]byte{[]byte("checked\n")}}
+	provider := newDockerComposeProviderForTest(runner)
+	result, err := provider.RunAction(context.Background(), "reprokit_0123456789ab", []byte("services: {}\n"), "fixed", ReferenceCheckAction)
+	if err != nil || result.Output != "checked\n" || result.Action != ReferenceCheckAction {
+		t.Fatalf("result=%#v err=%v", result, err)
+	}
+	call := runner.calls[0]
+	if !slices.Equal(call[len(call)-4:], []string{"exec", "--no-TTY", "fixed", "/usr/local/bin/poc"}) {
+		t.Fatalf("unexpected action command: %#v", call)
+	}
+}
+
 type recordingDockerRunner struct {
 	calls   [][]string
 	outputs [][]byte

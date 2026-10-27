@@ -71,6 +71,7 @@ type LogSnapshot struct {
 type ObservationAction string
 
 const ListTmpAction ObservationAction = "list_tmp"
+const ReferenceCheckAction ObservationAction = "reference_check"
 
 // ActionObservation はレビュー済みの固定検証アクションの結果である。
 // 任意コマンドや任意引数の実行結果として使ってはならない。

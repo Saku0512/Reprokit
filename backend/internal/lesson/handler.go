@@ -285,7 +285,7 @@ func (handler *apiHandler) lab(writer http.ResponseWriter, request *http.Request
 			if !method(writer, request, http.MethodGet) || !query(request) {
 				return
 			}
-		} else if len(parts) == 4 && parts[1] == "actions" && (parts[2] == "vulnerable" || parts[2] == "fixed") && parts[3] == string(runtime.ListTmpAction) {
+		} else if len(parts) == 4 && parts[1] == "actions" && (parts[2] == "vulnerable" || parts[2] == "fixed") && (parts[3] == string(runtime.ListTmpAction) || parts[3] == string(runtime.ReferenceCheckAction)) {
 			if !method(writer, request, http.MethodPost) || !query(request) || !bodyJSON(request, &struct{}{}, true) {
 				badRequest(writer)
 				return

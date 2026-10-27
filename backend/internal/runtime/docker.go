@@ -182,16 +182,23 @@ func truncateLogs(output []byte, service string) LogSnapshot {
 	return LogSnapshot{Service: service, Content: content, Truncated: truncated}
 }
 
-// RunAction はFile Browser比較Labでレビュー済みの観察だけを引数配列で実行する。
+// RunAction は固定された観察だけを引数配列で実行する。
 // シェルや利用者指定のコマンド・引数・パスは使わない。
 func (provider *DockerComposeProvider) RunAction(ctx context.Context, project string, compose []byte, service string, action ObservationAction) (ActionObservation, error) {
 	if service != "vulnerable" && service != "fixed" {
-		return ActionObservation{}, errors.New("unknown File Browser comparison service")
+		return ActionObservation{}, errors.New("unknown comparison service")
 	}
-	if action != ListTmpAction {
-		return ActionObservation{}, errors.New("unknown File Browser observation action")
+	var command []string
+	switch action {
+	case ListTmpAction:
+		command = []string{"ls", "-la", "/tmp"}
+	case ReferenceCheckAction:
+		command = []string{"/usr/local/bin/poc"}
+	default:
+		return ActionObservation{}, errors.New("unknown observation action")
 	}
-	output, err := provider.withCompose(ctx, project, compose, "exec", "--no-TTY", service, "ls", "-la", "/tmp")
+	arguments := append([]string{"exec", "--no-TTY", service}, command...)
+	output, err := provider.withCompose(ctx, project, compose, arguments...)
 	if err != nil {
 		return ActionObservation{}, err
 	}
