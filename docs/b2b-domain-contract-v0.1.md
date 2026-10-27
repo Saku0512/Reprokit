@@ -4,6 +4,18 @@
 > 対象Issue：[#5 ToB研修MVPのドメイン契約とコード所有境界を確定する](https://github.com/jphacks/sd_2601/issues/5)  
 > 本書は、法人向け研修MVPを2名で並行開発するための共有契約を定める。Lesson SchemaやHTTP APIの完全仕様ではなく、後続実装が互いの内部実装へ依存しないための最小境界を正本とする。
 
+## 変更提案：Reprokit管理Labへの移行
+
+> **レビュー・合意待ち**。以下は移行案であり、既存の公開契約やRegistryがすでに変更されたことを意味しない。@Saku0512と@yui-szkのレビューを必要とする。
+
+- 実行時にVulhubのリポジトリ、イメージ、Composeを取得せず、Reprokit管理のGitコミットとDocker Hub上のdigest固定イメージを使う。Vulhubは出典・ライセンス情報として保持する。
+- 新しいFile Browser Lab IDは`reprokit/filebrowser-cve-2026-54088`とする。LessonのLab ID変更には新しいLesson Versionを発行し、UIから渡す入力を任意のGit URL、パス、イメージ、コマンドへ拡張しない。
+- 既存AssignmentとSubmissionは元のLesson Versionに固定されたままとする。旧教材の継続提供・新教材への移行方法は公開前に両担当者が決める。履歴を黙って書き換えたり削除したりしない。
+- 旧Runnerで稼働中のLabを停止し、リソースと必要なVolumeを確認してから新Runnerへ移行する。旧Sessionを自動削除しない。旧Sessionの管理・履歴表示を新Runnerでどう扱うかは、破壊的移行の詳細としてレビュー時に確定する。
+- 新規LabのManifest・Lockfileは取得元のGit SHA、Composeハッシュ、イメージdigestを固定し、PrepareとStartの安全性検査を維持する。構成、イメージ、出典およびライセンスを人がレビューするまで新Labを実行可能なRegistryに登録しない。
+
+影響範囲はRegistry、Manifest、Runnerの固定Lab判定、LessonのLab参照・バージョン、受講・研修の保存データ、およびローカルAPIのLab識別子である。具体的な実行側の段階案は[Lab昇格設計](lab-catalog-runtime-v0.1.md)を参照する。
+
 ## 1. 設計原則
 
 1. **学習と実行を分離する。** Lessonは学習内容、Labは再現環境を表す。
