@@ -130,8 +130,26 @@ func TestResolverRejectsNonGitHubSource(t *testing.T) {
 	writeTestFile(t, manifestPath, string(contents))
 
 	_, err = (Resolver{}).Resolve(root, testRegistryRevision, "vulhub/httpd-cve-2021-41773")
-	if err == nil || !strings.Contains(err.Error(), "not an approved Vulhub repository") {
+	if err == nil || !strings.Contains(err.Error(), "not an approved repository") {
 		t.Fatalf("Resolve() error = %v, want source host rejection", err)
+	}
+}
+
+func TestValidateSourceLimitsReprokitToFileBrowserDirectory(t *testing.T) {
+	source := Source{Type: "git", URL: "https://github.com/Saku0512/Reprokit.git", Revision: strings.Repeat("a", 40), Subdirectory: "images/CVE-2026-54088"}
+	if err := validateSource(source); err != nil {
+		t.Fatalf("approved source rejected: %v", err)
+	}
+	for _, path := range []string{"images/CVE-2026-71557", "images/CVE-2026-54088/../CVE-2026-71557", "images"} {
+		source.Subdirectory = path
+		if err := validateSource(source); err == nil {
+			t.Fatalf("unapproved source directory %q accepted", path)
+		}
+	}
+	source.Subdirectory = "images/CVE-2026-54088"
+	source.Revision = "main"
+	if err := validateSource(source); err == nil {
+		t.Fatal("mutable source revision accepted")
 	}
 }
 

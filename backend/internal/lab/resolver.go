@@ -21,8 +21,9 @@ var (
 	labIDPattern      = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?/[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$`)
 	cvePattern        = regexp.MustCompile(`^CVE-[0-9]{4}-[0-9]{4,}$`)
 	allowedSourceURLs = map[string]struct{}{
-		"https://github.com/Saku0512/vulhub.git": {},
-		"https://github.com/vulhub/vulhub.git":   {},
+		"https://github.com/Saku0512/vulhub.git":   {},
+		"https://github.com/vulhub/vulhub.git":     {},
+		"https://github.com/Saku0512/Reprokit.git": {},
 	}
 )
 
@@ -236,7 +237,10 @@ func validateSource(source Source) error {
 		return errors.New("source URL must be an HTTPS URL without credentials, query, or fragment")
 	}
 	if _, allowed := allowedSourceURLs[source.URL]; !allowed {
-		return errors.New("source URL is not an approved Vulhub repository")
+		return errors.New("source URL is not an approved repository")
+	}
+	if source.URL == "https://github.com/Saku0512/Reprokit.git" && source.Subdirectory != "images/CVE-2026-54088" {
+		return errors.New("Reprokit source subdirectory is not approved")
 	}
 	if !commitPattern.MatchString(source.Revision) {
 		return errors.New("source revision must be a 40-character lowercase commit SHA")

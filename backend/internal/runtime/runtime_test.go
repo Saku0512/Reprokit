@@ -228,6 +228,56 @@ func TestPrepareWritesCompleteLockfile(t *testing.T) {
 	}
 }
 
+func TestReprokitSourceIsPinnedAndCheckedBeforeStart(t *testing.T) {
+	provider := &fakeProvider{}
+	store := NewMemoryStore()
+	manager, _ := NewManager(store, provider)
+	lab := validLab()
+	lab.Artifact.SourceURL = "https://github.com/Saku0512/Reprokit.git"
+	lab.Artifact.SourceSubdirectory = "images/CVE-2026-54088"
+	lab.Artifact.RuntimeFile = "docker-compose.yml"
+	session, err := manager.Prepare(context.Background(), lab)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lock, err := decodeLock(session.Lockfile)
+	if err != nil || lock.Source.URL != lab.Artifact.SourceURL || lock.Source.Revision != lab.SourceRevision || lock.Source.Subdirectory != lab.Artifact.SourceSubdirectory {
+		t.Fatalf("lock source = %#v, error = %v", lock.Source, err)
+	}
+	if _, err := manager.Start(context.Background(), session.ID); err != nil || provider.starts != 1 {
+		t.Fatalf("approved source did not start: error = %v, starts = %d", err, provider.starts)
+	}
+	session, err = manager.Prepare(context.Background(), lab)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session.SourceCompose = append(session.SourceCompose, []byte("# changed\n")...)
+	if err := store.Save(context.Background(), session); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := manager.Start(context.Background(), session.ID); err == nil || provider.starts != 1 {
+		t.Fatalf("tampered source was started: error = %v, starts = %d", err, provider.starts)
+	}
+}
+
+func TestReprokitSourceRejectsUnapprovedArtifact(t *testing.T) {
+	for _, change := range []func(*PreparedLab){
+		func(lab *PreparedLab) { lab.Artifact.SourceSubdirectory = "images/CVE-2026-71557" },
+		func(lab *PreparedLab) { lab.Artifact.RuntimeFile = "docker-compose.review.yaml" },
+		func(lab *PreparedLab) { lab.Artifact.SourceURL = "https://example.com/Reprokit.git" },
+	} {
+		lab := validLab()
+		lab.Artifact.SourceURL = "https://github.com/Saku0512/Reprokit.git"
+		lab.Artifact.SourceSubdirectory = "images/CVE-2026-54088"
+		lab.Artifact.RuntimeFile = "docker-compose.yml"
+		change(&lab)
+		manager, _ := NewManager(NewMemoryStore(), &fakeProvider{})
+		if _, err := manager.Prepare(context.Background(), lab); err == nil {
+			t.Fatal("unapproved artifact was accepted")
+		}
+	}
+}
+
 func TestOfflineArtifactsListsOnlyFixedSourceAndImages(t *testing.T) {
 	store := NewMemoryStore()
 	manager, _ := NewManager(store, &fakeProvider{})
