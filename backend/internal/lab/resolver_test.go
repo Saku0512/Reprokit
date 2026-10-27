@@ -158,7 +158,7 @@ func TestValidateSourceLimitsReprokitToApprovedDirectories(t *testing.T) {
 }
 
 func TestValidateSourceRejectsExternalRepositories(t *testing.T) {
-	for _, origin := range []string{"https://github.com/Saku0512/Reprokit.git", "https://github.com/Saku0512/Reprokit.git", "https://github.com/other/repository.git"} {
+	for _, origin := range []string{"https://github.com/third-party/lab.git", "https://github.com/other/repository.git"} {
 		source := Source{Type: "git", URL: origin, Revision: strings.Repeat("a", 40), Subdirectory: "images/CVE-2026-54088"}
 		if err := validateSource(source); err == nil {
 			t.Fatalf("unapproved source %q accepted", origin)

@@ -286,7 +286,7 @@ func TestLegacySessionCannotRestartButCanBeCleanedUp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	session.LabID = "reprokit/filebrowser-cve-2026-54088"
+	session.LabID = "legacy/filebrowser-cve-2026-54088"
 	if err := store.Save(context.Background(), session); err != nil {
 		t.Fatal(err)
 	}
