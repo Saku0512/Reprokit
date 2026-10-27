@@ -4,7 +4,7 @@
 
 Reprokit is a B2B security-training platform for application developers. It turns vulnerabilities reported in real products into reviewed lessons that cover reproduction, observation, root cause, remediation, and prevention. CVE IDs are evidence, not the primary learner-facing navigation.
 
-Reprokit owns reviewed Lab definitions, lesson design, safe resolution and execution, learner workflow, and training administration. Vulhub may be cited as a source; runtime must not depend on a Vulhub repository or image. Do not add arbitrary-target scanning, arbitrary command execution, or automatic execution of unreviewed code.
+Reprokit owns reviewed Lab definitions, lesson design, safe resolution and execution, learner workflow, and training administration. Runtime uses only reviewed content in this repository and digest-pinned Docker Hub images. Do not add arbitrary-target scanning, arbitrary command execution, or automatic execution of unreviewed code.
 
 ## Read the context needed for the task
 
@@ -33,7 +33,7 @@ Follow [CONTRIBUTING.md](CONTRIBUTING.md#コミットメッセージとprタイ�
 - Manage Lab image build definitions under `images/CVE-YYYY-NNNN/<product-version>/`; keep vulnerable and fixed versions separate. See [images/README.md](images/README.md) for provenance and published images.
 - Publish Reprokit-managed images to Docker Hub under `saku0512/reprokit_cve-yyyy-nnnn`. Docker image repository names must be lowercase. Use version and source commit in human-readable tags, for example `2.63.5-8c7e9fd9a4ec`.
 - Build for the declared platform from a fixed source revision. Record the source commit, platform, image digest, and relevant build limitations; verify public images are anonymously accessible. Do not overwrite an existing tag without an explicit request.
-- Pin executable Compose references to the reviewed `@sha256:...` digest, not a mutable tag. Publishing an image does not by itself update a fixed Vulhub fork revision or make a Lab approved and runnable; update the fixed source and Registry only after the required human review.
+- Pin executable Compose references to the reviewed `@sha256:...` digest, not a mutable tag. Publishing an image does not by itself update a fixed source revision or make a Lab approved and runnable; update the fixed source and Registry only after the required human review.
 - Docker Hub publication is an external write: perform it when requested, keep credentials out of the repository and output, and do not remove previously published images unless explicitly requested.
 
 ## Formatting
@@ -67,7 +67,7 @@ npm run verify:full
 - Run focused checks while developing and the appropriate broader check before handoff.
 - Documentation-only changes do not require unavailable application tests; still run formatting checks and `git diff --check`.
 - Never claim a skipped or unavailable check passed. Report it as skipped with the reason.
-- General verification must not start real vulnerable Vulhub labs. Docker integration tests must use harmless dedicated fixtures and explicit opt-in.
+- General verification must not start real vulnerable Labs. Docker integration tests must use harmless dedicated fixtures and explicit opt-in.
 - Fix failures caused by the requested change and rerun the affected checks. Do not broaden the task to unrelated pre-existing failures.
 
 ## Security invariants

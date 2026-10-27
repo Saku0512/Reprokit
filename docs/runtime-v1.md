@@ -1,18 +1,18 @@
 # Docker Compose Runtime v0.1.0
 
-> **現行実装（2026-10-27）**: File Browser LabはReprokitのローカルGitに含まれる固定コミットのComposeと、Docker Hubのdigest固定イメージを使用する。旧Vulhub構成は以下の歴史的な設計記録であり、実行時の取得元ではない。詳細は[Lab移行](lab-catalog-runtime-v0.1.md)を参照。
+> **現行実装（2026-10-27）**: File Browser LabはReprokitのローカルGitに含まれる固定コミットのComposeと、Docker Hubのdigest固定イメージを使用する。旧Reprokit Lab構成は以下の歴史的な設計記録であり、実行時の取得元ではない。詳細は[Lab移行](lab-catalog-runtime-v0.1.md)を参照。
 
-## Vulhub連携時の適用方針（2026-10-16更新）
+## Reprokit Lab連携時の適用方針（2026-10-16更新）
 
-教育MVPでは[`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)の固定スナップショットから、upstream由来Labとfork追加Labを利用する。どちらにも同じ許可リスト、Lockfile、明示起動の規則を適用し、安全性検査を省略しない。
+教育MVPでは[`Saku0512/reprokit`](https://github.com/Saku0512/Reprokit)の固定スナップショットから、upstream由来Labとfork追加Labを利用する。どちらにも同じ許可リスト、Lockfile、明示起動の規則を適用し、安全性検査を省略しない。
 
 元環境が本書の許可リストに適合する場合に限りそのまま取り込み、非対応の設定（`build`、bind mount、`command`等）が必要な場合は**個別のレビュー済み互換アダプターを管理対象にして、上流コミット・元ファイル・差分を固定・検査**する。自動で制限を弱める機能は付けない。
 
 最初の縦断対象はforkの`filebrowser/CVE-2026-54088`だけとする。元Composeの`profiles`は許可リスト外のため直接実行せず、脆弱版2.63.5と修正版2.63.6を異なるloopbackポートで起動する`reprokit.compose.yml`を使用する。Apache HTTP Serverなど追加CVEは、この最初の実装を完了した後に別Issueで扱う。
 
-Docker Hubの`vulhub/*`はupstream管理の名前空間であり、独自Lab用イメージの公開先として仮定しない。詳細は[Lab昇格設計](lab-catalog-runtime-v0.1.md)。
+Docker Hubの`reprokit/*`はupstream管理の名前空間であり、独自Lab用イメージの公開先として仮定しない。詳細は[Lab昇格設計](lab-catalog-runtime-v0.1.md)。
 
-詳細：[Vulhub連携・教育MVP](vulhub-learning-mvp.md)。
+詳細：[Reprokit Lab連携・教育MVP](learning-mvp.md)。
 
 ## 基本方針
 

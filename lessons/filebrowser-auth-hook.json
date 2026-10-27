@@ -38,15 +38,15 @@
         },
         {
           "type": "other",
-          "title": "固定したVulhub forkのFile Browser Lab手順",
-          "url": "https://github.com/Saku0512/vulhub/blob/a94285e057faee8c7232e100116dc750cf17e257/filebrowser/CVE-2026-54088/README.md"
+          "title": "Reprokitの固定File Browser Lab構成",
+          "url": "https://github.com/Saku0512/Reprokit/tree/main/images/CVE-2026-54088"
         }
       ]
     },
     "license": {
       "name": "MIT",
       "url": "https://github.com/jphacks/sd_2601/blob/main/LICENSE",
-      "attribution": "教材本文はJPHACKS sd_2601 contributorsが作成。File BrowserのソースはApache-2.0、参照したVulhub forkはMIT。各原典と権利表記は研修担当者ガイドに記載する。"
+      "attribution": "教材本文はJPHACKS sd_2601 contributorsが作成。File BrowserのソースはApache-2.0。各原典と権利表記は研修担当者ガイドに記載する。"
     },
     "labs": [
       {

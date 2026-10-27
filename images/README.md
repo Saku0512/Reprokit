@@ -6,8 +6,8 @@
 | --- | --- | --- |
 | `CVE-2026-54088/2.63.5` | File Browserの脆弱版 | 既存Labのイメージ定義 |
 | `CVE-2026-54088/2.63.6` | File Browserの修正版 | 既存Labのイメージ定義 |
-| `CVE-2026-71557/5.19.1` | go-gitの脆弱版 | Lab候補 |
-| `CVE-2026-71557/5.19.2` | go-gitの修正版 | Lab候補 |
+| `CVE-2026-71557/5.19.1` | go-gitの脆弱版 | 実行可能Lab |
+| `CVE-2026-71557/5.19.2` | go-gitの修正版 | 実行可能Lab |
 
 File Browserのイメージはコミット`8c7e9fd9a4ec56c82d9747e10ebba29fc03111c5`の定義から`linux/amd64`向けにビルドし、Docker Hubへ公開した。次のdigestは匿名で参照できることを確認済みである。
 
@@ -25,10 +25,8 @@ go-gitのイメージはコミット`8c7e9fd9a4ec56c82d9747e10ebba29fc03111c5`�
 | 5.19.1 | `docker.io/saku0512/reprokit_cve-2026-71557@sha256:2c32850969c685ccac825ea5479fa86f8d319223cb11aae4cb55bc0361447267` |
 | 5.19.2 | `docker.io/saku0512/reprokit_cve-2026-71557@sha256:81b410dd1c0418ebd680ed90341695e37581326db4812c8f362beb0c72832e97` |
 
-これらはLab候補のイメージであり、ReprokitのRegistryには未登録である。環境構成とイメージをレビューしてから固定参照を登録する。
+go-git Labは[Registry](../registry/manifests/reprokit/go-git-cve-2026-71557.yaml)とLessonに登録済みである。Runnerは固定コミットのCompose、上記のdigest、レビュー済みの`/usr/local/bin/poc`だけを使用する。実行E2Eは脆弱版の書き換え検出、修正版の拒否、リソース削除まで検証する。
 
-各定義は[Saku0512/vulhubの固定コミット `00dff09cf33abbc0099cc16c8b4298c4921d93aa`](https://github.com/Saku0512/vulhub/tree/00dff09cf33abbc0099cc16c8b4298c4921d93aa/base)の`base/`から取得した。原著作権表示とライセンスは[LICENSE.vulhub](LICENSE.vulhub)に記載する。
-
-go-git LabはまだRegistryに登録されていない。ビルド定義を更新した場合は出典・依存関係・安全性をレビューし、イメージを昇格してdigestを確認した上で、RegistryとLessonを別途更新する。
+第三者由来の原著作権表示とライセンスは[LICENSE-third-party.txt](LICENSE-third-party.txt)に保持する。
 
 各Dockerfileのビルドコンテキストは対応するバージョンディレクトリである。go-gitのDockerfileはビルド時に`go mod tidy`で依存関係を解決するため、現在の定義だけでは依存関係や生成イメージの完全な再現性は保証されない。公開済みdigestとの一致も未検証である。これらの定義は脆弱な環境を含むため、レビュー前の自動実行や通常の検証には使わない。

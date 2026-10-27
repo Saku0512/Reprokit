@@ -32,7 +32,7 @@
       "attribution": "Apache Software Foundationの資料を出典として記載。教材本文はReprokit作成。"
     },
     "labs": [
-      { "ref": "vulnerable", "labId": "vulhub/httpd-cve-2021-41773", "purpose": "reproduce" },
+      { "ref": "vulnerable", "labId": "reprokit/httpd-cve-2021-41773", "purpose": "reproduce" },
       { "ref": "fixed", "labId": "reprokit/httpd-cve-2021-41773-fixed", "purpose": "compare-fix" }
     ],
     "steps": [

@@ -4,7 +4,7 @@
 
 ## 2026-10-15：教育MVPの開発優先順位を変更
 
-**現行のMVPは[`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)を標準カタログとするWeb学習体験を優先。** 初期教材は[CVE-2021-41773とCVE-2026-54088](initial-lessons.md)。前者はforkがupstreamから継承するLab、後者はforkへ追加する独自Labとして、同じ固定スナップショット、Go Core、安全性規則で扱う。以前の環境管理中心のロードマップを製品の最優先課題とはしない。
+**現行のMVPは[`Saku0512/reprokit`](https://github.com/Saku0512/Reprokit)を標準カタログとするWeb学習体験を優先。** 初期教材は[CVE-2021-41773とCVE-2026-54088](initial-lessons.md)。前者はforkがupstreamから継承するLab、後者はforkへ追加する独自Labとして、同じ固定スナップショット、Go Core、安全性規則で扱う。以前の環境管理中心のロードマップを製品の最優先課題とはしない。
 
 下記のManifest/Registry/Lockfile/Runtime仕様は**将来的に拡張可能な安全な基盤設計**として維持。高度な共通Registryや汎用環境管理の完全実装を、最初の教材Web MVPの必須条件とはしない。一方、起動前の安全性検査、取得元の固定、明示起動は維持する。
 
@@ -14,7 +14,7 @@
 
 [プロダクトビジョン](product-vision.md)と[教材設計方針](learning-content.md)が教育上の要件を定める。**学習画面はローカルWeb UI、環境管理にはGo CoreとCLIを共通利用する構成を採用済み**（[UI設計](interface-study.md)）。
 
-**データの流れ：** `学習者 → Web教材/CLI → Go Core → Lesson + Lab Resolver → Saku0512/vulhubの固定スナップショット → Manifest/Lock → Docker Compose`。
+**データの流れ：** `学習者 → Web教材/CLI → Go Core → Lesson + Lab Resolver → Saku0512/reprokitの固定スナップショット → Manifest/Lock → Docker Compose`。
 
 Web UIはGo製のローカルHTTPサーバーから提供し、`reprokit ui`で起動する。Labの自動起動は行わない。既存の環境定義・再現性・安全性の仕様はWebとCLIで共通。
 
@@ -27,7 +27,7 @@ Web UIはGo製のローカルHTTPサーバーから提供し、`reprokit ui`で�
 | ローカル保存 | LinuxのXDG規約に従い設定・環境・キャッシュ・ログを分離 | [Storage](local-storage-v1.md) |
 | 実行 | Docker Compose projectごとに隔離、デタッチ、公開ポートは`127.0.0.1`に制限 | [Runtime](runtime-v1.md) |
 | 安全対策 | 未対応/危険な設定を拒否し、Dockerは完全な隔離境界とみなさない | [Security](security-v1.md) |
-| Provider | v0.1は`Saku0512/vulhub`の固定スナップショットを共通Git取得処理で解決。独自イメージはGHCRへ昇格 | [Provider](provider-v1.md) / [Lab昇格](lab-catalog-runtime-v0.1.md) |
+| Provider | v0.1は`Saku0512/reprokit`の固定スナップショットを共通Git取得処理で解決。独自イメージはGHCRへ昇格 | [Provider](provider-v1.md) / [Lab昇格](lab-catalog-runtime-v0.1.md) |
 | 検証 | ライフサイクルと検証レベルを分離。起動/TCPの基本チェックまで | [Verification](verification-v1.md) |
 
 ## リポジトリ上の予定構成
@@ -40,7 +40,7 @@ backend/
 web/                  # 教材表示用フロントエンド（技術選定は未確定）
 lessons/              # CVEごとの教材メタデータと本文（今後実装）
 registry/index.json
-registry/manifests/vulhub/
+registry/manifests/reprokit/
 schemas/manifest-v1alpha1.schema.json
 schemas/registry-v1.schema.json
 schemas/lock-v1.schema.json

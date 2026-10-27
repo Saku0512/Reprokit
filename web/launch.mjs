@@ -144,6 +144,7 @@ export async function launch({
     });
     return {
       origin: `http://127.0.0.1:${server.address().port}`,
+      runner: bootstrapConfig.runner,
       server,
       child,
       close,

@@ -92,8 +92,8 @@ HTTP の認証結果と、認証前に内部で実行された処理を分けて
 ## 出典と権利
 
 File Browser の対象版と修正内容は[公式アドバイザリ](https://github.com/filebrowser/filebrowser/security/advisories/GHSA-m93h-4hw7-5qcm)と[修正差分](https://github.com/filebrowser/filebrowser/commit/34ae34e764d72540c039f1f5ea2ec4c974168c1f)に基づく。
-固定した Lab 手順は[Vulhub fork の README](https://github.com/Saku0512/vulhub/blob/a94285e057faee8c7232e100116dc750cf17e257/filebrowser/CVE-2026-54088/README.md)に基づく。
+固定した Lab 手順は[Reprokit Lab fork の README](https://github.com/Saku0512/Reprokit/blob/a94285e057faee8c7232e100116dc750cf17e257/filebrowser/CVE-2026-54088/README.md)に基づく。
 
 この教材本文は[Reprokit の MIT License](../../LICENSE)で提供する。
-参照した[File Browser のソースは Apache-2.0](https://github.com/filebrowser/filebrowser/blob/master/LICENSE)、[Vulhub fork の Lab 資料は MIT](https://github.com/Saku0512/vulhub/blob/master/LICENSE)である。
+参照した[File Browser のソースは Apache-2.0](https://github.com/filebrowser/filebrowser/blob/master/LICENSE)、[Reprokit Lab fork の Lab 資料は MIT](https://github.com/Saku0512/Reprokit/blob/master/LICENSE)である。
 原典の長いコード断片や README 本文を教材へ複製せず、短い説明とリンクで出典を示す。

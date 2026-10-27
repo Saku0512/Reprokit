@@ -2,11 +2,11 @@
 
 > **v0.1.0向けに採用した設計仕様です。** ここに記載したCLI・環境検証機能はまだ実装済みではありません。
 >
-> [機械可読なJSON Schema（Draft 2020-12）](../schemas/manifest-v1alpha1.schema.json) / [Manifestサンプル](../examples/vulhub-log4j-solr.reprokit.yaml)
+> [機械可読なJSON Schema（Draft 2020-12）](../schemas/manifest-v1alpha1.schema.json) / [Manifestサンプル](../examples/reprokit-log4j-solr.reprokit.yaml)
 
-## Vulhubを元にしたMVPとの関係（2026-10-15）
+## Reprokit Labを元にしたMVPとの関係（2026-10-15）
 
-初期教材のLab定義は**VulhubのGitコミットSHA + ディレクトリ + Composeを参照する方式**を優先し、元環境を新規作成しない。Manifest/JSON Schemaは技術的な参照仕様として維持するが、教育MVPの開発では少数のレビュー済みLabから始める。上流で未対応の構成があれば実行せず、教材対象から外すか、レビュー済み互換差分を固定して扱う（[MVP仕様](vulhub-learning-mvp.md)）。
+初期教材のLab定義は**Reprokit LabのGitコミットSHA + ディレクトリ + Composeを参照する方式**を優先し、元環境を新規作成しない。Manifest/JSON Schemaは技術的な参照仕様として維持するが、教育MVPの開発では少数のレビュー済みLabから始める。上流で未対応の構成があれば実行せず、教材対象から外すか、レビュー済み互換差分を固定して扱う（[MVP仕様](learning-mvp.md)）。
 
 ## 教育目的への移行について
 
@@ -30,7 +30,7 @@ apiVersion: reprokit.dev/v1alpha1
 kind: Lab
 
 metadata:
-  id: vulhub/log4j-solr
+  id: reprokit/log4j-solr
   name: Log4Shell on Apache Solr
 
 spec:
@@ -39,7 +39,7 @@ spec:
 
   source:
     type: git
-    url: https://github.com/vulhub/vulhub.git
+    url: https://github.com/Saku0512/Reprokit.git
     revision: 240f7aab24cfded9d5adbd0198143c3a28157101
     subdirectory: log4j/CVE-2021-44228
 
@@ -61,7 +61,7 @@ spec:
       port: 8983
 ```
 
-このGitコミットとディレクトリにはVulhubの実在するCompose定義が含まれます。例に記載したからといって、起動成功や脆弱性の再現成功を保証するものではありません。
+このGitコミットとディレクトリにはReprokit Labの実在するCompose定義が含まれます。例に記載したからといって、起動成功や脆弱性の再現成功を保証するものではありません。
 
 ## フィールド一覧
 

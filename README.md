@@ -45,7 +45,7 @@ npm run start
 #### 1. 実在事例を「なぜ起きたか」まで学べる教材体験
 
 実在プロダクトの事例を、現象の観察からコードの修正判断まで一つの教材にしています。
-再現環境を提供するVulhubなどを活用し、Reprokitでは入力の流れを追う解説、修正演習、公式パッチとの比較、振り返りを独自に実装しました。
+再現環境を提供するReprokit Labなどを活用し、Reprokitでは入力の流れを追う解説、修正演習、公式パッチとの比較、振り返りを独自に実装しました。
 「現象を見た」「コードを直した」「同じ入力を修正版で試した」を結び付け、実装やレビューで判断するための練習にします。
 
 #### 2. 安全性を確認してから起動するLab
@@ -91,9 +91,9 @@ Go製のRunnerが、Labの出所を固定コミットとイメージdigestで特
 
 - GoによるローカルRunner APIと研修管理API
 - Lesson、Lab Manifest、LockfileのJSON/YAMLスキーマ
-- 固定コミットで参照するVulhub互換LabとDocker Compose
+- 固定コミットで参照するReprokit Lab互換LabとDocker Compose
 
-脆弱性の再現環境はVulhubおよび互換Labを利用します。
+脆弱性の再現環境はReprokit Labおよび互換Labを利用します。
 Reprokitが開発した教材、受講体験、安全性検査、研修管理と、既存の環境資産を組み合わせています。
 Lab用イメージのビルド定義と出典は[images](images/README.md)にまとめています。
 

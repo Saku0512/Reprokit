@@ -29,7 +29,7 @@ PR時とmainへのPush時に以下を実行する。
 6. **無害な専用イメージと環境**によるDocker Compose起動・TCPチェック・停止・Volume保持・削除の検証。
 7. 危険なCompose設定（`build`、privileged、Hostネットワーク、Bind Mount、未固定変数、外部ポート公開等）を拒否するテスト。
 
-公開CIでは危険なVulhubの実検証環境を**起動しない**。CVEの実験は専用VMで別途実施する。CIは最低限のGitHubトークン権限・シークレットで実行する。
+公開CIでは危険なReprokit Labの実検証環境を**起動しない**。CVEの実験は専用VMで別途実施する。CIは最低限のGitHubトークン権限・シークレットで実行する。
 
 ## 受け入れ条件
 

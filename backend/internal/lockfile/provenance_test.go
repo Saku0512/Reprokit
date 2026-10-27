@@ -11,20 +11,20 @@ import (
 func TestFromLabRecordsImmutableSourceInLockfileShape(t *testing.T) {
 	resolved := lab.ResolvedLab{
 		Source: lab.Source{
-			URL:          "https://github.com/Saku0512/vulhub.git",
+			URL:          "https://github.com/Saku0512/Reprokit.git",
 			Revision:     "a94285e057faee8c7232e100116dc750cf17e257",
 			Subdirectory: "httpd/CVE-2021-41773",
 		},
 		Registry: lab.RegistryReference{
 			Revision:     "1111111111111111111111111111111111111111",
-			ManifestPath: "manifests/vulhub/httpd-cve-2021-41773.yaml",
+			ManifestPath: "manifests/reprokit/httpd-cve-2021-41773.yaml",
 		},
 		Manifest: lab.ManifestReference{
 			SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		},
 	}
 	materialized := lab.MaterializedSource{
-		URL:           "https://github.com/Saku0512/vulhub.git",
+		URL:           "https://github.com/Saku0512/Reprokit.git",
 		Revision:      "a94285e057faee8c7232e100116dc750cf17e257",
 		Subdirectory:  "httpd/CVE-2021-41773",
 		ComposeSHA256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
@@ -46,8 +46,8 @@ func TestFromLabRecordsImmutableSourceInLockfileShape(t *testing.T) {
 	}
 	for _, expected := range []string{
 		`revision: "1111111111111111111111111111111111111111"`,
-		"manifestPath: manifests/vulhub/httpd-cve-2021-41773.yaml",
-		"url: https://github.com/Saku0512/vulhub.git",
+		"manifestPath: manifests/reprokit/httpd-cve-2021-41773.yaml",
+		"url: https://github.com/Saku0512/Reprokit.git",
 		"revision: a94285e057faee8c7232e100116dc750cf17e257",
 		"subdirectory: httpd/CVE-2021-41773",
 		"path: docker-compose.yml",
@@ -61,7 +61,7 @@ func TestFromLabRecordsImmutableSourceInLockfileShape(t *testing.T) {
 func TestFromLabRejectsMismatchedMaterializedRevision(t *testing.T) {
 	resolved := lab.ResolvedLab{
 		Source: lab.Source{
-			URL:          "https://github.com/Saku0512/vulhub.git",
+			URL:          "https://github.com/Saku0512/Reprokit.git",
 			Revision:     "a94285e057faee8c7232e100116dc750cf17e257",
 			Subdirectory: "httpd/CVE-2021-41773",
 		},

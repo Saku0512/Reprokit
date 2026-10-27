@@ -34,7 +34,7 @@
     "labs": [
       {
         "ref": "vulnerable",
-        "labId": "vulhub/httpd-cve-2021-41773",
+        "labId": "reprokit/httpd-cve-2021-41773",
         "purpose": "reproduce"
       },
       {

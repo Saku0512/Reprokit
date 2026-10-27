@@ -1,14 +1,14 @@
 # 初期教材とLab提供方針
 
-> **決定：2026-10-16。** 教育MVPの初期教材をCVE-2021-41773とCVE-2026-54088の2本に固定する。Labは[`Saku0512/vulhub`](https://github.com/Saku0512/vulhub)を単一のカタログとして参照し、upstreamから継承した環境とforkへ追加した独自環境を同じ方法で扱う。
+> **決定：2026-10-16。** 教育MVPの初期教材をCVE-2021-41773とCVE-2026-54088の2本に固定する。Labは[`Saku0512/reprokit`](https://github.com/Saku0512/Reprokit)を単一のカタログとして参照し、upstreamから継承した環境とforkへ追加した独自環境を同じ方法で扱う。
 
 ## 用語と実行方式
 
-- **upstream由来Lab**：forkが`vulhub/vulhub`から継承した環境ディレクトリ。
-- **fork追加Lab**：Vulhubに未収録のCVEについて、同じCVE単位レイアウトで`Saku0512/vulhub`へ追加する環境。
+- **upstream由来Lab**：forkが`reprokit/reprokit`から継承した環境ディレクトリ。
+- **fork追加Lab**：Reprokit Labに未収録のCVEについて、同じCVE単位レイアウトで`Saku0512/reprokit`へ追加する環境。
 - **互換アダプター**：ComposeがReprokitの許可リストに適合しない場合、出典と差分を記録したうえで、安全な事前ビルド済みイメージと制限済みComposeへ変換する定義。
 
-Vulhubは検証環境のリポジトリであり、実行用CLIではない。ReprokitのGo CoreがRegistry/Manifestから`Saku0512/vulhub`の`master`を一度コミットSHAへ解決し、同じSHAから対象ディレクトリを取得して、安全性検査後にDocker Composeを実行する。
+Reprokit Labは検証環境のリポジトリであり、実行用CLIではない。ReprokitのGo CoreがRegistry/Manifestから`Saku0512/reprokit`の`master`を一度コミットSHAへ解決し、同じSHAから対象ディレクトリを取得して、安全性検査後にDocker Composeを実行する。
 
 upstream由来Labとfork追加Labは同じforkのスナップショット内にあり、Manifest、Lockfile、Runtime、安全性検査、明示起動、停止・削除の規則を共有する。所有するforkだからといって独自Labを無条件に信頼する例外経路は作らない。
 
@@ -19,7 +19,7 @@ upstream由来Labとfork追加Labは同じforkのスナップショット内に�
 | 製品 | Apache HTTP Server 2.4.49 |
 | 分類 | パストラバーサル / 情報漏えい。条件によりRCE |
 | 難易度 | 入門 |
-| 提供元 | `Saku0512/vulhub`の`httpd/CVE-2021-41773`（upstream由来） |
+| 提供元 | `Saku0512/reprokit`の`httpd/CVE-2021-41773`（upstream由来） |
 | 初期演習 | コンテナ内に置いた無害なマーカーファイルの読み取り |
 | 発展 | CGI有効時に影響が拡大する理由の説明。RCE操作は初期必須にしない |
 
@@ -42,7 +42,7 @@ fork内の元Composeはupstreamと同じく`build: .`を使用するため、v0.
 | 製品 | File Browser 2.63.5 |
 | 分類 | Hook Authenticationの未認証OSコマンドインジェクション |
 | 難易度 | 初級〜中級 |
-| 提供元 | `Saku0512/vulhub`へ追加済みの`filebrowser/CVE-2026-54088` |
+| 提供元 | `Saku0512/reprokit`へ追加済みの`filebrowser/CVE-2026-54088` |
 | 比較対象 | 脆弱版2.63.5 / 修正版2.63.6 |
 | 初期演習 | 隔離コンテナ内の検証用マーカーで、入力が危険な実行経路へ到達したことだけを確認 |
 
@@ -56,9 +56,9 @@ fork内の元Composeはupstreamと同じく`build: .`を使用するため、v0.
 6. 実行権限がFile Browserプロセスの権限になることを確認する。
 7. 修正版ではコマンド引数への展開が削除され、資格情報が環境変数だけで渡されることを比較する。
 
-このLabは`Saku0512/vulhub`の`filebrowser/CVE-2026-54088`へ追加済みで、脆弱版2.63.5、修正版2.63.6、loopback限定ポート、非破壊的なマーカーPoCを含む。上流File Browserの脆弱版ソース・公式アドバイザリ・修正差分を出典として記録する。
+このLabは`Saku0512/reprokit`の`filebrowser/CVE-2026-54088`へ追加済みで、脆弱版2.63.5、修正版2.63.6、loopback限定ポート、非破壊的なマーカーPoCを含む。上流File Browserの脆弱版ソース・公式アドバイザリ・修正差分を出典として記録する。
 
-ただしDocker Hubの`vulhub/*`名前空間はupstream管理であり、fork所有者が独自イメージを公開できる場所ではない。Reprokit用の脆弱版2.63.5と修正版2.63.6は、forkの固定SHAから一度だけビルドして`ghcr.io/saku0512/reprokit-filebrowser`へ公開済み。利用時はタグでなく公開済みdigestを固定する。公開用workflowは成功確認後にforkから削除した。詳細なdigestと工程は[Lab昇格設計](lab-catalog-runtime-v0.1.md)を参照する。upstreamへは[PR #805](https://github.com/vulhub/vulhub/pull/805)を提出済みだが、マージや公式イメージ公開をMVPの前提にしない。
+ただしDocker Hubの`reprokit/*`名前空間はupstream管理であり、fork所有者が独自イメージを公開できる場所ではない。Reprokit用の脆弱版2.63.5と修正版2.63.6は、forkの固定SHAから一度だけビルドして`ghcr.io/saku0512/reprokit-filebrowser`へ公開済み。利用時はタグでなく公開済みdigestを固定する。公開用workflowは成功確認後にforkから削除した。詳細なdigestと工程は[Lab昇格設計](lab-catalog-runtime-v0.1.md)を参照する。upstreamへは[PR #805](https://github.com/Saku0512/Reprokit/pull/805)を提出済みだが、マージや公式イメージ公開をMVPの前提にしない。
 
 ## Web UIの共通構成
 
@@ -85,7 +85,7 @@ fork内の元Composeはupstreamと同じく`build: .`を使用するため、v0.
 
 ## 参照元
 
-- [Reprokit用Vulhub fork](https://github.com/Saku0512/vulhub)
-- [upstream Vulhub: CVE-2021-41773](https://github.com/vulhub/vulhub/tree/master/httpd/CVE-2021-41773)
+- [Reprokit用Reprokit Lab fork](https://github.com/Saku0512/Reprokit)
+- [upstream Reprokit Lab: CVE-2021-41773](https://github.com/Saku0512/Reprokit/tree/master/httpd/CVE-2021-41773)
 - [Apache HTTP Server security information](https://httpd.apache.org/security/vulnerabilities_24.html)
 - [File Browser advisory GHSA-m93h-4hw7-5qcm](https://github.com/filebrowser/filebrowser/security/advisories/GHSA-m93h-4hw7-5qcm)

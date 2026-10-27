@@ -12,7 +12,7 @@ Reprokitは、公開された脆弱性をローカルで検証するための環
 ## Reprokitが目指すもの
 
 - **CVE-first:** 検証環境の提供元を知らなくても、CVE IDから探せる。
-- **複数の提供元を統一:** [Vulhub](https://github.com/vulhub/vulhub)など既存の検証環境と、将来のコミュニティ提供環境を同じ方法で扱う。
+- **複数の提供元を統一:** [Reprokit Lab](https://github.com/Saku0512/Reprokit)など既存の検証環境と、将来のコミュニティ提供環境を同じ方法で扱う。
 - **環境を固定して記録:** ソースコードのコミット、コンテナイメージのdigest、構成ファイルのハッシュなどを残す。
 - **取得と実行を分離:** 環境を取得するだけでは脆弱なサービスを起動しない。
 - **ライフサイクル管理:** 一度取得した環境を確認・起動・停止・削除できる。
@@ -85,7 +85,7 @@ Docker Compose（初期対応）
 
 ### 1. Registry — CVEと環境を紐付ける
 
-Registryは、CVE IDから利用可能な検証環境を探すための**索引**です。検証環境の実体をReprokitのサーバーに再配布する必要はなく、Vulhubなどの元リポジトリを参照します。初期段階では、GitHub上で管理する静的なインデックスを想定しています。
+Registryは、CVE IDから利用可能な検証環境を探すための**索引**です。検証環境の実体をReprokitのサーバーに再配布する必要はなく、Reprokit Labなどの元リポジトリを参照します。初期段階では、GitHub上で管理する静的なインデックスを想定しています。
 
 **CVEと検証環境は多対多で管理します。**
 
@@ -101,8 +101,8 @@ Registryは、CVE IDから利用可能な検証環境を探すための**索引*
   "cve": "CVE-2021-44228",
   "labs": [
     {
-      "id": "vulhub/log4j-solr-2021-44228",
-      "manifest": "labs/vulhub-log4j-solr.yaml"
+      "id": "reprokit/log4j-solr-2021-44228",
+      "manifest": "labs/reprokit-log4j-solr.yaml"
     }
   ]
 }
@@ -116,12 +116,12 @@ Registryは、CVE IDから利用可能な検証環境を探すための**索引*
 
 Manifestは、環境固有のID、対応CVE、取得元、実行方式、対象ソフトウェア、確認項目などを宣言します。
 
-以下は[VulhubのLog4Shell検証環境](https://github.com/vulhub/vulhub/tree/master/log4j/CVE-2021-44228)を題材にした**設計例**です。実在するファイルの内容をそのまま示したものではありません。
+以下は[Reprokit LabのLog4Shell検証環境](https://github.com/Saku0512/Reprokit/tree/master/log4j/CVE-2021-44228)を題材にした**設計例**です。実在するファイルの内容をそのまま示したものではありません。
 
 ```yaml
 schemaVersion: 1
 
-id: vulhub/log4j-solr-2021-44228
+id: reprokit/log4j-solr-2021-44228
 name: Log4Shell on Apache Solr
 
 cves:
@@ -129,7 +129,7 @@ cves:
 
 source:
   type: git
-  url: https://github.com/vulhub/vulhub.git
+  url: https://github.com/Saku0512/Reprokit.git
   commit: "<検証した40桁のコミットSHA>"
   path: log4j/CVE-2021-44228
 
@@ -162,7 +162,7 @@ Gitのコミットを固定しても、Composeが参照するDockerイメージ�
 
 ```yaml
 lockVersion: 1
-lab: vulhub/log4j-solr-2021-44228
+lab: reprokit/log4j-solr-2021-44228
 
 source:
   commit: "<実際のコミットSHA>"
@@ -227,7 +227,7 @@ MVPでは`Bootable`までの基本的な確認を目標とします。`Verified`
 ### v0.1.0 — ローカルMVP
 
 - [ ] Go製CLIの基本構成
-- [ ] Vulhubの1つ以上の環境をCVE IDから解決
+- [ ] Reprokit Labの1つ以上の環境をCVE IDから解決
 - [ ] Manifestの最小スキーマ
 - [ ] GitコミットとDockerイメージdigestの固定
 - [ ] `reprokit.lock`の生成・整合性確認

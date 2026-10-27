@@ -2,7 +2,7 @@
 
 ## 教育MVPでの優先順位（2026-10-15）
 
-**まずは数件のVulhub環境と教材を明示的に登録する静的な小規模カタログで十分。** 以下は将来の拡張に向けた設計であり、巨大なCVEレジストリや汎用Providerを教育MVPの必須条件としない。Webに表示する教材の品質と実演可能性を優先する（[MVP仕様](vulhub-learning-mvp.md)）。
+**まずは数件のReprokit Lab環境と教材を明示的に登録する静的な小規模カタログで十分。** 以下は将来の拡張に向けた設計であり、巨大なCVEレジストリや汎用Providerを教育MVPの必須条件としない。Webに表示する教材の品質と実演可能性を優先する（[MVP仕様](learning-mvp.md)）。
 
 ## 教育方針との関係
 
@@ -23,7 +23,7 @@
 registry/
 ├── index.json
 └── manifests/
-    └── vulhub/
+    └── reprokit/
         └── log4j-solr.yaml
 ```
 
@@ -33,11 +33,11 @@ registry/
 {
   "registryVersion": 1,
   "cves": {
-    "CVE-2021-44228": ["vulhub/log4j-solr"]
+    "CVE-2021-44228": ["reprokit/log4j-solr"]
   },
   "labs": {
-    "vulhub/log4j-solr": {
-      "manifest": "manifests/vulhub/log4j-solr.yaml"
+    "reprokit/log4j-solr": {
+      "manifest": "manifests/reprokit/log4j-solr.yaml"
     }
   }
 }

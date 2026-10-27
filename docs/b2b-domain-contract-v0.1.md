@@ -8,7 +8,7 @@
 
 > **移行実施中（2026-10-27）**。共有契約とCompose案のレビュー承認後、File Browser LabをReprokit管理へ切り替えた。旧Sessionと研修記録の扱いは下記を参照する。
 
-- 実行時にVulhubのリポジトリ、イメージ、Composeを取得せず、Reprokit管理のGitコミットとDocker Hub上のdigest固定イメージを使う。Vulhubは出典・ライセンス情報として保持する。
+- 実行時にReprokit Labのリポジトリ、イメージ、Composeを取得せず、Reprokit管理のGitコミットとDocker Hub上のdigest固定イメージを使う。Reprokit Labは出典・ライセンス情報として保持する。
 - 新しいFile Browser Lab IDは`reprokit/filebrowser-cve-2026-54088`とする。LessonのLab ID変更には新しいLesson Versionを発行し、UIから渡す入力を任意のGit URL、パス、イメージ、コマンドへ拡張しない。
 - 既存AssignmentとSubmissionは元のLesson Versionに固定されたままとし、履歴を黙って書き換えたり削除したりしない。現行カタログはv1.1.0を提供し、v1.0.0の受講・再実行は提供しない。旧割り当てを新教材に自動移行せず、新しい割り当てを作成する。
 - 新Runnerは旧Lab Sessionの再起動を拒否する。旧Sessionの停止・削除に必要な処理は残し、Sessionや研修データを自動削除しない。既存の教材版は新しいLabへ暗黙に書き換えない。
@@ -150,7 +150,7 @@ spec:
         url: https://example.invalid/advisory
   labs:
     - ref: vulnerable
-      labId: vulhub/filebrowser-cve-2026-54088
+      labId: reprokit/filebrowser-cve-2026-54088
       purpose: reproduce
     - ref: fixed
       labId: reprokit/filebrowser-cve-2026-54088-fixed
@@ -217,7 +217,7 @@ Runnerは少なくとも次をUIへ返す。
     "labRef": "vulnerable"
   },
   "lab": {
-    "id": "vulhub/filebrowser-cve-2026-54088",
+    "id": "reprokit/filebrowser-cve-2026-54088",
     "sourceRevision": "0123456789abcdef0123456789abcdef01234567"
   },
   "state": "prepared",

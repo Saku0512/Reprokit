@@ -1,16 +1,16 @@
-# Vulhub fork連携・Lab昇格設計 v0.1
+# Reprokit Lab fork連携・Lab昇格設計 v0.1
 
-> **移行（2026-10-27）**: File Browser LabはReprokitの固定コミットにある`images/CVE-2026-54088/docker-compose.yml`とDocker Hubの固定digestを使用する。RunnerはローカルGitのコミット済みオブジェクトからComposeを読み、Vulhub forkを実行時に取得しない。以下は移行前の設計記録であり、現行の実装との差は本書末尾を参照。
+> **移行（2026-10-27）**: File Browser LabはReprokitの固定コミットにある`images/CVE-2026-54088/docker-compose.yml`とDocker Hubの固定digestを使用する。RunnerはローカルGitのコミット済みオブジェクトからComposeを読み、Reprokit Lab forkを実行時に取得しない。以下は移行前の設計記録であり、現行の実装との差は本書末尾を参照。
 
-> 決定日: 2026-10-17。`Saku0512/vulhub`をReprokitのLabソースカタログとして使用し、レビュー済みの構成だけを固定イメージへ昇格して実行する。
+> 決定日: 2026-10-17。`Saku0512/reprokit`をReprokitのLabソースカタログとして使用し、レビュー済みの構成だけを固定イメージへ昇格して実行する。
 
 ## 1. この設計で決めること
 
-ReprokitはVulhub forkの`master`やDockerfileを利用者の端末で直接実行しない。役割を次の4層に分離する。
+ReprokitはReprokit Lab forkの`master`やDockerfileを利用者の端末で直接実行しない。役割を次の4層に分離する。
 
 | 層 | 正本 | 責務 |
 | --- | --- | --- |
-| Labソース | `Saku0512/vulhub` | Dockerfile、元Compose、README、脆弱版と修正版の再現材料 |
+| Labソース | `Saku0512/reprokit` | Dockerfile、元Compose、README、脆弱版と修正版の再現材料 |
 | イメージ昇格 | forkのGitHub Actions + GHCR | 固定コミットからレビュー済みイメージをビルドし、公開digestを確定 |
 | Reprokit Registry | `jphacks/sd_2601` | 採用Lab、fork SHA、Compose、対応CVEを固定 |
 | Lesson | `jphacks/sd_2601` | 初学者向けの処理経路、操作、観察、修正比較を定義 |
@@ -31,7 +31,7 @@ ReprokitはVulhub forkの`master`やDockerfileを利用者の端末で直接実�
 ただし、元ComposeはReprokit v0.1ではそのまま実行しない。
 
 - `profiles`はRuntimeの許可リスト外。
-- `vulhub/filebrowser:2.63.5`と`vulhub/filebrowser:2.63.6`はReprokitが管理する公開イメージではない。
+- `reprokit/filebrowser:2.63.5`と`reprokit/filebrowser:2.63.6`はReprokitが管理する公開イメージではない。
 - 元Compose内のタグはLockfile生成時にdigestへ解決する必要がある。
 
 したがって「forkへLabが存在する状態」と「Reprokitで実行可能な状態」を分ける。
@@ -47,7 +47,7 @@ ReprokitはVulhub forkの`master`やDockerfileを利用者の端末で直接実�
 
 公開に使用した手動実行workflowは成功確認後にforkの`master`から削除済み。イメージはGHCRに保持し、通常のpushで再公開されるCIは残していない。
 
-Vulhub upstreamへは[CVE-2026-54088環境のPR #805](https://github.com/vulhub/vulhub/pull/805)を提出済み。upstreamへのマージや`vulhub/*`イメージ公開はReprokitの前提にしない。
+Reprokit Lab upstreamへは[CVE-2026-54088環境のPR #805](https://github.com/Saku0512/Reprokit/pull/805)を提出済み。upstreamへのマージや`reprokit/*`イメージ公開はReprokitの前提にしない。
 
 ## 3. Lab昇格パイプライン
 
@@ -90,7 +90,7 @@ ghcr.io/saku0512/reprokit-httpd-cve-2021-41773:<source-short-sha>
 
 ## 4. Reprokit用Composeアダプター
 
-アダプターはfork内の各Labディレクトリへ`reprokit.compose.yml`として置く。元のVulhub Composeは出典として保持し、上書きしない。
+アダプターはfork内の各Labディレクトリへ`reprokit.compose.yml`として置く。元のReprokit Lab Composeは出典として保持し、上書きしない。
 
 File Browserは脆弱版と修正版を同時に比較できる1つのLabとする。`profiles`は使わず、異なるloopbackポートを割り当てる。
 
@@ -118,7 +118,7 @@ Apache HTTP Serverは元Composeの`build: .`を実行しない。fork CIが環�
 spec:
   source:
     type: git
-    url: https://github.com/Saku0512/vulhub.git
+    url: https://github.com/Saku0512/Reprokit.git
     revision: a94285e057faee8c7232e100116dc750cf17e257
     subdirectory: filebrowser/CVE-2026-54088
   runtime:
@@ -237,5 +237,5 @@ File Browserは[共有契約](b2b-domain-contract-v0.1.md)に従い、新しいL
 4. Prepare時にはローカルGitの固定コミットからComposeを読み、検査し、Manifest・Registry・ソース・Compose・イメージdigestをLockfileに記録する。Start前にも整合性を再検査する。ブラウザからGit URLやパスを選択できるようにしない。
 5. 新規Sessionは新しい固定ソースを利用する。旧Sessionは再起動できず、停止・削除は可能である。旧Sessionや研修履歴は自動削除せず、既存Lockfileを黙って書き換えたり、新しいイメージへ暗黙に更新したりしない。旧教材v1.0.0の受講は提供しないため、新しい教材版には新規割り当てを作成する。
 
-この方式でVulhub forkへの実行時取得は不要になるが、固定コミットを含むReprokitのGit履歴とDocker Hubへのアクセスは必要である。Vulhubの原典とライセンスは出典として維持する。浅いcloneで固定コミットが欠ける場合はGit履歴を取得する必要がある。固定コミットを含む変更をSquashまたはRebaseでマージすると、そのSHAが履歴に残らないため、通常のマージコミットで履歴を保持するか、到達可能な固定コミットを改めて確定してManifestを更新する。
+この方式でReprokit Lab forkへの実行時取得は不要になるが、固定コミットを含むReprokitのGit履歴とDocker Hubへのアクセスは必要である。Reprokit Labの原典とライセンスは出典として維持する。浅いcloneで固定コミットが欠ける場合はGit履歴を取得する必要がある。固定コミットを含む変更をSquashまたはRebaseでマージすると、そのSHAが履歴に残らないため、通常のマージコミットで履歴を保持するか、到達可能な固定コミットを改めて確定してManifestを更新する。
 

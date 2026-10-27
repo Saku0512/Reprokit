@@ -4,7 +4,7 @@
 
 ## 教育MVPとの関係（2026-10-15）
 
-[Vulhubを使用する教育MVP](vulhub-learning-mvp.md)では、少数の教材環境の取得元・Gitコミット・実効Compose・イメージdigestを追跡できることを優先する。本書は広い対象に対応する詳細設計として保持するが、学習体験の完成より高度なLockfileの汎用化を優先しない。安全性検査や固定情報の整合性を省略してよいという意味ではない。
+[Reprokit Labを使用する教育MVP](learning-mvp.md)では、少数の教材環境の取得元・Gitコミット・実効Compose・イメージdigestを追跡できることを優先する。本書は広い対象に対応する詳細設計として保持するが、学習体験の完成より高度なLockfileの汎用化を優先しない。安全性検査や固定情報の整合性を省略してよいという意味ではない。
 
 ## ファイル名・形式
 
@@ -21,17 +21,17 @@
 
 ```yaml
 lockVersion: 1
-lab: vulhub/log4j-solr
+lab: reprokit/log4j-solr
 
 registry:
   revision: 1111111111111111111111111111111111111111
-  manifestPath: manifests/vulhub/log4j-solr.yaml
+  manifestPath: manifests/reprokit/log4j-solr.yaml
 
 manifest:
   sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 source:
-  url: https://github.com/vulhub/vulhub.git
+  url: https://github.com/Saku0512/Reprokit.git
   revision: 240f7aab24cfded9d5adbd0198143c3a28157101
   subdirectory: log4j/CVE-2021-44228
   composeSha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -46,7 +46,7 @@ runtime:
 
 images:
   solr:
-    reference: vulhub/solr:8.11.0
+    reference: reprokit/solr:8.11.0
     digest: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     platform: linux/amd64
 

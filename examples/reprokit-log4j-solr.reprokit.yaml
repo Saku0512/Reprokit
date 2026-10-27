@@ -1,10 +1,10 @@
 # Reprokit v0.1.0 Manifestサンプル
-# SHAは実在するVulhubコミット。起動成功・脆弱性再現は未検証。
+# SHAは実在するReprokit Labコミット。起動成功・脆弱性再現は未検証。
 apiVersion: reprokit.dev/v1alpha1
 kind: Lab
 
 metadata:
-  id: vulhub/log4j-solr
+  id: reprokit/log4j-solr
   name: Log4Shell on Apache Solr
 
 spec:
@@ -13,7 +13,7 @@ spec:
 
   source:
     type: git
-    url: https://github.com/vulhub/vulhub.git
+    url: https://github.com/Saku0512/Reprokit.git
     revision: 240f7aab24cfded9d5adbd0198143c3a28157101
     subdirectory: log4j/CVE-2021-44228
 
