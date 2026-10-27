@@ -15,15 +15,14 @@ Reprokit owns reviewed Lab definitions, lesson design, safe resolution and execu
 
 Do not read every design document for a narrow change. Existing implementation and schemas remain the source of truth where older documents conflict.
 
-## Ownership and parallel work
+## Ownership and development
 
-- `@Saku0512` owns Core/Runner work: `backend/cmd/reprokit/`, `backend/internal/{lab,runtime,security,manifest,lockfile,registry}/`, `registry/`, and Manifest/Lock schemas.
-- `@yui-szk` owns Learning/Training work: `web/`, `lessons/`, `backend/internal/lesson/`, Lesson schemas, and `docs/training/`.
-- Shared contracts, `backend/go.mod`, `backend/go.sum`, public CLI/API surfaces, `backend/internal/training/`, CI, and root configuration require coordination and a small isolated PR.
+- `@Saku0512` maintains Core/Runner, Learning/Training, shared contracts, CI, and repository configuration. Review or approval by the former Learning/Training owner is not required.
+- Keep changes to shared contracts, `backend/go.mod`, `backend/go.sum`, public CLI/API surfaces, `backend/internal/training/`, CI, and root configuration small and isolated. Assess their effects across components.
 - Keep one Issue per branch and include the Issue number when one exists. Avoid unrelated cleanup in implementation PRs.
 - Split commits into small, purpose-focused units so each commit can be reviewed, tested, and reverted independently.
 - Never merge a pull request automatically. After creating a PR and reporting its verification results, wait for the user's explicit merge instruction.
-- Do not silently change a contract owned by the other development lane. Update the shared contract first and request the other owner's review.
+- When changing a shared contract, update the relevant contract or schema and document the compatibility and migration impact.
 
 ## Commit messages
 
@@ -39,7 +38,7 @@ Follow [CONTRIBUTING.md](CONTRIBUTING.md#コミットメッセージとprタイ�
 
 ## Formatting
 
-The repository formatter contract is deterministic and shared by both developers.
+The repository formatter contract is deterministic and shared across the project.
 
 - Go: `gofmt` from the toolchain selected by `backend/go.mod`; do not use `gofumpt` or editor-specific alternatives.
 - JSON, YAML, JavaScript, TypeScript, CSS, and future Web files: the repository-pinned Prettier version.
